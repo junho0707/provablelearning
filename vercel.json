@@ -1,0 +1,24 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/reconcile",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/waitlist-notify",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/backup",
+      "schedule": "0 3 * * 0"
+    },
+    {
+      "path": "/api/cron/reports",
+      "schedule": "0 8 1 * *"
+    },
+    {
+      "path": "/api/cron/cancel-credits",
+      "schedule": "0 */6 * * *"
+    }
+  ]
+}
