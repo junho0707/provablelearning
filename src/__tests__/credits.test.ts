@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getCreditBalance } from '@/lib/credits/get-balance';
 import { applyCredits } from '@/lib/credits/apply-credits';
 
@@ -38,7 +38,6 @@ describe('getCreditBalance', () => {
     expect(result).toEqual({
       one_on_one: 0,
       small: 0,
-      medium: 0,
       large: 0,
     });
   });
@@ -53,7 +52,6 @@ describe('getCreditBalance', () => {
     expect(result.small).toBe(3);
     expect(result.large).toBe(3);
     expect(result.one_on_one).toBe(0);
-    expect(result.medium).toBe(0);
   });
 
   it('ignores unknown group_size_type values', async () => {
@@ -64,7 +62,6 @@ describe('getCreditBalance', () => {
     expect(result).toEqual({
       one_on_one: 0,
       small: 0,
-      medium: 0,
       large: 0,
     });
   });
@@ -75,7 +72,6 @@ describe('getCreditBalance', () => {
     expect(result).toEqual({
       one_on_one: 0,
       small: 0,
-      medium: 0,
       large: 0,
     });
   });
@@ -113,5 +109,278 @@ describe('applyCredits', () => {
     const supabase = createApplyCreditsMock({ data: 0 });
     const result = await applyCredits(supabase, 'stu-1', 'one_on_one');
     expect(result.applied).toBe(0);
+  });
+});
+
+describe('findMakeupSessionsForCredit', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('returns error when no matching credit exists', async () => {
+    vi.doMock('@/lib/supabase/admin', () => ({
+      createAdminClient: () => ({
+        from: (table: string) => {
+          if (table === 'credits') {
+            return {
+              select: () => ({
+                eq: () => ({
+                  eq: () => ({
+                    eq: () => ({
+                      eq: () => ({
+                        gt: () => ({
+                          or: () => ({
+                            limit: () => Promise.resolve({ data: [] }),
+                          }),
+                        }),
+                      }),
+                    }),
+                  }),
+                }),
+              }),
+            };
+          }
+          return {};
+        },
+      }),
+    }));
+
+    const { findMakeupSessionsForCredit } = await import(
+      '@/lib/credits/find-sessions-for-credit'
+    );
+    const result = await findMakeupSessionsForCredit('stu-1', 'small', 'digital_rw', 'essentials');
+    expect(result.error).toBe('No matching credit available');
+  });
+
+  it('returns empty sessions when no makeup sessions match', async () => {
+    vi.doMock('@/lib/supabase/admin', () => ({
+      createAdminClient: () => ({
+        from: (table: string) => {
+          if (table === 'credits') {
+            return {
+              select: () => ({
+                eq: () => ({
+                  eq: () => ({
+                    eq: () => ({
+                      eq: () => ({
+                        gt: () => ({
+                          or: () => ({
+                            limit: () => Promise.resolve({ data: [{ id: 'cr1' }] }),
+                          }),
+                        }),
+                      }),
+                    }),
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === 'makeup_sessions') {
+            return {
+              select: () => ({
+                eq: () => ({
+                  eq: () => ({
+                    eq: () => ({
+                      eq: () => ({
+                        gt: () => ({
+                          order: () => Promise.resolve({ data: [] }),
+                        }),
+                      }),
+                    }),
+                  }),
+                }),
+              }),
+            };
+          }
+          return {};
+        },
+      }),
+    }));
+
+    const { findMakeupSessionsForCredit } = await import(
+      '@/lib/credits/find-sessions-for-credit'
+    );
+    const result = await findMakeupSessionsForCredit('stu-1', 'small', 'digital_rw', 'essentials');
+    expect(result.sessions).toEqual([]);
+  });
+});
+
+describe('redeemCreditForMakeup', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('returns error when not authenticated', async () => {
+    vi.doMock('@/lib/supabase/server', () => ({
+      createClient: () =>
+        Promise.resolve({
+          auth: {
+            getUser: () =>
+              Promise.resolve({ data: { user: null } }),
+          },
+        }),
+    }));
+    vi.doMock('@/lib/supabase/admin', () => ({
+      createAdminClient: () => ({}),
+    }));
+
+    const { redeemCreditForMakeup } = await import(
+      '@/lib/credits/redeem-credit'
+    );
+    const result = await redeemCreditForMakeup('stu-1', 'ms-1', '2026-04-04');
+    expect(result.error).toBe('Not authenticated');
+  });
+
+  it('returns error when student not found', async () => {
+    vi.doMock('@/lib/supabase/server', () => ({
+      createClient: () =>
+        Promise.resolve({
+          auth: {
+            getUser: () =>
+              Promise.resolve({ data: { user: { id: 'u1' } } }),
+          },
+        }),
+    }));
+    vi.doMock('@/lib/supabase/admin', () => ({
+      createAdminClient: () => ({
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              single: () => Promise.resolve({ data: null, error: { message: 'Not found' } }),
+            }),
+          }),
+        }),
+      }),
+    }));
+
+    const { redeemCreditForMakeup } = await import(
+      '@/lib/credits/redeem-credit'
+    );
+    const result = await redeemCreditForMakeup('stu-1', 'ms-1', '2026-04-04');
+    expect(result.error).toBe('Student not found');
+  });
+
+  it('returns error when not authorized', async () => {
+    vi.doMock('@/lib/supabase/server', () => ({
+      createClient: () =>
+        Promise.resolve({
+          auth: {
+            getUser: () =>
+              Promise.resolve({ data: { user: { id: 'u1' } } }),
+          },
+        }),
+    }));
+    vi.doMock('@/lib/supabase/admin', () => ({
+      createAdminClient: () => ({
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              single: () =>
+                Promise.resolve({
+                  data: { id: 'stu-1', user_id: 'u2', parent_id: 'u3' },
+                  error: null,
+                }),
+            }),
+          }),
+        }),
+      }),
+    }));
+
+    const { redeemCreditForMakeup } = await import(
+      '@/lib/credits/redeem-credit'
+    );
+    const result = await redeemCreditForMakeup('stu-1', 'ms-1', '2026-04-04');
+    expect(result.error).toBe('Not authorized');
+  });
+
+  it('parses "No matching credit" RPC error', async () => {
+    vi.doMock('@/lib/supabase/server', () => ({
+      createClient: () =>
+        Promise.resolve({
+          auth: {
+            getUser: () =>
+              Promise.resolve({ data: { user: { id: 'u1' } } }),
+          },
+        }),
+    }));
+    vi.doMock('@/lib/supabase/admin', () => ({
+      createAdminClient: () => ({
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              single: () =>
+                Promise.resolve({
+                  data: { id: 'stu-1', user_id: 'u1', parent_id: null },
+                  error: null,
+                }),
+            }),
+          }),
+        }),
+        rpc: () =>
+          Promise.resolve({
+            data: null,
+            error: { message: 'No matching credit available for this makeup session' },
+          }),
+      }),
+    }));
+
+    const { redeemCreditForMakeup } = await import(
+      '@/lib/credits/redeem-credit'
+    );
+    const result = await redeemCreditForMakeup('stu-1', 'ms-1', '2026-04-04');
+    expect(result.error).toBe('No matching credit available for this session.');
+  });
+
+  it('parses "session is full" RPC error', async () => {
+    vi.doMock('@/lib/supabase/server', () => ({
+      createClient: () =>
+        Promise.resolve({
+          auth: {
+            getUser: () =>
+              Promise.resolve({ data: { user: { id: 'u1' } } }),
+          },
+        }),
+    }));
+    vi.doMock('@/lib/supabase/admin', () => ({
+      createAdminClient: () => ({
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              single: () =>
+                Promise.resolve({
+                  data: { id: 'stu-1', user_id: 'u1', parent_id: null },
+                  error: null,
+                }),
+            }),
+          }),
+        }),
+        rpc: () =>
+          Promise.resolve({
+            data: null,
+            error: { message: 'Makeup session is full' },
+          }),
+      }),
+    }));
+
+    const { redeemCreditForMakeup } = await import(
+      '@/lib/credits/redeem-credit'
+    );
+    const result = await redeemCreditForMakeup('stu-1', 'ms-1', '2026-04-04');
+    expect(result.error).toBe('This session is full. Please try another.');
+  });
+});
+
+describe('Credits NOT usable for enrollment', () => {
+  it('enrollAction does not import or use getCreditBalance/applyCredits', async () => {
+    // Verify that the enrollment action file no longer references credit functions
+    const fs = await import('fs');
+    const actionSource = fs.readFileSync(
+      'src/app/(dashboard)/enroll/[classId]/actions.ts',
+      'utf-8'
+    );
+    expect(actionSource).not.toContain('getCreditBalance');
+    expect(actionSource).not.toContain('applyCredits');
+    expect(actionSource).not.toContain('paid_with_credits');
+    expect(actionSource).not.toContain('credits_applied');
   });
 });

@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { notifySgWaitlistNext } from './notify-sg-next';
 
 export async function notifyNextOnWaitlist(classId: string) {
   const supabase = createAdminClient();
@@ -40,21 +41,45 @@ export async function notifyNextOnWaitlist(classId: string) {
 export async function expireStaleNotifications() {
   const supabase = createAdminClient();
 
-  // Expire notifications older than 24 hours
-  const { data: expired } = await supabase
+  // 1. Expire SG/1:1 entries using offer_expires_at
+  const { data: sgExpired } = await supabase
     .from('waitlist')
     .update({ status: 'expired' })
     .eq('status', 'notified')
-    .lt('notified_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-    .select('class_id');
+    .not('offer_expires_at', 'is', null)
+    .lt('offer_expires_at', new Date().toISOString())
+    .select('id, class_id, preferred_class_ids');
 
-  // For each expired notification, notify the next person
-  if (expired) {
-    const classIds = [...new Set(expired.map((e) => e.class_id))];
+  // 2. Expire LG entries using notified_at + 24h (no offer_expires_at)
+  const { data: lgExpired } = await supabase
+    .from('waitlist')
+    .update({ status: 'expired' })
+    .eq('status', 'notified')
+    .is('offer_expires_at', null)
+    .lt('notified_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+    .select('id, class_id');
+
+  // 3. Cascade: notify next person for LG entries
+  if (lgExpired) {
+    const classIds = [...new Set(lgExpired.map((e) => e.class_id).filter(Boolean))];
     for (const classId of classIds) {
-      await notifyNextOnWaitlist(classId);
+      await notifyNextOnWaitlist(classId!);
     }
   }
 
-  return expired?.length || 0;
+  // 4. Cascade: notify next person for SG/1:1 entries
+  if (sgExpired) {
+    const sgClassIds = new Set<string>();
+    for (const entry of sgExpired) {
+      const prefs = (entry.preferred_class_ids as string[]) || [];
+      for (const id of prefs) {
+        sgClassIds.add(id);
+      }
+    }
+    for (const classId of sgClassIds) {
+      await notifySgWaitlistNext(classId);
+    }
+  }
+
+  return (sgExpired?.length || 0) + (lgExpired?.length || 0);
 }

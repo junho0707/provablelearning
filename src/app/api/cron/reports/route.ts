@@ -16,8 +16,8 @@ export async function GET(request: Request) {
       id, user_id,
       users!students_user_id_fkey(full_name),
       enrollments!inner(
-        course_id, status,
-        courses(name, subject)
+        class_id, status,
+        classes!class_id(name, subject)
       )
     `)
     .eq('enrollments.status', 'active');

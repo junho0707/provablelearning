@@ -26,8 +26,8 @@ export default function WaitlistForm({ classId, students }: Props) {
 
   return (
     <div className="py-8">
-      <p className="text-gray-600 mb-4">This class is currently full.</p>
-      <p className="text-sm text-gray-500 mb-4">
+      <p className="text-slate-600 mb-4">This class is currently full.</p>
+      <p className="text-sm text-slate-500 mb-4">
         Join the waitlist and you will be automatically enrolled when a seat opens.
       </p>
       <form action={handleSubmit} className="space-y-4">
@@ -82,7 +82,7 @@ export default function WaitlistForm({ classId, students }: Props) {
         <button
           type="submit"
           disabled={!canSubmit}
-          className="w-full rounded border px-6 py-2 font-medium hover:bg-gray-50 disabled:opacity-50"
+          className="w-full rounded border px-6 py-2 font-medium hover:bg-navy-50 disabled:opacity-50"
         >
           {loading ? 'Joining...' : 'Join Waitlist'}
         </button>

@@ -23,7 +23,7 @@ export function DropClassForm({ enrollmentId }: { enrollmentId: string }) {
     return (
       <button
         onClick={() => setConfirming(true)}
-        className="rounded border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+        className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-700 hover:bg-error-light transition-colors"
       >
         Drop This Class
       </button>
@@ -36,7 +36,7 @@ export function DropClassForm({ enrollmentId }: { enrollmentId: string }) {
       <div>
         <label
           htmlFor={`reason-${enrollmentId}`}
-          className="block text-sm font-medium text-gray-700 mb-1"
+          className="block text-sm font-medium text-slate-700 mb-1"
         >
           Reason for dropping
         </label>
@@ -45,13 +45,13 @@ export function DropClassForm({ enrollmentId }: { enrollmentId: string }) {
           name="reason"
           required
           rows={2}
-          className="w-full rounded border px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-navy-400 focus:ring-1 focus:ring-navy-400 outline-none"
           placeholder="Please explain why you are dropping this class..."
         />
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded p-3">
+        <div className="bg-error-light border border-red-200 text-red-700 text-sm rounded-lg p-3">
           {error}
         </div>
       )}
@@ -60,7 +60,7 @@ export function DropClassForm({ enrollmentId }: { enrollmentId: string }) {
         <button
           type="submit"
           disabled={submitting}
-          className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+          className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
         >
           {submitting ? 'Dropping...' : 'Confirm Drop'}
         </button>
@@ -70,7 +70,7 @@ export function DropClassForm({ enrollmentId }: { enrollmentId: string }) {
             setConfirming(false);
             setError('');
           }}
-          className="rounded border px-4 py-2 text-sm font-medium hover:bg-gray-50"
+          className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-navy-50 transition-colors"
         >
           Cancel
         </button>

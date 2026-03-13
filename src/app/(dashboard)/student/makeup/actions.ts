@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 
 export async function requestMakeup(params: {
-  courseId: string;
+  classId: string;
   sessionNumber: number;
   reason: string;
 }) {
@@ -24,16 +24,16 @@ export async function requestMakeup(params: {
 
   if (!student) return { error: 'Student not found.' };
 
-  // Check active enrollment in this course
+  // Check active enrollment in this class (slot-aware)
   const { data: enrollment } = await supabase
     .from('enrollments')
     .select('id, classes(group_size_type)')
     .eq('student_id', student.id)
-    .eq('course_id', params.courseId)
+    .or(`slot_1_class_id.eq.${params.classId},slot_2_class_id.eq.${params.classId},class_id.eq.${params.classId}`)
     .eq('status', 'active')
     .single();
 
-  if (!enrollment) return { error: 'No active enrollment in this course.' };
+  if (!enrollment) return { error: 'No active enrollment in this class.' };
 
   const classesData = enrollment.classes as unknown as Record<string, string> | Record<string, string>[];
   const classObj = Array.isArray(classesData) ? classesData[0] : classesData;
@@ -47,21 +47,21 @@ export async function requestMakeup(params: {
       .eq('action', 'student_makeup_request')
       .contains('metadata_json', {
         student_id: student.id,
-        course_id: params.courseId,
+        class_id: params.classId,
       });
 
     if (count && count >= 2) {
-      return { error: 'Maximum 2 makeup cancellations per small group course.' };
+      return { error: 'Maximum 2 makeup cancellations per small group class.' };
     }
   }
 
-  // Log the makeup request in admin_logs (student action, not admin — admin_id is the student's user id)
+  // Log the makeup request in admin_logs
   const { error } = await supabase.from('admin_logs').insert({
     admin_id: user.id,
     action: 'student_makeup_request',
     metadata_json: {
       student_id: student.id,
-      course_id: params.courseId,
+      class_id: params.classId,
       session_number: params.sessionNumber,
       reason: params.reason,
       group_size_type: groupType,
@@ -71,7 +71,7 @@ export async function requestMakeup(params: {
         ? 'Small group: verify 24-hour advance notice before approving'
         : groupType === 'one_on_one'
           ? '1:1: reschedule based on tutor availability'
-          : 'Medium/large: verify makeup availability',
+          : 'Large: verify makeup availability',
     },
   });
 

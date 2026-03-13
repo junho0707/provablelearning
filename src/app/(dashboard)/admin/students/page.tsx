@@ -16,12 +16,15 @@ export default async function AdminStudentsPage() {
     .order('full_name');
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Students</h1>
+    <div className="space-y-6">
+      <div>
+        <h1 className="mb-2 text-3xl font-bold tracking-tight text-navy-900">Students</h1>
+        <p className="text-slate-500">View and manage student profiles.</p>
+      </div>
 
-      <div className="border rounded-lg overflow-hidden mb-8">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50">
+      <div className="border border-slate-200 rounded-xl overflow-hidden overflow-x-auto">
+        <table className="w-full min-w-[500px] text-sm">
+          <thead className="bg-slate-50">
             <tr>
               <th className="text-left px-4 py-3 font-medium">Student</th>
               <th className="text-left px-4 py-3 font-medium">Grade</th>
@@ -50,5 +53,6 @@ export default async function AdminStudentsPage() {
         </table>
       </div>
     </div>
+
   );
 }

@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { autoBookMakeupFromWaitlist } from '@/lib/cancellation/auto-book-makeup';
-import { autoBookDedicatedMakeupFromWaitlist } from '@/lib/cancellation/auto-book-dedicated-makeup';
+import { removeStudentFromClassroom } from '@/lib/google/classroom';
 
 export async function cancelMakeupBooking(
   bookingId: string
@@ -22,10 +22,10 @@ export async function cancelMakeupBooking(
 
   const adminClient = createAdminClient();
 
-  // Fetch booking details before cancellation (for waitlist notification)
+  // Fetch booking details before cancellation (for waitlist auto-book)
   const { data: booking } = await adminClient
     .from('makeup_bookings')
-    .select('host_class_id, session_number, makeup_session_id')
+    .select('host_class_id, session_number')
     .eq('id', bookingId)
     .single();
 
@@ -52,19 +52,20 @@ export async function cancelMakeupBooking(
     if (bookingDetail) {
       const { data: studentRow } = await adminClient
         .from('students')
-        .select('parent_id, users!students_user_id_fkey(full_name)')
+        .select('parent_id, user_id, users!students_user_id_fkey(full_name)')
         .eq('id', bookingDetail.student_id)
         .single();
 
       if (studentRow) {
-        const parentId = (studentRow as Record<string, unknown>).parent_id as string;
+        const parentId = (studentRow as Record<string, unknown>).parent_id as string | null;
+        const userId = (studentRow as Record<string, unknown>).user_id as string | null;
         const userObj = (studentRow as Record<string, unknown>).users as unknown as
           | Record<string, string>
           | Record<string, string>[];
         const studentName = Array.isArray(userObj) ? userObj[0]?.full_name : userObj?.full_name;
 
-        // Delete notification matching this student + formatted date
-        if (studentName) {
+        const notifyUserId = parentId || userId;
+        if (studentName && notifyUserId) {
           const dateStr = new Date(bookingDetail.session_date + 'T00:00:00').toLocaleDateString('en-US', {
             weekday: 'short',
             month: 'short',
@@ -73,7 +74,7 @@ export async function cancelMakeupBooking(
           await adminClient
             .from('notifications')
             .delete()
-            .eq('user_id', parentId)
+            .eq('user_id', notifyUserId)
             .eq('type', 'makeup')
             .like('message', `%${studentName}%`)
             .like('message', `%${dateStr}%`);
@@ -84,16 +85,49 @@ export async function cancelMakeupBooking(
     // Non-critical
   }
 
-  // Auto-book next waiting student from makeup waitlist
-  if (booking) {
+  // Remove student from host class's Google Classroom (best-effort)
+  if (booking?.host_class_id) {
     try {
-      if (booking.makeup_session_id) {
-        // Dedicated makeup session → use dedicated auto-book
-        await autoBookDedicatedMakeupFromWaitlist(booking.makeup_session_id);
-      } else if (booking.host_class_id) {
-        // Regular alternate session → use existing auto-book
-        await autoBookMakeupFromWaitlist(booking.host_class_id, booking.session_number);
+      const { data: hostClass } = await adminClient
+        .from('classes')
+        .select('google_classroom_id')
+        .eq('id', booking.host_class_id)
+        .single();
+
+      if (hostClass?.google_classroom_id) {
+        const { data: bookingDetail } = await adminClient
+          .from('makeup_bookings')
+          .select('student_id')
+          .eq('id', bookingId)
+          .single();
+
+        if (bookingDetail) {
+          const { data: studentRow } = await adminClient
+            .from('students')
+            .select('user_id')
+            .eq('id', bookingDetail.student_id)
+            .single();
+
+          if (studentRow?.user_id) {
+            const { data: authUser } = await adminClient.auth.admin.getUserById(studentRow.user_id);
+            if (authUser?.user?.email) {
+              await removeStudentFromClassroom({
+                classroomId: hostClass.google_classroom_id,
+                studentEmail: authUser.user.email,
+              });
+            }
+          }
+        }
       }
+    } catch {
+      // Non-critical
+    }
+  }
+
+  // Auto-book next waiting student from makeup waitlist
+  if (booking?.host_class_id) {
+    try {
+      await autoBookMakeupFromWaitlist(booking.host_class_id, booking.session_number);
     } catch {
       // Non-fatal
     }

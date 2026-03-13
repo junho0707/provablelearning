@@ -29,17 +29,17 @@ export function CancelMakeupButton({ bookingId }: { bookingId: string }) {
         <button
           onClick={handleCancel}
           disabled={submitting}
-          className="text-red-600 hover:underline disabled:opacity-50"
+          className="text-error hover:underline disabled:opacity-50"
         >
           {submitting ? 'Cancelling...' : 'Confirm'}
         </button>
         <button
           onClick={() => setConfirming(false)}
-          className="text-gray-400 hover:underline"
+          className="text-slate-400 hover:underline"
         >
           No
         </button>
-        {error && <span className="text-red-600">{error}</span>}
+        {error && <span className="text-error">{error}</span>}
       </span>
     );
   }
@@ -47,7 +47,7 @@ export function CancelMakeupButton({ bookingId }: { bookingId: string }) {
   return (
     <button
       onClick={() => setConfirming(true)}
-      className="text-red-400 hover:text-red-600 hover:underline ml-1"
+      className="text-red-400 hover:text-error hover:underline ml-1"
     >
       Cancel
     </button>

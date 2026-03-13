@@ -47,7 +47,7 @@ export function AdminReplyForm({ toUserId }: { toUserId: string }) {
       <button
         type="submit"
         disabled={sending || !body.trim()}
-        className="rounded bg-black px-4 py-2 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
+        className="rounded bg-navy-900 px-4 py-2 text-white text-sm font-medium hover:bg-navy-800 disabled:opacity-50"
       >
         {sending ? '...' : 'Reply'}
       </button>

@@ -2,9 +2,14 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { findAlternateSessions } from '@/lib/cancellation/find-alternate-sessions';
-import { findDedicatedMakeupSessions } from '@/lib/cancellation/find-dedicated-makeups';
 import { AlternateSessionPicker } from '../../../_components/alternate-session-picker';
-import { DedicatedMakeupPicker } from '../../../_components/dedicated-makeup-picker';
+
+function formatTime(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
+}
 
 interface Props {
   searchParams: Promise<{ cancellation_id?: string }>;
@@ -29,7 +34,7 @@ export default async function StudentAlternatePage({ searchParams }: Props) {
 
   const { data: cancellation } = await adminClient
     .from('session_cancellations')
-    .select('id, student_id, status, group_size_type, session_number, session_date, course_id, class_id')
+    .select('id, student_id, status, group_size_type, session_number, session_date, class_id')
     .eq('id', cancellationId)
     .single();
 
@@ -37,7 +42,7 @@ export default async function StudentAlternatePage({ searchParams }: Props) {
     redirect('/student/cancel-session');
   }
 
-  // Check ownership: student must be the logged-in user
+  // Check ownership: student must be the logged-in user or their child
   const { data: student } = await adminClient
     .from('students')
     .select('id, user_id, parent_id')
@@ -48,20 +53,15 @@ export default async function StudentAlternatePage({ searchParams }: Props) {
     redirect('/student/cancel-session');
   }
 
-  // Must be in cancelled status and not one_on_one
-  if (cancellation.status !== 'cancelled' || cancellation.group_size_type === 'one_on_one') {
+  // Must be in cancelled status
+  if (cancellation.status !== 'cancelled') {
     redirect('/student/cancel-session');
   }
 
-  // Fetch related info separately (avoid nested joins that can fail silently)
-  const [{ data: courseRow }, { data: classRow }] = await Promise.all([
-    cancellation.course_id
-      ? adminClient.from('courses').select('name').eq('id', cancellation.course_id).single()
-      : Promise.resolve({ data: null }),
-    cancellation.class_id
-      ? adminClient.from('classes').select('meeting_day, meeting_time').eq('id', cancellation.class_id).single()
-      : Promise.resolve({ data: null }),
-  ]);
+  // Fetch class info separately (avoid nested joins that can fail silently)
+  const { data: classRow } = cancellation.class_id
+    ? await adminClient.from('classes').select('name, subject, level, meeting_day, meeting_time').eq('id', cancellation.class_id).single()
+    : { data: null };
 
   // Get student name from users table
   let studentName = 'Student';
@@ -72,55 +72,41 @@ export default async function StudentAlternatePage({ searchParams }: Props) {
 
   const cancelledContext = {
     studentName,
-    courseName: courseRow?.name || 'Course',
+    courseName: classRow?.name || 'Class',
     sessionNumber: cancellation.session_number as number,
     sessionDate: cancellation.session_date as string,
     meetingDay: (classRow?.meeting_day as string) || '',
     meetingTime: (classRow?.meeting_time as string) || '',
   };
 
-  const isLarge = cancellation.group_size_type === 'large';
+  // Fetch initial week (week of cancelled session)
+  const result = await findAlternateSessions(cancellationId, 0);
 
-  if (isLarge) {
-    const result = await findAlternateSessions(cancellationId);
-
-    return (
+  return (
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold mb-4">Find Alternate Session</h1>
-        <div className="mb-6 bg-gray-50 border rounded-lg p-4 text-sm">
-          <p className="font-medium">{cancelledContext.studentName} — {cancelledContext.courseName}</p>
-          <p className="text-gray-500">
-            Cancelled: Session {cancelledContext.sessionNumber} on {cancelledContext.sessionDate} ({cancelledContext.meetingDay} at {cancelledContext.meetingTime})
+        <h1 className="mb-2 text-3xl font-bold tracking-tight text-navy-900">Find Alternate Session</h1>
+        <p className="text-slate-500">Pick a makeup slot for your cancelled session. Browse weeks using the arrows.</p>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
+        <div className="border border-slate-200 rounded-lg p-4 mb-6 text-sm">
+          <p className="font-medium text-navy-900">{cancelledContext.studentName} — {cancelledContext.courseName}</p>
+          <p className="text-slate-500">
+            Cancelled: Session {cancelledContext.sessionNumber} on {cancelledContext.sessionDate} ({cancelledContext.meetingDay} at {formatTime(cancelledContext.meetingTime)})
           </p>
         </div>
         <AlternateSessionPicker
           cancellationId={cancellationId}
-          alternateSessions={result.sessions || []}
+          initialSessions={result.sessions || []}
+          initialWeekStart={result.weekStart || ''}
+          initialWeekEnd={result.weekEnd || ''}
+          windowStart={result.windowStart || ''}
+          windowEnd={result.windowEnd}
           basePath="/student/cancel-session"
           cancelledContext={cancelledContext}
         />
       </div>
-    );
-  }
-
-  // Small/medium -> dedicated makeup sessions
-  const dedicatedResult = await findDedicatedMakeupSessions(cancellationId);
-
-  return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Find Makeup Session</h1>
-      <div className="mb-6 bg-gray-50 border rounded-lg p-4 text-sm">
-        <p className="font-medium">{cancelledContext.studentName} — {cancelledContext.courseName}</p>
-        <p className="text-gray-500">
-          Cancelled: Session {cancelledContext.sessionNumber} on {cancelledContext.sessionDate} ({cancelledContext.meetingDay} at {cancelledContext.meetingTime})
-        </p>
-      </div>
-      <DedicatedMakeupPicker
-        cancellationId={cancellationId}
-        sessions={dedicatedResult.sessions || []}
-        basePath="/student/cancel-session"
-        cancelledContext={cancelledContext}
-      />
     </div>
   );
 }

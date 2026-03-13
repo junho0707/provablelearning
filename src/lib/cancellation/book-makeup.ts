@@ -2,10 +2,13 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { inviteStudentToClassroom } from '@/lib/google/classroom';
+import { formatTime } from '@/lib/constants';
 
 export async function bookMakeupSession(
   cancellationId: string,
-  hostClassId: string
+  hostClassId: string,
+  sessionDate: string
 ): Promise<{
   bookingId?: string;
   sessionDate?: string;
@@ -34,16 +37,17 @@ export async function bookMakeupSession(
     p_cancellation_id: cancellationId,
     p_host_class_id: hostClassId,
     p_booked_by: user.id,
+    p_session_date: sessionDate,
   });
 
   if (error) {
     const msg = error.message || 'Unknown error';
     if (msg.includes('not in cancelled status')) return { error: 'This cancellation has already been rescheduled or resolved.' };
-    if (msg.includes('not available for 1:1')) return { error: 'Makeup booking is not available for 1:1 sessions.' };
-    if (msg.includes('same course')) return { error: 'The alternate class must be for the same course.' };
-    if (msg.includes('same group size')) return { error: 'The alternate class must have the same group size.' };
+    if (msg.includes('not available for large')) return { error: 'Makeup booking is not available for large group sessions.' };
+    if (msg.includes('group size type')) return { error: 'The alternate class must have the same group size.' };
     if (msg.includes('same class')) return { error: 'You cannot book a makeup in the same class.' };
-    if (msg.includes('same week')) return { error: 'The alternate session must be in the same week.' };
+    if (msg.includes('outside enrollment window')) return { error: 'This session is outside your enrollment window.' };
+    if (msg.includes('does not fall on')) return { error: 'Invalid session date for this class.' };
     if (msg.includes('session is full')) return { error: 'This session is full. Please try another class.' };
     if (msg.includes('past or current-day')) return { error: 'Cannot book a makeup for a past session.' };
     if (msg.includes('Not authorized')) return { error: 'You are not authorized to book this makeup.' };
@@ -104,7 +108,7 @@ export async function bookMakeupSession(
         if (notifyUserId) {
           await adminClient.from('notifications').insert({
             user_id: notifyUserId,
-            message: `Makeup booked for ${studentName || 'you'}${dateStr ? ` — ${dateStr}` : ''}${meetingTime ? ` at ${meetingTime}` : ''}`,
+            message: `Makeup booked for ${studentName || 'you'}${dateStr ? ` — ${dateStr}` : ''}${meetingTime ? ` at ${formatTime(meetingTime)}` : ''}`,
             type: 'makeup',
           });
         }
@@ -112,6 +116,44 @@ export async function bookMakeupSession(
     }
   } catch {
     // Non-critical — don't fail the booking if notification insert fails
+  }
+
+  // Invite student to host class's Google Classroom (best-effort)
+  try {
+    const { data: hostClass } = await adminClient
+      .from('classes')
+      .select('google_classroom_id, google_classroom_enrollment_code')
+      .eq('id', hostClassId)
+      .single();
+
+    if (hostClass?.google_classroom_id) {
+      const { data: cancellation } = await adminClient
+        .from('session_cancellations')
+        .select('student_id')
+        .eq('id', cancellationId)
+        .single();
+
+      if (cancellation) {
+        const { data: studentRow } = await adminClient
+          .from('students')
+          .select('user_id, email')
+          .eq('id', cancellation.student_id)
+          .single();
+
+        const studentEmail = studentRow?.email || (studentRow?.user_id
+          ? (await adminClient.auth.admin.getUserById(studentRow.user_id)).data?.user?.email
+          : null);
+        if (studentEmail) {
+          await inviteStudentToClassroom({
+            classroomId: hostClass.google_classroom_id,
+            studentEmail,
+            enrollmentCode: hostClass.google_classroom_enrollment_code,
+          });
+        }
+      }
+    }
+  } catch {
+    // Non-critical — don't fail the booking if Classroom invite fails
   }
 
   return {

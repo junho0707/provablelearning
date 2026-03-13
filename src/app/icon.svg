@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0f1a2e"/>
+  <!-- 48px L/R margin, 112px T/B margin → 416x288 content area -->
+  <g transform="translate(48, 112)">
+    <!-- P: white, x=0..184 -->
+    <path d="
+      M0 0 L0 288 L52 288 L52 144
+      L110 144
+      C184 144 184 72 184 72
+      C184 0 110 0 110 0
+      Z
+      M52 36 L105 36
+      C132 36 132 72 132 72
+      C132 108 105 108 105 108
+      L52 108 Z
+    " fill="#ffffff" fill-rule="evenodd"/>
+
+    <!-- L: gold, x=232..416 -->
+    <path d="
+      M232 0 L284 0 L284 236 L416 236 L416 288 L232 288 Z
+    " fill="#D4A017"/>
+  </g>
+</svg>

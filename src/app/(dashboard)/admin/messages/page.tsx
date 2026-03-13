@@ -55,16 +55,19 @@ export default async function AdminMessagesPage() {
   }
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Student Messages</h1>
+    <div className="space-y-6">
+      <div>
+        <h1 className="mb-2 text-3xl font-bold tracking-tight text-navy-900">Messages</h1>
+        <p className="text-slate-500">Parent and student conversations.</p>
+      </div>
 
       {conversations.size === 0 && (
-        <p className="text-gray-500">No messages yet.</p>
+        <p className="text-slate-500">No messages yet.</p>
       )}
 
       <div className="space-y-6">
         {Array.from(conversations.entries()).map(([partnerId, msgs]) => (
-          <div key={partnerId} className="border rounded-lg p-6">
+          <div key={partnerId} className="border border-slate-200 rounded-xl p-6">
             <h2 className="font-semibold mb-3">
               {partnerNames[partnerId] || 'Unknown Student'}
             </h2>
@@ -75,11 +78,11 @@ export default async function AdminMessagesPage() {
                   key={msg.id}
                   className={`rounded p-3 text-sm ${
                     msg.from_user_id === user.id
-                      ? 'bg-blue-50 ml-8'
-                      : 'bg-gray-50 mr-8'
+                      ? 'bg-blue-50 ml-4 sm:ml-8'
+                      : 'bg-slate-50 mr-4 sm:mr-8'
                   }`}
                 >
-                  <p className="text-xs text-gray-400 mb-1">
+                  <p className="text-xs text-slate-400 mb-1">
                     {msg.from_user_id === user.id ? 'You' : partnerNames[partnerId] || 'Student'}{' '}
                     &middot; {new Date(msg.created_at).toLocaleString()}
                   </p>

@@ -22,7 +22,7 @@ export function DeleteClassButton({ classId }: { classId: string }) {
   if (confirming) {
     return (
       <div className="flex items-center gap-2">
-        <span className="text-sm text-red-600">Delete this class?</span>
+        <span className="text-sm text-error">Delete this class?</span>
         <button
           onClick={handleDelete}
           disabled={submitting}
@@ -32,11 +32,11 @@ export function DeleteClassButton({ classId }: { classId: string }) {
         </button>
         <button
           onClick={() => { setConfirming(false); setError(''); }}
-          className="rounded border px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
+          className="rounded border px-3 py-1.5 text-sm font-medium hover:bg-navy-50"
         >
           Cancel
         </button>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-error">{error}</p>}
       </div>
     );
   }
@@ -45,11 +45,11 @@ export function DeleteClassButton({ classId }: { classId: string }) {
     <div>
       <button
         onClick={() => setConfirming(true)}
-        className="rounded border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+        className="rounded border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-error-light"
       >
         Delete Class
       </button>
-      {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
+      {error && <p className="text-sm text-error mt-1">{error}</p>}
     </div>
   );
 }

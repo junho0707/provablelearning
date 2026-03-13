@@ -3,7 +3,6 @@ import { createClient } from '@/lib/supabase/server';
 const GROUP_SIZE_LABELS: Record<string, string> = {
   one_on_one: '1-on-1',
   small: 'Small',
-  medium: 'Medium',
   large: 'Large',
 };
 
@@ -17,21 +16,18 @@ export default async function AdminCreditsPage() {
     .limit(50);
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-2">Credits</h1>
-      <p className="text-sm text-gray-500 mb-6">
-        Credits are issued automatically when a student cancels a session and the
-        end-of-week deadline passes (small, medium, and 1-on-1 groups). Credits are
-        also restored automatically when an enrollment fails or a Stripe session expires.
-      </p>
+    <div className="space-y-6">
+      <div>
+        <h1 className="mb-2 text-3xl font-bold tracking-tight text-navy-900">Credits</h1>
+        <p className="text-slate-500">Makeup credits issued to students.</p>
+      </div>
 
-      <h2 className="text-lg font-semibold mb-4">Credit History</h2>
       {!credits?.length ? (
-        <p className="text-gray-500 text-sm">No credits have been issued yet.</p>
+        <p className="text-slate-500 text-sm">No credits have been issued yet.</p>
       ) : (
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
+        <div className="border border-slate-200 rounded-xl overflow-hidden overflow-x-auto">
+          <table className="w-full min-w-[700px] text-sm">
+            <thead className="bg-slate-50">
               <tr>
                 <th className="text-left px-4 py-3 font-medium">Student</th>
                 <th className="text-left px-4 py-3 font-medium">Type</th>

@@ -22,20 +22,26 @@ export default function AdminExportPage() {
   }
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Data Export</h1>
-      <div className="space-y-3">
-        {['enrollments', 'performance_logs', 'credits', 'students'].map((type) => (
-          <button
-            key={type}
-            onClick={() => handleExport(type)}
-            disabled={loading}
-            className="block w-full max-w-xs rounded border px-4 py-3 text-left hover:bg-gray-50 disabled:opacity-50"
-          >
-            <p className="font-medium capitalize">{type.replace('_', ' ')}</p>
-            <p className="text-sm text-gray-500">Download as CSV</p>
-          </button>
-        ))}
+    <div className="space-y-6">
+      <div>
+        <h1 className="mb-2 text-3xl font-bold tracking-tight text-navy-900">Data Export</h1>
+        <p className="text-slate-500">Download data as CSV files.</p>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
+        <div className="space-y-3">
+          {['enrollments', 'performance_logs', 'credits', 'students'].map((type) => (
+            <button
+              key={type}
+              onClick={() => handleExport(type)}
+              disabled={loading}
+              className="block w-full max-w-xs rounded-lg border border-slate-200 px-4 py-3 text-left hover:bg-navy-50 disabled:opacity-50 transition-colors"
+            >
+              <p className="font-medium capitalize">{type.replace('_', ' ')}</p>
+              <p className="text-sm text-slate-500">Download as CSV</p>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

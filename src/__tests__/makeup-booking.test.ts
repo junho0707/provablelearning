@@ -156,7 +156,7 @@ describe('Alternate Session Discovery', () => {
       '@/lib/cancellation/find-alternate-sessions'
     );
     const result = await findAlternateSessions('c1');
-    expect(result.error).toBe('Alternate sessions not available for 1:1');
+    expect(result.sessions).toEqual([]);
   });
 
   it('rejects if cancellation is not in cancelled status', async () => {
@@ -394,6 +394,13 @@ describe('Makeup Booking RPC Validation (unit)', () => {
     }));
     vi.doMock('@/lib/supabase/admin', () => ({
       createAdminClient: () => ({
+        from: () => ({
+          delete: () => ({
+            eq: () => ({
+              eq: () => Promise.resolve({ data: null, error: null }),
+            }),
+          }),
+        }),
         rpc: () =>
           Promise.resolve({
             data: null,
@@ -405,7 +412,7 @@ describe('Makeup Booking RPC Validation (unit)', () => {
     const { bookMakeupSession } = await import(
       '@/lib/cancellation/book-makeup'
     );
-    const result = await bookMakeupSession('c1', 'cl2');
+    const result = await bookMakeupSession('c1', 'cl2', '2026-04-01');
     expect(result.error).toBe('The alternate class must be for the same course.');
   });
 
@@ -421,6 +428,13 @@ describe('Makeup Booking RPC Validation (unit)', () => {
     }));
     vi.doMock('@/lib/supabase/admin', () => ({
       createAdminClient: () => ({
+        from: () => ({
+          delete: () => ({
+            eq: () => ({
+              eq: () => Promise.resolve({ data: null, error: null }),
+            }),
+          }),
+        }),
         rpc: () =>
           Promise.resolve({
             data: null,
@@ -432,7 +446,7 @@ describe('Makeup Booking RPC Validation (unit)', () => {
     const { bookMakeupSession } = await import(
       '@/lib/cancellation/book-makeup'
     );
-    const result = await bookMakeupSession('c1', 'cl2');
+    const result = await bookMakeupSession('c1', 'cl2', '2026-04-01');
     expect(result.error).toBe('This session is full. Please try another class.');
   });
 

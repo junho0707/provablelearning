@@ -1,8 +1,7 @@
-import type { GroupSizeType } from '@/lib/types';
-import { PRICES } from '@/lib/constants';
+import { getPriceForEnrollment } from '@/lib/constants';
 
-export function getPriceForGroupSize(groupSizeType: GroupSizeType): number {
-  return PRICES[groupSizeType];
+export function getPriceForGroupSize(groupSizeType: string): number {
+  return getPriceForEnrollment(groupSizeType);
 }
 
 export function formatPrice(cents: number): string {

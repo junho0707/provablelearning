@@ -4,6 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { cancelSession } from '@/lib/cancellation/cancel-session';
 
+function formatTime(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const hour = h % 12 || 12;
+  return m ? `${hour}:${m.toString().padStart(2, '0')} ${suffix}` : `${hour} ${suffix}`;
+}
+
 export interface CancellableSession {
   enrollmentId: string;
   studentName: string;
@@ -66,8 +73,8 @@ export function CancelSessionForm({ sessions, rescheduleBasePath }: Props) {
     }
 
     if (result.groupSizeType === 'one_on_one' && result.cancellationId) {
-      // Redirect to reschedule
-      router.push(`${rescheduleBasePath}/reschedule?cancellation_id=${result.cancellationId}`);
+      // Redirect to find dedicated makeup sessions
+      router.push(`${rescheduleBasePath}/alternate?cancellation_id=${result.cancellationId}`);
       return;
     }
 
@@ -84,29 +91,27 @@ export function CancelSessionForm({ sessions, rescheduleBasePath }: Props) {
   }
 
   if (success) {
-    const showAlternateButton = ['small', 'medium', 'large'].includes(success.groupSizeType);
+    const showAlternateButton = ['one_on_one', 'small', 'large'].includes(success.groupSizeType);
 
     return (
-      <div className="border rounded-lg p-6">
+      <div>
         <div className="text-center">
           <div className="text-4xl mb-4">&#10003;</div>
-          <h2 className="text-xl font-semibold mb-2">Session Cancelled</h2>
-          <div className="mb-3 bg-gray-50 rounded p-3 text-sm">
+          <h2 className="text-xl font-semibold text-navy-900 mb-2">Session Cancelled</h2>
+          <div className="mb-3 bg-slate-50 rounded p-3 text-sm">
             <p className="font-medium">{success.studentName} — {success.courseName}</p>
-            <p className="text-gray-500">Session {success.sessionNumber} on {success.sessionDate} at {success.meetingTime}</p>
+            <p className="text-slate-500">Session {success.sessionNumber} on {success.sessionDate} at {formatTime(success.meetingTime)}</p>
           </div>
-          {success.groupSizeType === 'small' || success.groupSizeType === 'medium' ? (
-            <p className="text-gray-600">
+          {success.groupSizeType === 'small' || success.groupSizeType === 'one_on_one' ? (
+            <p className="text-slate-600">
               If not made up by the end of the week of the missed session (Sunday 11:59 PM), a makeup credit will be auto-issued.
             </p>
           ) : success.groupSizeType === 'large' ? (
-            <p className="text-gray-600">
+            <p className="text-slate-600">
               You may join an alternate session this week. No credit will be issued.
             </p>
-          ) : success.groupSizeType === 'one_on_one' ? (
-            <p className="text-gray-600">Redirecting to reschedule...</p>
           ) : (
-            <p className="text-gray-600">Cancellation recorded.</p>
+            <p className="text-slate-600">Cancellation recorded.</p>
           )}
           <div className="mt-4 flex flex-col gap-2 items-center">
             {showAlternateButton && (
@@ -116,7 +121,7 @@ export function CancelSessionForm({ sessions, rescheduleBasePath }: Props) {
                     `${rescheduleBasePath}/alternate?cancellation_id=${success.cancellationId}`
                   )
                 }
-                className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                className="rounded-lg bg-navy-900 px-4 py-2 text-sm font-medium text-white hover:bg-navy-800 transition-colors"
               >
                 {success.groupSizeType === 'large' ? 'Find Alternate Session' : 'Find Makeup Session'}
               </button>
@@ -127,7 +132,7 @@ export function CancelSessionForm({ sessions, rescheduleBasePath }: Props) {
                 setSelectedKey('');
                 setReason('');
               }}
-              className="rounded border px-4 py-2 text-sm font-medium hover:bg-gray-50"
+              className="rounded border px-4 py-2 text-sm font-medium hover:bg-navy-50"
             >
               Cancel Another Session
             </button>
@@ -138,9 +143,9 @@ export function CancelSessionForm({ sessions, rescheduleBasePath }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="border rounded-lg p-6 space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded p-3">
+        <div className="bg-error-light border border-red-200 text-red-700 text-sm rounded p-3">
           {error}
         </div>
       )}
@@ -151,7 +156,7 @@ export function CancelSessionForm({ sessions, rescheduleBasePath }: Props) {
           value={selectedKey}
           onChange={(e) => setSelectedKey(e.target.value)}
           required
-          className="w-full rounded border px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-navy-400 focus:ring-1 focus:ring-navy-400 outline-none"
         >
           <option value="">Choose a session...</option>
           {Object.entries(byStudent).map(([studentName, studentSessions]) => (
@@ -161,8 +166,8 @@ export function CancelSessionForm({ sessions, rescheduleBasePath }: Props) {
                   key={`${s.enrollmentId}:${s.sessionNumber}`}
                   value={`${s.enrollmentId}:${s.sessionNumber}`}
                 >
-                  {s.courseName} — Session {s.sessionNumber} ({s.sessionDate}, {s.meetingTime})
-                  {s.groupSizeType === 'one_on_one' ? ' [1:1 — will reschedule]' : ''}
+                  {s.courseName} — Session {s.sessionNumber} ({s.sessionDate}, {formatTime(s.meetingTime)})
+                  {s.groupSizeType === 'one_on_one' ? ' [1:1]' : ''}
                 </option>
               ))}
             </optgroup>
@@ -171,31 +176,31 @@ export function CancelSessionForm({ sessions, rescheduleBasePath }: Props) {
       </div>
 
       {selectedSession && (
-        <div className="bg-gray-50 rounded p-3 text-sm">
+        <div className="bg-slate-50 rounded p-3 text-sm">
           <p>
             <span className="font-medium">{selectedSession.studentName}</span> —{' '}
             {selectedSession.courseName}
           </p>
-          <p className="text-gray-500">
+          <p className="text-slate-500">
             Session {selectedSession.sessionNumber} on {selectedSession.sessionDate} at{' '}
-            {selectedSession.meetingTime}
+            {formatTime(selectedSession.meetingTime)}
           </p>
-          <p className="text-gray-500">
+          <p className="text-slate-500">
             Group: {selectedSession.groupSizeType.replace('_', ' ')}
           </p>
           {selectedSession.groupSizeType === 'one_on_one' && (
             <p className="text-blue-600 mt-1">
-              After cancelling, you will be directed to reschedule.
+              After cancelling, you will be directed to find a makeup session.
             </p>
           )}
           {(selectedSession.groupSizeType === 'small' ||
-            selectedSession.groupSizeType === 'medium') && (
+            selectedSession.groupSizeType === 'one_on_one') && (
             <p className="text-amber-600 mt-1">
               If not made up by the end of the week of the missed session (Sunday 11:59 PM), a makeup credit will be auto-issued.
             </p>
           )}
           {selectedSession.groupSizeType === 'large' && (
-            <p className="text-gray-500 mt-1">
+            <p className="text-slate-500 mt-1">
               You may join an alternate session this week. No credit will be issued.
             </p>
           )}
@@ -204,13 +209,13 @@ export function CancelSessionForm({ sessions, rescheduleBasePath }: Props) {
 
       <div>
         <label className="block text-sm font-medium mb-1">
-          Reason <span className="text-gray-400">(optional)</span>
+          Reason <span className="text-slate-400">(optional)</span>
         </label>
         <textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           rows={2}
-          className="w-full rounded border px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-navy-400 focus:ring-1 focus:ring-navy-400 outline-none"
           placeholder="Why are you cancelling this session?"
         />
       </div>
@@ -218,7 +223,7 @@ export function CancelSessionForm({ sessions, rescheduleBasePath }: Props) {
       <button
         type="submit"
         disabled={submitting || !selectedKey}
-        className="w-full rounded bg-black px-4 py-3 text-white font-medium hover:bg-gray-800 disabled:opacity-50"
+        className="w-full rounded bg-navy-900 px-4 py-3 text-white font-medium hover:bg-navy-800 disabled:opacity-50"
       >
         {submitting ? 'Cancelling...' : 'Cancel Session'}
       </button>

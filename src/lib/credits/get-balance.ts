@@ -17,7 +17,6 @@ export async function getCreditBalance(
   const balances: CreditBalances = {
     one_on_one: 0,
     small: 0,
-    medium: 0,
     large: 0,
   };
 

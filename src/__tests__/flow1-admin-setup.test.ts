@@ -127,8 +127,10 @@ describe('Course Validation (updateCourseSchema)', () => {
 // 2. Class Zod Validation
 // -----------------------------------------------------------
 describe('Class Validation (createClassSchema)', () => {
-  const validClass = {
-    course_id: '550e8400-e29b-41d4-a716-446655440000',
+  const validSmallClass = {
+    name: 'SAT Math Essentials – Mon',
+    subject: 'digital_math',
+    level: 'essentials',
     group_size_type: 'small',
     capacity: 3,
     meeting_day: 'Monday',
@@ -136,42 +138,106 @@ describe('Class Validation (createClassSchema)', () => {
     google_meet_link: null,
   };
 
-  it('accepts a valid class', () => {
-    const result = createClassSchema.safeParse(validClass);
+  const validOneOnOneClass = {
+    name: '1:1 SAT RW+Math – Tue',
+    subject: 'digital_rw_math',
+    level: 'all_levels',
+    group_size_type: 'one_on_one',
+    capacity: 1,
+    meeting_day: 'Tuesday',
+    meeting_time: '14:00',
+    google_meet_link: null,
+  };
+
+  const validLargeClass = {
+    name: 'SAT RW Advanced – Mon/Wed',
+    subject: 'digital_rw',
+    level: 'advanced',
+    group_size_type: 'large',
+    capacity: 15,
+    meeting_day: 'Monday',
+    meeting_time: '16:00',
+    meeting_day_2: 'Wednesday',
+    meeting_time_2: '16:00',
+    class_start_date: '2099-06-01',
+    class_end_date: '2099-06-29',
+    google_meet_link: null,
+  };
+
+  it('accepts a valid small group class', () => {
+    const result = createClassSchema.safeParse(validSmallClass);
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a valid 1:1 class', () => {
+    const result = createClassSchema.safeParse(validOneOnOneClass);
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a valid large group class', () => {
+    const result = createClassSchema.safeParse(validLargeClass);
     expect(result.success).toBe(true);
   });
 
   it('rejects invalid group_size_type', () => {
-    const result = createClassSchema.safeParse({ ...validClass, group_size_type: 'huge' });
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects non-UUID course_id', () => {
-    const result = createClassSchema.safeParse({ ...validClass, course_id: 'abc' });
+    const result = createClassSchema.safeParse({ ...validSmallClass, group_size_type: 'huge' });
     expect(result.success).toBe(false);
   });
 
   it('rejects invalid meeting_time format', () => {
-    const result = createClassSchema.safeParse({ ...validClass, meeting_time: '4pm' });
+    const result = createClassSchema.safeParse({ ...validSmallClass, meeting_time: '4pm' });
     expect(result.success).toBe(false);
   });
 
   it('rejects empty meeting_day', () => {
-    const result = createClassSchema.safeParse({ ...validClass, meeting_day: '' });
+    const result = createClassSchema.safeParse({ ...validSmallClass, meeting_day: '' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects 1:1 with non-all_levels level', () => {
+    const result = createClassSchema.safeParse({ ...validOneOnOneClass, level: 'essentials' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects SG with digital_rw_math subject', () => {
+    const result = createClassSchema.safeParse({ ...validSmallClass, subject: 'digital_rw_math' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects SG with all_levels level', () => {
+    const result = createClassSchema.safeParse({ ...validSmallClass, level: 'all_levels' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects LG without meeting_day_2', () => {
+    const { meeting_day_2: _, meeting_time_2: __, ...noDay2 } = validLargeClass;
+    const result = createClassSchema.safeParse(noDay2);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects LG without start/end dates', () => {
+    const { class_start_date: _, class_end_date: __, ...noDates } = validLargeClass;
+    const result = createClassSchema.safeParse(noDates);
     expect(result.success).toBe(false);
   });
 
   // Capacity vs group_size_type range validation
   describe('capacity must match group_size_type range', () => {
-    const groupTypes = ['one_on_one', 'small', 'medium', 'large'] as const;
+    // Build valid base objects per group type so refinements pass
+    const baseByType: Record<string, Record<string, unknown>> = {
+      one_on_one: validOneOnOneClass,
+      small: validSmallClass,
+      large: validLargeClass,
+    };
+    const groupTypes = ['one_on_one', 'small', 'large'] as const;
 
     for (const type of groupTypes) {
       const range = GROUP_SIZE_RANGES[type];
+      const base = baseByType[type];
 
       it(`accepts ${type} at min capacity (${range.min})`, () => {
         const result = createClassSchema.safeParse({
-          ...validClass,
-          group_size_type: type,
+          ...base,
           capacity: range.min,
         });
         expect(result.success).toBe(true);
@@ -179,8 +245,7 @@ describe('Class Validation (createClassSchema)', () => {
 
       it(`accepts ${type} at max capacity (${range.max})`, () => {
         const result = createClassSchema.safeParse({
-          ...validClass,
-          group_size_type: type,
+          ...base,
           capacity: range.max,
         });
         expect(result.success).toBe(true);
@@ -188,8 +253,7 @@ describe('Class Validation (createClassSchema)', () => {
 
       it(`rejects ${type} below min capacity (${range.min - 1})`, () => {
         const result = createClassSchema.safeParse({
-          ...validClass,
-          group_size_type: type,
+          ...base,
           capacity: range.min - 1,
         });
         expect(result.success).toBe(false);
@@ -197,8 +261,7 @@ describe('Class Validation (createClassSchema)', () => {
 
       it(`rejects ${type} above max capacity (${range.max + 1})`, () => {
         const result = createClassSchema.safeParse({
-          ...validClass,
-          group_size_type: type,
+          ...base,
           capacity: range.max + 1,
         });
         expect(result.success).toBe(false);
@@ -208,7 +271,7 @@ describe('Class Validation (createClassSchema)', () => {
 
   it('accepts valid Google Meet link', () => {
     const result = createClassSchema.safeParse({
-      ...validClass,
+      ...validSmallClass,
       google_meet_link: 'https://meet.google.com/abc-defg-hij',
     });
     expect(result.success).toBe(true);
@@ -216,7 +279,7 @@ describe('Class Validation (createClassSchema)', () => {
 
   it('rejects invalid URL for google_meet_link', () => {
     const result = createClassSchema.safeParse({
-      ...validClass,
+      ...validSmallClass,
       google_meet_link: 'not-a-url',
     });
     expect(result.success).toBe(false);
@@ -232,7 +295,7 @@ describe('Class Validation (updateClassSchema)', () => {
   });
 
   it('skips range check when group_size_type not provided', () => {
-    // capacity=15 would be invalid for small but valid for medium/large
+    // capacity=15 would be invalid for small but valid for large
     // Since group_size_type is omitted, refine should pass
     const result = updateClassSchema.safeParse({ id: uuid, capacity: 15 });
     expect(result.success).toBe(true);

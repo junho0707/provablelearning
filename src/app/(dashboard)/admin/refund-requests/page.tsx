@@ -21,7 +21,7 @@ export default async function AdminRefundRequestsPage() {
   if (enrollmentIds.length > 0) {
     const { data: enrollments } = await supabase
       .from('enrollments')
-      .select('id, status, courses(name), classes(group_size_type, meeting_day)')
+      .select('id, status, stripe_session_id, credits_applied, credits_group_size_type, classes!class_id(name, group_size_type, meeting_day)')
       .in('id', enrollmentIds);
 
     enrollmentMap = Object.fromEntries(
@@ -33,16 +33,19 @@ export default async function AdminRefundRequestsPage() {
   const resolved = (requests || []).filter((r) => r.status !== 'pending');
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Refund Requests</h1>
+    <div className="space-y-6">
+      <div>
+        <h1 className="mb-2 text-3xl font-bold tracking-tight text-navy-900">Refund Requests</h1>
+        <p className="text-slate-500">Review and process parent refund cases.</p>
+      </div>
 
       {pending.length === 0 && (
-        <p className="text-gray-500 mb-6">No pending refund requests.</p>
+        <p className="text-slate-500 mb-6">No pending refund requests.</p>
       )}
 
       {pending.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-lg font-semibold mb-4">Pending ({pending.length})</h2>
+          <h2 className="text-lg font-semibold text-navy-900 mb-4">Pending ({pending.length})</h2>
           <div className="space-y-4">
             {pending.map((req) => {
               const parentObj = req.users as unknown as
@@ -52,28 +55,32 @@ export default async function AdminRefundRequestsPage() {
                 ? parentObj[0]?.full_name
                 : parentObj?.full_name;
               const enrollment = enrollmentMap[req.enrollment_id] || {};
-              const course = enrollment.courses as Record<string, string> | undefined;
               const cls = enrollment.classes as Record<string, string> | undefined;
 
               return (
-                <div key={req.id} className="border rounded-lg p-6">
-                  <div className="flex justify-between items-start mb-3">
+                <div key={req.id} className="border border-slate-200 rounded-xl p-4 sm:p-6">
+                  <div className="flex flex-col gap-2 mb-3 sm:flex-row sm:justify-between sm:items-start">
                     <div>
                       <p className="font-medium">{parentName || 'Unknown Parent'}</p>
-                      <p className="text-sm text-gray-600">
-                        {course?.name || 'Unknown course'} — {cls?.meeting_day || ''}{' '}
+                      <p className="text-sm text-slate-600">
+                        {cls?.name || 'Unknown class'} — {cls?.meeting_day || ''}{' '}
                         ({(cls?.group_size_type || '').replace('_', ' ')})
                       </p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-slate-500">
                         Enrollment status: {(enrollment.status as string) || 'unknown'}
                       </p>
                     </div>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-slate-400">
                       {new Date(req.created_at).toLocaleDateString()}
                     </p>
                   </div>
-                  <p className="text-sm bg-gray-50 rounded p-3 mb-4">{req.reason}</p>
-                  <ReviewForm requestId={req.id} />
+                  <p className="text-sm bg-slate-50 rounded p-3 mb-4">{req.reason}</p>
+                  <ReviewForm
+                    requestId={req.id}
+                    stripeSessionId={(enrollment.stripe_session_id as string) || null}
+                    creditsApplied={(enrollment.credits_applied as number) || null}
+                    groupSizeType={(enrollment.credits_group_size_type as string) || (cls?.group_size_type as string) || null}
+                  />
                 </div>
               );
             })}
@@ -83,7 +90,7 @@ export default async function AdminRefundRequestsPage() {
 
       {resolved.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold mb-4">Resolved</h2>
+          <h2 className="text-lg font-semibold text-navy-900 mb-4">Resolved</h2>
           <div className="space-y-3">
             {resolved.map((req) => {
               const parentObj = req.users as unknown as
@@ -95,12 +102,12 @@ export default async function AdminRefundRequestsPage() {
 
               return (
                 <div key={req.id} className="border rounded p-4 opacity-75">
-                  <div className="flex justify-between items-start">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-start">
                     <div>
                       <p className="text-sm font-medium">{parentName}</p>
-                      <p className="text-sm text-gray-600">{req.reason}</p>
+                      <p className="text-sm text-slate-600">{req.reason}</p>
                       {req.admin_notes && (
-                        <p className="text-sm text-gray-500 mt-1">Notes: {req.admin_notes}</p>
+                        <p className="text-sm text-slate-500 mt-1">Notes: {req.admin_notes}</p>
                       )}
                     </div>
                     <span

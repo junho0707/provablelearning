@@ -3,9 +3,25 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getCreditBalance, type CreditBalances } from '@/lib/credits/get-balance';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { RemoveChildButton } from './remove-child-button';
-import { MarkReadButton } from '../_components/mark-read-button';
+import { RemoveStudentButton } from './remove-student-button';
 import { CancelMakeupButton } from '../_components/cancel-makeup-button';
+import { MessageForm } from '../_components/message-form';
+import { DeleteMessageButton } from '../_components/delete-message-button';
+import { ResetStudentPassword } from './reset-student-password';
+import { ExcuseNoteForm } from '../_components/excuse-note-form';
+import { PayNowButton } from '../_components/pay-now-button';
+import { submitExcuseNote } from './submit-excuse-action';
+import { computeEnrollmentSessions } from '@/lib/scheduling/session-dates';
+import { isStudentInClassroom } from '@/lib/google/classroom';
+import { LeaveWaitlistButton } from '../_components/leave-waitlist-button';
+import { EditPreferredSlotsForm } from '../_components/edit-preferred-slots-form';
+import { StudentTabs } from '../_components/student-tabs';
+import { relativeTime, getNotifDotColor } from '../_components/notification-utils';
+import { SessionPerformance, type SessionPerfCard } from '../_components/attendance-dots';
+import { MarkReadButton } from '../_components/mark-read-button';
+import { formatSubjectCategory, formatTime, dayIndex } from '@/lib/constants';
+import { DashboardViewToggle } from '../_components/dashboard-view-toggle';
+import { RemindersList, type ReminderItem } from '../_components/reminders-list';
 
 interface StudentCard {
   id: string;
@@ -16,10 +32,16 @@ interface StudentCard {
   email: string | null;
   enrollments: Record<string, unknown>[];
   waitlist: Record<string, unknown>[];
+  preferredClassMap: Record<string, { name: string | null; meeting_day: string; meeting_time: string; group_size_type: string }>;
+  wlClassMap: Record<string, Record<string, unknown>>;
   makeupWaitlist: Record<string, unknown>[];
   cancellations: Record<string, unknown>[];
+  classroomJoinedSet: Set<string>;
   creditBalances: CreditBalances;
-  perfByCourse: Record<string, { totalSessions: number; attended: number; hwDone: number }>;
+  perfByClass: Record<string, { totalSessions: number; attended: number; hwDone: number }>;
+  perfLogs: Record<string, unknown>[];
+  perfMap: Map<string, { attendance: boolean; homework_completed: boolean }>;
+  allSlotsForWaitlist: Record<string, Array<{ id: string; name: string | null; meeting_day: string; meeting_time: string }>>;
 }
 
 export default async function ParentDashboard() {
@@ -32,8 +54,8 @@ export default async function ParentDashboard() {
 
   const adminClient = createAdminClient();
 
-  // Fetch office hours + notifications in parallel
-  const [{ data: officeHours }, { data: notifications }] = await Promise.all([
+  // Fetch office hours + notifications + messages + tutor + consultation booking in parallel
+  const [{ data: officeHours }, { data: notifications }, { data: recentMessages }, { data: adminUsers }, { data: existingBookings }] = await Promise.all([
     supabase.from('office_hours').select('*').eq('active', true),
     supabase
       .from('notifications')
@@ -41,10 +63,32 @@ export default async function ParentDashboard() {
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(10),
+    supabase
+      .from('messages')
+      .select('*')
+      .or(`from_user_id.eq.${user.id},to_user_id.eq.${user.id}`)
+      .order('created_at', { ascending: false })
+      .limit(20),
+    adminClient
+      .from('users')
+      .select('id, full_name')
+      .eq('role', 'admin')
+      .limit(1),
+    adminClient
+      .from('bookings')
+      .select('id, datetime, duration_min, status, meet_link, meeting_type, student_name, class_name, user_id, booking_type')
+      .or(`user_id.eq.${user.id},parent_email.ilike.${user.email ?? ''}`)
+      .eq('status', 'confirmed')
+      .gte('datetime', new Date().toISOString())
+      .order('datetime', { ascending: true }),
   ]);
 
-  const allNotifs = notifications || [];
+  const allNotifs = (notifications || []).filter((n) => n.type !== 'makeup');
+  const makeupNotifs = (notifications || []).filter((n) => n.type === 'makeup');
   const unreadNotifs = allNotifs.filter((n) => !n.read);
+
+  const tutorId = adminUsers?.[0]?.id || null;
+  const tutorName = adminUsers?.[0]?.full_name || 'Tutor';
 
   // Fetch students (email/full_name columns may not exist if migration 00046 not applied)
   let students: Record<string, unknown>[] | null = null;
@@ -102,27 +146,82 @@ export default async function ParentDashboard() {
           email: s.email as string | null,
           enrollments: [],
           waitlist: [],
+          preferredClassMap: {},
+          wlClassMap: {},
           makeupWaitlist: [],
           cancellations: [],
+          classroomJoinedSet: new Set<string>(),
+          allSlotsForWaitlist: {},
           creditBalances: {} as CreditBalances,
-          perfByCourse: {},
+          perfByClass: {},
+          perfLogs: [],
+          perfMap: new Map(),
         };
       }
 
       const { data: enrollments } = await supabase
         .from('enrollments')
-        .select('*, classes(group_size_type, meeting_day, meeting_time), courses(name, subject, start_date, end_date)')
+        .select('*, slot_1_class_id, slot_2_class_id, slot_3_class_id, student_start_date, student_end_date, classes!class_id(name, subject, level, group_size_type, meeting_day, meeting_time, google_meet_link, google_classroom_id, google_classroom_enrollment_code, google_classroom_link, class_start_date, class_end_date)')
         .eq('student_id', studentId)
-        .in('status', ['active', 'completed']);
+        .in('status', ['active', 'pending']);
 
       const creditBalances = await getCreditBalance(adminClient, studentId);
 
-      const { data: waitlistEntries } = await adminClient
+      const { data: waitlistEntriesRaw } = await adminClient
         .from('waitlist')
-        .select('id, status, created_at, class_id, classes(meeting_day, meeting_time, courses(name))')
+        .select('id, status, created_at, class_id, preferred_class_ids, offer_expires_at, notified_at')
         .eq('student_id', studentId)
         .in('status', ['waiting', 'notified'])
         .order('created_at', { ascending: true });
+
+      // Separately fetch class info for LG entries (class_id is not null)
+      const wlClassIds = (waitlistEntriesRaw || [])
+        .map((w) => w.class_id)
+        .filter(Boolean) as string[];
+      let wlClassMap: Record<string, Record<string, unknown>> = {};
+      if (wlClassIds.length > 0) {
+        const { data: wlClasses } = await adminClient
+          .from('classes')
+          .select('id, name, subject, level, group_size_type, meeting_day, meeting_time')
+          .in('id', wlClassIds);
+        for (const c of wlClasses || []) {
+          wlClassMap[c.id] = c as Record<string, unknown>;
+        }
+      }
+
+      // Resolve preferred_class_ids for SG/1:1 waitlist entries
+      const waitlistEntries = waitlistEntriesRaw || [];
+      const allPreferredIds = waitlistEntries
+        .filter((w) => !w.class_id && w.preferred_class_ids)
+        .flatMap((w) => w.preferred_class_ids as string[]);
+      let preferredClassMap: Record<string, { name: string | null; meeting_day: string; meeting_time: string; group_size_type: string }> = {};
+      if (allPreferredIds.length > 0) {
+        const { data: prefClasses } = await adminClient
+          .from('classes')
+          .select('id, name, meeting_day, meeting_time, group_size_type')
+          .in('id', allPreferredIds);
+        for (const c of prefClasses || []) {
+          preferredClassMap[c.id] = { name: c.name, meeting_day: c.meeting_day, meeting_time: c.meeting_time, group_size_type: c.group_size_type };
+        }
+      }
+
+      // Fetch all sibling slots for SG/1:1 waitlist entries (for Edit Slots form)
+      const allSlotsForWaitlist: Record<string, Array<{ id: string; name: string | null; meeting_day: string; meeting_time: string }>> = {};
+      const sgWaitlistEntries = waitlistEntries.filter((w) => !w.class_id && w.preferred_class_ids && w.status === 'waiting');
+      if (sgWaitlistEntries.length > 0) {
+        const firstPrefId = sgWaitlistEntries[0].preferred_class_ids?.[0] as string | undefined;
+        if (firstPrefId && preferredClassMap[firstPrefId]) {
+          const refClass = preferredClassMap[firstPrefId];
+          const { data: siblingSlots } = await adminClient
+            .from('classes')
+            .select('id, name, meeting_day, meeting_time')
+            .eq('group_size_type', refClass.group_size_type);
+          const slots = (siblingSlots || []).map((c) => ({ id: c.id, name: c.name, meeting_day: c.meeting_day, meeting_time: c.meeting_time }));
+          for (const wEntry of sgWaitlistEntries) {
+            allSlotsForWaitlist[wEntry.id] = slots;
+          }
+        }
+      }
 
       const { data: makeupWaitlistEntries } = await adminClient
         .from('makeup_waitlist')
@@ -133,13 +232,14 @@ export default async function ParentDashboard() {
 
       const { data: perfLogs } = await supabase
         .from('performance_logs')
-        .select('course_id, attendance, homework_completed')
-        .eq('student_id', studentId);
+        .select('*')
+        .eq('student_id', studentId)
+        .order('session_number', { ascending: true });
 
-      // Fetch cancellations (simple query — no nested joins that can silently fail)
+      // Fetch cancellations (use select('*') to avoid breaking if columns are not yet migrated)
       const { data: cancellationsRaw } = await adminClient
         .from('session_cancellations')
-        .select('id, session_number, session_date, status, group_size_type, reason, rescheduled_to, course_id, class_id, enrollment_id')
+        .select('*')
         .eq('student_id', studentId)
         .order('session_date', { ascending: false })
         .limit(20);
@@ -157,13 +257,13 @@ export default async function ParentDashboard() {
         }
       }
 
-      // Fetch makeup bookings for these cancellations
+      // Fetch makeup bookings for these cancellations (cancellation-based + credit-based)
       const cancellationIds = (cancellationsRaw || []).map((c) => c.id as string);
       let makeupMap: Record<string, Record<string, unknown>> = {};
       if (cancellationIds.length > 0) {
         const { data: makeups } = await adminClient
           .from('makeup_bookings')
-          .select('id, cancellation_id, session_date, status, host_class_id, makeup_session_id')
+          .select('id, cancellation_id, credit_id, session_date, session_number, status, host_class_id')
           .in('cancellation_id', cancellationIds);
         for (const m of makeups || []) {
           if (m.status === 'booked' || m.status === 'attended') {
@@ -177,29 +277,27 @@ export default async function ParentDashboard() {
         ...(cancellationsRaw || []).map((c) => c.class_id as string),
         ...Object.values(makeupMap).map((m) => m.host_class_id as string),
       ].filter(Boolean);
-      let classInfoMap: Record<string, { meeting_day: string; meeting_time: string }> = {};
+      let classInfoMap: Record<string, { meeting_day: string; meeting_time: string; google_meet_link: string | null }> = {};
       if (allClassIds.length > 0) {
         const { data: classRows } = await adminClient
           .from('classes')
-          .select('id, meeting_day, meeting_time')
+          .select('id, meeting_day, meeting_time, google_meet_link')
           .in('id', [...new Set(allClassIds)]);
         for (const row of classRows || []) {
-          classInfoMap[row.id] = { meeting_day: row.meeting_day, meeting_time: row.meeting_time };
+          classInfoMap[row.id] = { meeting_day: row.meeting_day, meeting_time: row.meeting_time, google_meet_link: row.google_meet_link };
         }
       }
 
-      // Fetch makeup session info for dedicated makeup bookings
-      const allMakeupSessionIds = Object.values(makeupMap)
-        .map((m) => m.makeup_session_id as string)
-        .filter(Boolean);
-      let makeupSessionInfoMap: Record<string, { session_date: string; session_time: string; location: string | null }> = {};
-      if (allMakeupSessionIds.length > 0) {
-        const { data: msRows } = await adminClient
-          .from('makeup_sessions')
-          .select('id, session_date, session_time, location')
-          .in('id', [...new Set(allMakeupSessionIds)]);
-        for (const row of msRows || []) {
-          makeupSessionInfoMap[row.id] = { session_date: row.session_date, session_time: row.session_time, location: row.location };
+      // Fetch class subject+level for cancellations (needed for credit redemption links)
+      const cancellationClassIds = [...new Set((cancellationsRaw || []).map((c) => c.class_id as string).filter(Boolean))];
+      let classInfoForCancellations: Record<string, { subject: string | null; level: string | null }> = {};
+      if (cancellationClassIds.length > 0) {
+        const { data: classRows } = await adminClient
+          .from('classes')
+          .select('id, subject, level')
+          .in('id', cancellationClassIds);
+        for (const row of classRows || []) {
+          classInfoForCancellations[row.id] = { subject: row.subject, level: row.level };
         }
       }
 
@@ -216,18 +314,66 @@ export default async function ParentDashboard() {
           _makeupClass: makeupMap[c.id as string]
             ? classInfoMap[makeupMap[c.id as string].host_class_id as string] || null
             : null,
-          _makeupSession: makeupMap[c.id as string]?.makeup_session_id
-            ? makeupSessionInfoMap[makeupMap[c.id as string].makeup_session_id as string] || null
-            : null,
+          _classInfo: classInfoForCancellations[c.class_id as string] || null,
         }));
 
-      const perfByCourse: Record<string, { totalSessions: number; attended: number; hwDone: number }> = {};
+      const perfByClass: Record<string, { totalSessions: number; attended: number; hwDone: number }> = {};
       for (const p of perfLogs || []) {
-        const cid = p.course_id as string;
-        if (!perfByCourse[cid]) perfByCourse[cid] = { totalSessions: 0, attended: 0, hwDone: 0 };
-        perfByCourse[cid].totalSessions++;
-        if (p.attendance) perfByCourse[cid].attended++;
-        if (p.homework_completed) perfByCourse[cid].hwDone++;
+        const cid = p.class_id as string;
+        if (!perfByClass[cid]) perfByClass[cid] = { totalSessions: 0, attended: 0, hwDone: 0 };
+        perfByClass[cid].totalSessions++;
+        if (p.attendance) perfByClass[cid].attended++;
+        if (p.homework_completed) perfByClass[cid].hwDone++;
+      }
+
+      // Perf lookup map: "classId-sessionNumber" -> { attendance, homework_completed }
+      const perfMap = new Map<string, { attendance: boolean; homework_completed: boolean }>();
+      for (const p of perfLogs || []) {
+        perfMap.set(`${p.class_id}-${p.session_number}`, {
+          attendance: p.attendance as boolean,
+          homework_completed: p.homework_completed as boolean,
+        });
+      }
+
+      // Fetch slot 2 + slot 3 class info for multi-slot enrollments
+      const extraSlotIds = new Set<string>();
+      for (const e of (enrollments || []) as Record<string, unknown>[]) {
+        if (e.slot_2_class_id) extraSlotIds.add(e.slot_2_class_id as string);
+        if (e.slot_3_class_id) extraSlotIds.add(e.slot_3_class_id as string);
+      }
+      let slot2ClassMap: Record<string, Record<string, unknown>> = {};
+      if (extraSlotIds.size > 0) {
+        const { data: extraRows } = await adminClient
+          .from('classes')
+          .select('id, name, subject, level, group_size_type, meeting_day, meeting_time, google_meet_link, google_classroom_id, google_classroom_enrollment_code, google_classroom_link, class_start_date, class_end_date')
+          .in('id', Array.from(extraSlotIds));
+        for (const row of extraRows || []) {
+          slot2ClassMap[row.id] = row;
+        }
+      }
+
+      // Check classroom membership for this student's enrollments
+      const studentEmail = (s.email as string | null) || (userId
+        ? (await adminClient.auth.admin.getUserById(userId)).data?.user?.email
+        : null);
+      const unjoinedEnrollments = (enrollments || []).filter(
+        (e) => !e.classroom_joined && (e.classes as Record<string, unknown>)?.google_classroom_id
+      );
+      const classroomJoinedSet = new Set<string>();
+      if (studentEmail && unjoinedEnrollments.length > 0) {
+        const checks = await Promise.allSettled(
+          unjoinedEnrollments.map(async (e) => {
+            const cls = e.classes as Record<string, unknown>;
+            const joined = await isStudentInClassroom(cls.google_classroom_id as string, studentEmail);
+            if (joined) {
+              await adminClient.from('enrollments').update({ classroom_joined: true }).eq('id', e.id);
+              classroomJoinedSet.add(e.id as string);
+            }
+          })
+        );
+        checks.forEach((r) => {
+          if (r.status === 'rejected') console.error('Classroom check failed:', r.reason);
+        });
       }
 
       return {
@@ -237,88 +383,295 @@ export default async function ParentDashboard() {
         active_status: s.active_status as string,
         full_name: fullName,
         email: s.email as string | null,
-        enrollments: (enrollments || []) as Record<string, unknown>[],
-        waitlist: (waitlistEntries || []) as Record<string, unknown>[],
+        enrollments: (enrollments || []).map((e) => ({
+          ...e,
+          _slot2Class: slot2ClassMap[(e as Record<string, unknown>).slot_2_class_id as string] || null,
+          _slot3Class: slot2ClassMap[(e as Record<string, unknown>).slot_3_class_id as string] || null,
+        })) as Record<string, unknown>[],
+        waitlist: (waitlistEntriesRaw || []) as Record<string, unknown>[],
+        preferredClassMap,
+        wlClassMap,
         makeupWaitlist: (makeupWaitlistEntries || []) as Record<string, unknown>[],
-        cancellations: (cancellations || []) as Record<string, unknown>[],
+        cancellations: cancellations as Record<string, unknown>[],
+        classroomJoinedSet,
         creditBalances,
-        perfByCourse,
+        perfByClass,
+        perfLogs: (perfLogs || []) as Record<string, unknown>[],
+        perfMap,
+        allSlotsForWaitlist,
       };
     })
   );
 
+  // Build calendar session events from all students
+  const calendarSessions: { studentName: string; className: string | null; meetingDay: string; meetingTime: string; sessionNumber: number; sessionDate: string; isCancelled: boolean; isMakeup: boolean; isPast: boolean; googleMeetLink: string | null; makeupDate?: string | null; originalDate?: string | null }[] = [];
+  for (const s of studentCards) {
+    for (const e of s.enrollments) {
+      const cls = e.classes as Record<string, string> | null;
+      const slot2Class = (e as Record<string, unknown>)._slot2Class as Record<string, string> | null;
+      const slot3Class = (e as Record<string, unknown>)._slot3Class as Record<string, string> | null;
+      const startDate = ((e as Record<string, unknown>).student_start_date as string) || cls?.class_start_date;
+      const slot1ClassId = ((e as Record<string, unknown>).slot_1_class_id as string) || (e.class_id as string);
+      const slot2ClassId = (e as Record<string, unknown>).slot_2_class_id as string | null;
+      const slot3ClassId = (e as Record<string, unknown>).slot_3_class_id as string | null;
+      if (!startDate || !cls) continue;
+      const sessions = computeEnrollmentSessions(
+        startDate,
+        { classId: slot1ClassId, meetingDay: cls.meeting_day },
+        slot2ClassId && slot2Class ? { classId: slot2ClassId, meetingDay: slot2Class.meeting_day } : null,
+        slot3ClassId && slot3Class ? { classId: slot3ClassId, meetingDay: slot3Class.meeting_day } : null
+      );
+      const enrollClassIds = new Set([e.class_id as string, slot1ClassId, slot2ClassId, slot3ClassId].filter(Boolean) as string[]);
+      const enrollCancellations = s.cancellations.filter(
+        (c) => (c.enrollment_id as string) === (e.id as string) || enrollClassIds.has(c.class_id as string)
+      );
+      for (const sess of sessions) {
+        const cancellation = enrollCancellations.find((c) => (c.session_number as number) === sess.sessionNumber);
+        const isCancelled = !!cancellation && ['cancelled', 'absent'].includes(cancellation.status as string);
+        const meetLink = slot2ClassId && sess.classId === slot2ClassId && slot2Class
+          ? slot2Class.google_meet_link : cls.google_meet_link;
+        const meetTime = slot2ClassId && sess.classId === slot2ClassId && slot2Class
+          ? slot2Class.meeting_time : cls.meeting_time;
+        // Determine makeup info for linking
+        const makeup = cancellation
+          ? (cancellation as Record<string, unknown>)._makeup as Record<string, unknown> | null
+          : null;
+        const makeupClass = cancellation
+          ? (cancellation as Record<string, unknown>)._makeupClass as Record<string, string> | null
+          : null;
+        const hasMakeup = makeup && (makeup.status === 'booked' || makeup.status === 'attended');
+
+        calendarSessions.push({
+          studentName: s.full_name,
+          className: cls.name,
+          meetingDay: sess.date.toLocaleDateString('en-US', { weekday: 'long' }),
+          meetingTime: meetTime,
+          sessionNumber: sess.sessionNumber,
+          sessionDate: sess.dateStr,
+          isCancelled,
+          isMakeup: false,
+          isPast: sess.isPast,
+          googleMeetLink: meetLink || null,
+          makeupDate: isCancelled && hasMakeup ? (makeup.session_date as string) : null,
+        });
+        // Add makeup session if booked
+        if (hasMakeup) {
+          calendarSessions.push({
+            studentName: s.full_name,
+            className: cls.name,
+            meetingDay: new Date((makeup.session_date as string) + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' }),
+            meetingTime: makeupClass?.meeting_time || cls.meeting_time,
+            sessionNumber: sess.sessionNumber,
+            sessionDate: makeup.session_date as string,
+            isCancelled: false,
+            isMakeup: true,
+            isPast: new Date((makeup.session_date as string) + 'T00:00:00') < new Date(new Date().toISOString().split('T')[0] + 'T00:00:00'),
+            googleMeetLink: makeupClass?.google_meet_link || null,
+            originalDate: sess.dateStr,
+          });
+        }
+      }
+    }
+  }
+
+  // Action items = things that require user action
+  type ActionItem = { type: 'payment' | 'classroom' | 'makeup'; studentName: string; message: string; enrollmentId?: string; deadline?: string | null; cancellationId?: string };
+  const actionItems: ActionItem[] = [];
+  // Reminders = informational (consultations, booked makeups)
+  const reminders: ReminderItem[] = [];
+
+  for (const s of studentCards) {
+    for (const e of s.enrollments) {
+      const enrollmentId = e.id as string;
+      const cls = (e as Record<string, unknown>).classes as Record<string, unknown> | null;
+      const className = cls?.name as string || 'Class';
+      if ((e as Record<string, unknown>).payment_status === 'unpaid') {
+        const deadline = (e as Record<string, unknown>).payment_deadline as string | null;
+        actionItems.push({
+          type: 'payment',
+          studentName: s.full_name,
+          message: `Payment due${deadline ? ` by ${new Date(deadline + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}` : ''} for ${s.full_name} — ${className}`,
+          enrollmentId,
+          deadline,
+        });
+      }
+      if (cls?.google_classroom_id && !(e as Record<string, unknown>).classroom_joined && !s.classroomJoinedSet.has(enrollmentId)) {
+        actionItems.push({
+          type: 'classroom',
+          studentName: s.full_name,
+          message: `${s.full_name} hasn't joined the Google Classroom for ${className}`,
+        });
+      }
+    }
+    // Cancelled sessions
+    for (const c of s.cancellations) {
+      if ((c.status as string) !== 'cancelled') continue;
+      const sessionDate = c.session_date as string;
+      const sessionNum = c.session_number as number;
+      const makeup = (c as Record<string, unknown>)._makeup as Record<string, unknown> | null;
+      const makeupClass = (c as Record<string, unknown>)._makeupClass as Record<string, string> | null;
+      if (makeup) {
+        // Booked → reminder
+        const makeupDate = new Date((makeup.session_date as string) + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        const makeupTime = makeupClass ? formatTime(makeupClass.meeting_time) : '';
+        reminders.push({
+          id: `makeup-${c.id}`,
+          type: 'makeup',
+          message: `${s.full_name} — Session ${sessionNum} (${sessionDate}) → Makeup on ${makeupDate}${makeupTime ? ` at ${makeupTime}` : ''}`,
+        });
+      } else {
+        // Needs action
+        actionItems.push({
+          type: 'makeup',
+          studentName: s.full_name,
+          message: `${s.full_name} — Session ${sessionNum} (${sessionDate}) needs a makeup`,
+          cancellationId: c.id as string,
+        });
+      }
+    }
+  }
+  // Consultations → reminders
+  if (existingBookings && existingBookings.length > 0) {
+    for (const booking of existingBookings) {
+      const dt = new Date(booking.datetime);
+      const dateStr = dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      const timeStr = dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      const isRefund = booking.booking_type === 'refund';
+      reminders.push({
+        id: `consult-${booking.id}`,
+        type: 'consultation',
+        message: `${isRefund ? 'Refund consultation' : 'Consultation'} on ${dateStr} at ${timeStr}`,
+        meetLink: booking.meet_link,
+        meetingType: booking.meeting_type,
+      });
+    }
+  }
+  // DB makeup notifications → reminders
+  for (const n of makeupNotifs) {
+    reminders.push({ id: `notif-${n.id}`, type: 'makeup', message: n.message, notificationId: n.id });
+  }
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Parent Dashboard</h1>
-        <div className="flex gap-3">
-          <Link
-            href="/parent/drop-class"
-            className="rounded border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
-          >
-            Drop Class
-          </Link>
-          <Link
-            href="/parent/cancel-session"
-            className="rounded border px-4 py-2 text-sm font-medium hover:bg-gray-50"
-          >
-            Cancel Session
-          </Link>
-          <Link
-            href="/parent/refund"
-            className="rounded border px-4 py-2 text-sm font-medium hover:bg-gray-50"
-          >
-            Request Refund
-          </Link>
-          <Link
-            href="/parent/add-child"
-            className="rounded border px-4 py-2 text-sm font-medium hover:bg-gray-50"
-          >
-            Add Child
-          </Link>
-          <Link
-            href="/enroll"
-            className="rounded bg-black px-4 py-2 text-white text-sm font-medium hover:bg-gray-800"
-          >
-            Enroll Student
-          </Link>
+      {/* Header — flat style, matches nav-level pages */}
+      <div className="mb-8">
+        <h1 className="mb-2 text-3xl font-bold tracking-tight text-navy-900">Parent Dashboard</h1>
+        <p className="text-slate-500 mb-4">Manage your students&apos; classes and enrollments.</p>
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 sm:px-5">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+            <Link
+              href="/enroll"
+              className="rounded-lg bg-gold-500 px-4 py-2 text-sm font-semibold text-white hover:bg-gold-400 text-center col-span-2 sm:col-span-1"
+            >
+              Enroll
+            </Link>
+            <Link
+              href="/parent/add-student"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-navy-700 hover:bg-navy-50 text-center"
+            >
+              Add Student
+            </Link>
+            {!existingBookings || existingBookings.length === 0 ? (
+              <Link
+                href="/book"
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-navy-700 hover:bg-navy-50 text-center"
+              >
+                Consultation
+              </Link>
+            ) : null}
+            <Link
+              href="/parent/cancel-session"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-navy-700 hover:bg-navy-50 text-center"
+            >
+              Cancel Session
+            </Link>
+            <Link
+              href="/parent/drop-class"
+              className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 text-center"
+            >
+              Drop Class
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* Notifications */}
-      {unreadNotifs.length > 0 && (
-        <div className="mb-6 space-y-2">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
-            Notifications ({unreadNotifs.length})
-          </h2>
-          {unreadNotifs.map((n) => (
-            <div key={n.id} className="flex items-start justify-between bg-blue-50 border border-blue-200 rounded p-3">
-              <div>
-                <p className="text-sm">{n.message}</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  {new Date(n.created_at).toLocaleDateString()}
-                </p>
+      {/* Action Items — things requiring user action */}
+      {actionItems.length > 0 && (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/50 overflow-hidden">
+          <div className="px-5 py-2.5 border-b border-amber-200/60 flex items-center gap-2">
+            <span className="text-amber-600 text-sm">&#9888;</span>
+            <h2 className="text-xs font-bold uppercase tracking-widest text-amber-700">
+              Action Items ({actionItems.length})
+            </h2>
+          </div>
+          <div className="divide-y divide-amber-100">
+            {actionItems.map((item, i) => (
+              <div key={`action-${i}`} className="flex items-center gap-3 px-5 py-3">
+                <span className={`w-2 h-2 rounded-full shrink-0 ${
+                  item.type === 'payment' ? (item.deadline && Math.ceil((new Date(item.deadline + 'T00:00:00').getTime() - Date.now()) / (1000 * 60 * 60 * 24)) <= 3 ? 'bg-red-500' : 'bg-yellow-500') :
+                  item.type === 'classroom' ? 'bg-yellow-500' :
+                  'bg-blue-500'
+                }`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-navy-900">{item.message}</p>
+                </div>
+                {item.type === 'payment' && item.enrollmentId && (
+                  <PayNowButton enrollmentId={item.enrollmentId} />
+                )}
+                {item.type === 'makeup' && item.cancellationId && (
+                  <Link
+                    href={`/parent/cancel-session/alternate?cancellation_id=${item.cancellationId}`}
+                    className="rounded-lg bg-navy-900 px-3 py-1.5 text-white text-xs font-medium hover:bg-navy-800 shrink-0"
+                  >
+                    Find Makeup
+                  </Link>
+                )}
               </div>
-              <MarkReadButton notificationId={n.id} />
-            </div>
-          ))}
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Reminders — informational (consultations, booked makeups) */}
+      <RemindersList reminders={reminders} />
+
+      {/* Inline Notifications */}
+      {allNotifs.length > 0 && (
+        <div id="notifications" className="mb-6 rounded-xl border border-slate-200 bg-white overflow-hidden">
+          <div className="px-5 py-2.5 border-b border-slate-100 flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">
+              Notifications{unreadNotifs.length > 0 ? ` (${unreadNotifs.length} new)` : ''}
+            </h2>
+          </div>
+          <div className="divide-y divide-slate-50">
+            {allNotifs.map((n) => (
+              <div key={n.id} className={`flex items-start gap-3 px-5 py-3 ${n.read ? 'opacity-60' : ''}`}>
+                <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${n.read ? 'bg-slate-300' : getNotifDotColor(n.message)}`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm ${n.read ? 'text-slate-500' : 'text-navy-900'}`}>{n.message}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{relativeTime(n.created_at)}</p>
+                </div>
+                {!n.read && <MarkReadButton notificationId={n.id} />}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {/* Office Hours */}
       {officeHours && officeHours.length > 0 && (
-        <div className="mb-6 border rounded-lg p-4 bg-green-50">
-          <h2 className="text-sm font-semibold mb-2">Office Hours</h2>
+        <div className="mb-6 border-l-4 border-success bg-success-light rounded-r-lg px-5 py-4">
+          <h2 className="text-xs font-bold text-success uppercase tracking-widest mb-2">Office Hours</h2>
           {officeHours.map((oh) => (
             <div key={oh.id} className="flex items-center justify-between">
-              <p className="text-sm text-gray-600">
-                {oh.day_of_week}s, {oh.start_time} – {oh.end_time}
+              <p className="text-sm text-navy-900 font-medium">
+                {oh.day_of_week}s, {formatTime(oh.start_time)} – {formatTime(oh.end_time)}
               </p>
               <a
                 href={oh.meet_link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded bg-green-600 px-3 py-1 text-white text-sm font-medium hover:bg-green-700"
+                className="rounded-lg bg-navy-900 px-4 py-1.5 text-white text-sm font-medium hover:bg-navy-800"
               >
                 Join
               </a>
@@ -328,142 +681,285 @@ export default async function ParentDashboard() {
       )}
 
       {studentCards.length === 0 && (
-        <div className="text-center py-8 border rounded-lg">
-          <p className="text-gray-500 mb-4">No students linked to your account yet.</p>
+        <div className="text-center py-12 rounded-xl bg-white border border-slate-200">
+          <div className="w-16 h-16 rounded-full bg-navy-100 mx-auto mb-4 flex items-center justify-center">
+            <svg className="w-8 h-8 text-navy-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>
+          </div>
+          <p className="text-navy-900 font-medium mb-1">No students linked yet</p>
+          <p className="text-slate-400 text-sm mb-5">Add your student to get started with enrollment.</p>
           <Link
-            href="/parent/add-child"
-            className="rounded bg-black px-4 py-2 text-white text-sm font-medium hover:bg-gray-800"
+            href="/parent/add-student"
+            className="rounded-lg bg-gold-500 px-5 py-2.5 text-navy-950 text-sm font-semibold hover:bg-gold-400"
           >
-            Add Your First Child
+            Add Your First Student
           </Link>
         </div>
       )}
 
-      <div className="space-y-6">
+      {studentCards.length > 0 && (
+        <DashboardViewToggle sessions={calendarSessions}>
+        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <StudentTabs
+          students={studentCards.map((s) => ({
+            id: s.id,
+            name: s.full_name,
+            classCount: s.enrollments.length,
+            gradeLevel: s.grade_level,
+          }))}
+        >
         {studentCards.map((s) => (
-          <div key={s.id} className="border rounded-lg p-6">
-            <div className="flex justify-between items-start mb-4">
+          <div key={s.id}>
+            {/* Student header bar */}
+            <div className="px-4 py-4 flex flex-col gap-3 border-b border-slate-100 sm:flex-row sm:justify-between sm:items-start sm:px-6">
               <div>
                 <div className="flex items-center gap-3">
-                  <h2 className="text-lg font-semibold">{s.full_name}</h2>
-                  <RemoveChildButton
+                  <h2 className="text-lg font-semibold text-navy-900">{s.full_name}</h2>
+                  <RemoveStudentButton
                     studentId={s.id}
-                    childName={s.full_name}
+                    studentName={s.full_name}
                     hasActiveEnrollments={s.enrollments.some(
                       (e) => e.status === 'active' || e.status === 'pending'
                     )}
                   />
                 </div>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-slate-500">
                   Grade {s.grade_level || 'N/A'} — {s.active_status}
                 </p>
                 {s.user_id ? (
-                  <p className="text-xs text-gray-500 mt-1">
-                    {s.email || 'Linked'}
-                  </p>
+                  <div className="mt-1 space-y-1">
+                    <p className="text-xs text-slate-400">
+                      {s.email || 'Linked'}
+                    </p>
+                    <ResetStudentPassword studentId={s.id} studentName={s.full_name} />
+                  </div>
                 ) : (
-                  <p className="text-xs text-amber-600 mt-1">
-                    Pending — waiting for first Google login
-                    {s.email && <span className="text-gray-400 ml-1">({s.email})</span>}
+                  <p className="text-xs text-gold-600 mt-1">
+                    Pending — waiting for first login
+                    {s.email && <span className="text-slate-400 ml-1">({s.email})</span>}
                   </p>
-                )}
-              </div>
-              <div className="text-right text-sm">
-                <p className="text-gray-600 font-medium mb-1">Credits</p>
-                {Object.entries(s.creditBalances).filter(([, v]) => v > 0).length === 0 ? (
-                  <p className="text-gray-400">None</p>
-                ) : (
-                  Object.entries(s.creditBalances)
-                    .filter(([, v]) => v > 0)
-                    .map(([type, count]) => (
-                      <p key={type}>
-                        {count} {type.replace('_', ' ')}
-                      </p>
-                    ))
                 )}
               </div>
             </div>
+            <div className="p-4 sm:p-6">
 
             <div className="space-y-3">
               {s.enrollments.map((e) => {
-                const course = e.courses as Record<string, string>;
                 const cls = e.classes as Record<string, string>;
-                const courseId = (e as Record<string, unknown>).course_id as string;
+                const slot2Class = (e as Record<string, unknown>)._slot2Class as Record<string, string> | null;
                 const enrollmentId = e.id as string;
                 const classId = (e as Record<string, unknown>).class_id as string;
-                const perf = s.perfByCourse[courseId];
-                // Cancellations for this enrollment (match by enrollment_id or class_id)
+                const perf = s.perfByClass[classId];
+                const startDate = ((e as Record<string, unknown>).student_start_date as string) || cls?.class_start_date;
+                const slot1ClassId = ((e as Record<string, unknown>).slot_1_class_id as string) || classId;
+                const slot2ClassId = (e as Record<string, unknown>).slot_2_class_id as string | null;
+
+                // Cancellations for this enrollment (match by enrollment_id or any slot class_id)
+                const parentEnrollClassIds = new Set([classId, slot1ClassId, slot2ClassId, (e as Record<string, unknown>).slot_3_class_id as string | null].filter(Boolean) as string[]);
                 const enrollCancellations = s.cancellations.filter(
-                  (c) => (c.enrollment_id as string) === enrollmentId || (c.class_id as string) === classId
+                  (c) => (c.enrollment_id as string) === enrollmentId || parentEnrollClassIds.has(c.class_id as string)
                 );
+                const slot3ClassId = (e as Record<string, unknown>).slot_3_class_id as string | null;
+                const slot3Class = (e as Record<string, unknown>)._slot3Class as Record<string, string> | null;
+
+                const sessions = computeEnrollmentSessions(
+                  startDate,
+                  { classId: slot1ClassId, meetingDay: cls?.meeting_day },
+                  slot2ClassId && slot2Class
+                    ? { classId: slot2ClassId, meetingDay: slot2Class.meeting_day }
+                    : null,
+                  slot3ClassId && slot3Class
+                    ? { classId: slot3ClassId, meetingDay: slot3Class.meeting_day as string }
+                    : null
+                );
+                const nextSession = sessions.find((s) => !s.isPast);
 
                 return (
-                  <div key={enrollmentId} className="bg-gray-50 rounded px-4 py-3 text-sm">
-                    <div className="flex justify-between items-center">
+                  <div key={enrollmentId} className="rounded-lg border border-slate-200 bg-white p-4 text-sm">
+                    <div className="flex justify-between items-start">
                       <div>
-                        <span className="font-medium">{course?.name}</span>
-                        <span className="text-gray-500 ml-2">
-                          {cls?.meeting_day} {cls?.meeting_time}
-                        </span>
+                        <p className="font-semibold text-navy-900">{cls?.name}</p>
+                        {(() => {
+                          const subCat = (e as Record<string, unknown>).subject_category as string | null;
+                          const subDetail = (e as Record<string, unknown>).subject_detail as string | null;
+                          const label = subCat ? formatSubjectCategory(subCat, subDetail) : null;
+                          return label ? (
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400 mt-0.5">{label}</p>
+                          ) : null;
+                        })()}
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400 mt-0.5">
+                          {(() => {
+                            const slots = [{ day: cls?.meeting_day, time: cls?.meeting_time }];
+                            if (slot2Class) slots.push({ day: slot2Class.meeting_day, time: slot2Class.meeting_time });
+                            if (slot3Class) slots.push({ day: slot3Class.meeting_day, time: slot3Class.meeting_time });
+                            slots.sort((a, b) => dayIndex(a.day || '') - dayIndex(b.day || ''));
+                            return slots.map((s, i) => (
+                              <span key={i}>{i > 0 ? ' & ' : ''}{s.day}s at {formatTime(s.time)}</span>
+                            ));
+                          })()}
+                        </p>
+                        {nextSession && (
+                          <p className="text-xs text-navy-600 mt-1">
+                            Next: Session {nextSession.sessionNumber} — {nextSession.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </p>
+                        )}
                       </div>
-                      <span className="capitalize text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
-                        {e.status as string}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`capitalize text-xs px-2 py-0.5 rounded-full font-medium ${
+                          (e.status as string) === 'active' ? 'bg-success-light text-success' : 'bg-gold-100 text-gold-600'
+                        }`}>
+                          {e.status as string}
+                        </span>
+                        {(e as Record<string, unknown>).payment_status === 'paid' && (
+                          <span className="text-xs bg-navy-100 text-navy-700 px-2 py-0.5 rounded-full font-medium">
+                            Paid
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    {perf && perf.totalSessions > 0 && (
-                      <div className="flex gap-4 mt-2 text-xs text-gray-500">
-                        <span>Attendance: <span className="font-medium text-gray-700">{perf.attended}/{perf.totalSessions}</span></span>
-                        <span>Homework: <span className="font-medium text-gray-700">{perf.hwDone}/{perf.totalSessions}</span></span>
+                    {/* Alerts — grouped together */}
+                    {((e as Record<string, unknown>).payment_status === 'unpaid' || (!!(cls as Record<string, unknown>)?.google_classroom_id && !(e as Record<string, unknown>).classroom_joined && !s.classroomJoinedSet.has(enrollmentId))) && (
+                      <div className="mt-2 space-y-1.5">
+                        {(e as Record<string, unknown>).payment_status === 'unpaid' && (
+                          <div className={`rounded px-3 py-2 flex items-center justify-between ${
+                            (() => {
+                              const deadline = (e as Record<string, unknown>).payment_deadline as string | null;
+                              if (!deadline) return 'bg-yellow-50 border border-yellow-200';
+                              const daysLeft = Math.ceil((new Date(deadline + 'T00:00:00').getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                              return daysLeft <= 3 ? 'bg-error-light border border-red-200' : 'bg-yellow-50 border border-yellow-200';
+                            })()
+                          }`}>
+                            <p className={`text-xs font-medium ${
+                              (() => {
+                                const deadline = (e as Record<string, unknown>).payment_deadline as string | null;
+                                if (!deadline) return 'text-yellow-800';
+                                const daysLeft = Math.ceil((new Date(deadline + 'T00:00:00').getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                                return daysLeft <= 3 ? 'text-red-800' : 'text-yellow-800';
+                              })()
+                            }`}>
+                              Payment due by {(e as Record<string, unknown>).payment_deadline
+                                ? new Date((e as Record<string, unknown>).payment_deadline + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                                : 'TBD'}
+                            </p>
+                            <PayNowButton enrollmentId={enrollmentId} />
+                          </div>
+                        )}
+                        {!!(cls as Record<string, unknown>)?.google_classroom_id && !(e as Record<string, unknown>).classroom_joined && !s.classroomJoinedSet.has(enrollmentId) && (
+                          <div className="rounded border border-yellow-300 bg-yellow-50 px-3 py-2 text-xs text-yellow-800">
+                            <strong>Reminder:</strong> {s.full_name} has not yet joined the Google Classroom for this class.
+                          </div>
+                        )}
                       </div>
                     )}
+                    {sessions.length > 0 && (() => {
+                      // Build unified session cards with performance data
+                      const cards: SessionPerfCard[] = [];
+
+                      for (const sess of sessions) {
+                        const d = sess.date;
+                        const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        const isNext = nextSession?.sessionNumber === sess.sessionNumber;
+                        const cancellation = enrollCancellations.find(
+                          (c) => (c.session_number as number) === sess.sessionNumber
+                        );
+                        const isCancelled = cancellation && ((cancellation.status as string) === 'cancelled');
+                        const isAbsent = cancellation && (cancellation.status as string) === 'absent';
+                        const hasBookedMakeup = cancellation && (cancellation as Record<string, unknown>)._makeup && ((cancellation as Record<string, unknown>)._makeup as Record<string, unknown>)?.status === 'booked';
+
+                        // Look up performance for this session's class + session number
+                        const perf = s.perfMap.get(`${sess.classId}-${sess.sessionNumber}`);
+
+                        cards.push({
+                          key: `s-${sess.sessionNumber}`,
+                          sessionNumber: sess.sessionNumber,
+                          dateLabel: label,
+                          dateStr: sess.dateStr,
+                          isPast: sess.isPast,
+                          isNext,
+                          status: isCancelled || hasBookedMakeup ? 'cancelled' : isAbsent ? 'absent' : 'normal',
+                          attendance: perf?.attendance,
+                          homeworkCompleted: perf?.homework_completed,
+                        });
+                      }
+
+                      // Add makeup session cards with their performance
+                      for (const c of enrollCancellations) {
+                        const makeup = (c as Record<string, unknown>)._makeup as Record<string, unknown> | null;
+                        if (makeup && (makeup.status === 'booked' || makeup.status === 'attended')) {
+                          const makeupDateStr = makeup.session_date as string;
+                          const makeupDate = new Date(makeupDateStr + 'T00:00:00');
+                          const makeupLabel = makeupDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                          // Look up perf for makeup: class_id = host_class_id, session_number = makeup's session_number
+                          const makeupPerf = s.perfMap.get(`${makeup.host_class_id}-${makeup.session_number}`);
+
+                          cards.push({
+                            key: `makeup-${c.id}`,
+                            sessionNumber: c.session_number as number,
+                            dateLabel: makeupLabel,
+                            dateStr: makeupDateStr,
+                            isPast: makeupDate < new Date(),
+                            isNext: false,
+                            status: 'makeup',
+                            attendance: makeupPerf?.attendance,
+                            homeworkCompleted: makeupPerf?.homework_completed,
+                          });
+                        }
+                      }
+
+                      cards.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+
+                      return (
+                        <div className="mt-2">
+                          <SessionPerformance sessions={cards} />
+                        </div>
+                      );
+                    })()}
                     {enrollCancellations.length > 0 && (
                       <div className="mt-2 border-t border-gray-200 pt-2 space-y-1.5">
                         {enrollCancellations.map((c) => {
                           const origClass = (c as Record<string, unknown>)._originalClass as { meeting_day: string; meeting_time: string } | null;
                           const makeup = (c as Record<string, unknown>)._makeup as Record<string, unknown> | null;
-                          const makeupClass = (c as Record<string, unknown>)._makeupClass as { meeting_day: string; meeting_time: string } | null;
-                          const makeupSession = (c as Record<string, unknown>)._makeupSession as { session_date: string; session_time: string; location: string | null } | null;
+                          const makeupClass = (c as Record<string, unknown>)._makeupClass as { meeting_day: string; meeting_time: string; google_meet_link: string | null } | null;
 
                           return (
-                            <div key={c.id as string} className="text-xs">
-                              <div className="flex items-center gap-1.5 flex-wrap">
+                            <div key={c.id as string} className="flex items-center justify-between text-xs py-1">
+                              <div className="flex items-center gap-1.5">
                                 <span className="text-red-500">&#10005;</span>
-                                <span className="text-gray-600">
+                                <span className="text-slate-600">
                                   Session {c.session_number as number} — {c.session_date as string}
-                                  {origClass ? ` (${origClass.meeting_day} ${origClass.meeting_time})` : ''}
+                                  {origClass ? ` (${origClass.meeting_day} ${formatTime(origClass.meeting_time)})` : ''}
                                 </span>
-                                {makeup ? (
-                                  <>
-                                    <span className="text-gray-400">→</span>
-                                    {makeupSession ? (
-                                      <span className="text-blue-600">
-                                        Makeup: {makeupSession.session_date} at {makeupSession.session_time}
-                                        {makeupSession.location ? ` (${makeupSession.location})` : ''}
-                                      </span>
-                                    ) : (
-                                      <span className="text-blue-600">
-                                        Makeup: {makeupClass?.meeting_day || ''} at {makeupClass?.meeting_time || ''} ({makeup.session_date as string})
-                                      </span>
-                                    )}
-                                    {makeup.status === 'booked' && (
-                                      <CancelMakeupButton bookingId={makeup.id as string} />
-                                    )}
-                                  </>
-                                ) : c.status === 'credit_issued' ? (
-                                  <span className="text-green-600 ml-1">— credit issued</span>
-                                ) : c.status === 'cancelled' && ['small', 'medium', 'large'].includes(c.group_size_type as string) ? (
-                                  <>
-                                    <span className="text-gray-400">—</span>
-                                    <Link
-                                      href={`/parent/cancel-session/alternate?cancellation_id=${c.id}`}
-                                      className="text-blue-600 hover:underline"
-                                    >
-                                      {['small', 'medium'].includes(c.group_size_type as string) ? 'Find Makeup' : 'Find Alternate'}
-                                    </Link>
-                                  </>
-                                ) : c.status === 'cancelled' ? (
-                                  <span className="text-amber-600 ml-1">— awaiting reschedule</span>
-                                ) : null}
+                                {makeup && (
+                                  <span className="text-blue-600">
+                                    → Makeup {makeupClass?.meeting_day || ''} {formatTime(makeupClass?.meeting_time)} ({makeup.session_date as string})
+                                  </span>
+                                )}
+                                {!makeup && c.status === 'absent' && (
+                                  <span className="text-amber-600">— Absent</span>
+                                )}
+                                {!makeup && c.status === 'expired' && (
+                                  <span className="text-slate-400">— Expired</span>
+                                )}
+                              </div>
+                              {/* Action button group */}
+                              <div className="flex items-center gap-1.5 shrink-0 ml-3">
+                                {makeup && makeup.status === 'booked' && (
+                                  <CancelMakeupButton bookingId={makeup.id as string} />
+                                )}
+                                {!makeup && c.status === 'absent' && (
+                                  <ExcuseNoteForm
+                                    cancellationId={c.id as string}
+                                    deadline={new Date(new Date(c.session_date as string).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()}
+                                    submitAction={submitExcuseNote}
+                                  />
+                                )}
+                                {!makeup && c.status === 'cancelled' && (
+                                  <Link
+                                    href={`/parent/cancel-session/alternate?cancellation_id=${c.id}`}
+                                    className="inline-flex items-center rounded-md border border-navy-200 px-3 py-1 text-[11px] font-medium text-navy-700 hover:bg-navy-50"
+                                  >
+                                    {['one_on_one', 'small'].includes(c.group_size_type as string) ? 'Find Makeup' : 'Find Alternate'}
+                                  </Link>
+                                )}
                               </div>
                             </div>
                           );
@@ -477,28 +973,72 @@ export default async function ParentDashboard() {
 
             {s.waitlist.length > 0 && (
               <div className="mt-4">
-                <h3 className="text-sm font-semibold text-gray-500 mb-2">Enrollment Waitlist</h3>
+                <h3 className="text-xs font-bold text-gold-600 uppercase tracking-widest mb-2">Enrollment Waitlist</h3>
                 <div className="space-y-2">
                   {s.waitlist.map((w) => {
-                    const wCls = w.classes as Record<string, unknown>;
-                    const wCourse = wCls?.courses as Record<string, string> | Record<string, string>[];
-                    const courseObj = Array.isArray(wCourse) ? wCourse[0] : wCourse;
+                    const wCls = w.class_id ? s.wlClassMap[w.class_id as string] : null;
+                    const hasOffer = w.status === 'notified' && !!w.offer_expires_at;
+                    const prefIds = (w.preferred_class_ids as string[] | null) || [];
+                    const isSgEntry = !w.class_id && prefIds.length > 0;
+                    const firstPrefInfo = prefIds.length > 0 ? s.preferredClassMap[prefIds[0]] : null;
+                    const gsLabel = isSgEntry
+                      ? (firstPrefInfo?.group_size_type === 'one_on_one' ? '1:1' : 'Small Group')
+                      : '';
                     return (
-                      <div key={w.id as string} className="flex justify-between items-center bg-amber-50 rounded px-4 py-2 text-sm">
-                        <div>
-                          <span className="font-medium">{courseObj?.name || 'Course'}</span>
-                          <span className="text-gray-500 ml-2">
-                            {(wCls?.meeting_day as string) || ''} {(wCls?.meeting_time as string) || ''}
+                      <div key={w.id as string} className={`rounded px-4 py-2 text-sm ${hasOffer ? 'bg-success-light border border-green-200' : 'bg-amber-50'}`}>
+                        <div className="flex justify-between items-center">
+                          <div>
+                            {isSgEntry ? (
+                              <span className="font-medium">{gsLabel || 'Small Group'} Waitlist</span>
+                            ) : (
+                              <>
+                                <span className="font-medium">{(wCls?.name as string) || 'Class'}</span>
+                                <span className="text-slate-500 ml-2">
+                                  {(wCls?.meeting_day as string) || ''} {formatTime(wCls?.meeting_time as string)}
+                                </span>
+                              </>
+                            )}
+                            <span className="text-slate-400 ml-2 text-xs">{new Date(w.created_at as string).toLocaleDateString()}</span>
+                          </div>
+                          <span className={`capitalize text-xs px-2 py-0.5 rounded ${
+                            hasOffer
+                              ? 'bg-green-100 text-green-800'
+                              : w.status === 'notified'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {hasOffer ? 'spot available' : (w.status as string) === 'notified' ? 'notified' : 'waiting'}
                           </span>
-                          <span className="text-gray-400 ml-2 text-xs">{new Date(w.created_at as string).toLocaleDateString()}</span>
                         </div>
-                        <span className={`capitalize text-xs px-2 py-0.5 rounded ${
-                          w.status === 'notified'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-amber-100 text-amber-800'
-                        }`}>
-                          {(w.status as string) === 'notified' ? 'notified' : 'waiting'}
-                        </span>
+                        {isSgEntry && prefIds.length > 0 && (
+                          <div className="mt-1 text-xs text-slate-500">
+                            Preferred slots:{' '}
+                            {prefIds.map((pid, i) => {
+                              const pc = s.preferredClassMap[pid];
+                              return pc ? `${pc.meeting_day} ${formatTime(pc.meeting_time)}` : 'Unknown';
+                            }).join(', ')}
+                          </div>
+                        )}
+                        {hasOffer && (
+                          <div className="mt-2 flex items-center gap-3">
+                            <a
+                              href={`/enroll/waitlist-offer/${w.id as string}`}
+                              className="text-sm font-medium text-green-700 underline hover:text-green-900"
+                            >
+                              Accept by {new Date(w.offer_expires_at as string).toLocaleDateString()}
+                            </a>
+                          </div>
+                        )}
+                        <div className="mt-1 flex items-center gap-2">
+                          <LeaveWaitlistButton waitlistId={w.id as string} />
+                          {isSgEntry && w.status === 'waiting' && s.allSlotsForWaitlist[w.id as string] && (
+                            <EditPreferredSlotsForm
+                              waitlistId={w.id as string}
+                              currentSlotIds={prefIds}
+                              availableSlots={s.allSlotsForWaitlist[w.id as string]}
+                            />
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -508,7 +1048,7 @@ export default async function ParentDashboard() {
 
             {s.makeupWaitlist.length > 0 && (
               <div className="mt-4">
-                <h3 className="text-sm font-semibold text-gray-500 mb-2">Makeup Waitlist</h3>
+                <h3 className="text-xs font-bold text-gold-600 uppercase tracking-widest mb-2">Makeup Waitlist</h3>
                 <div className="space-y-2">
                   {s.makeupWaitlist.map((mw) => {
                     const mwCls = mw.classes as Record<string, unknown> | Record<string, unknown>[];
@@ -519,10 +1059,10 @@ export default async function ParentDashboard() {
                           <span className="font-medium">
                             Session {mw.session_number as number}
                           </span>
-                          <span className="text-gray-500 ml-2">
-                            {(classInfo?.meeting_day as string) || ''} {(classInfo?.meeting_time as string) || ''}
+                          <span className="text-slate-500 ml-2">
+                            {(classInfo?.meeting_day as string) || ''} {formatTime(classInfo?.meeting_time as string)}
                           </span>
-                          <span className="text-gray-400 ml-2 text-xs">
+                          <span className="text-slate-400 ml-2 text-xs">
                             {mw.session_date as string}
                           </span>
                         </div>
@@ -535,8 +1075,64 @@ export default async function ParentDashboard() {
                 </div>
               </div>
             )}
+            </div>
           </div>
         ))}
+        </StudentTabs>
+        </div>
+        </DashboardViewToggle>
+      )}
+
+      {/* Messages */}
+      <div className="mt-8 rounded-xl border border-slate-200 bg-white overflow-hidden">
+        <div className="bg-white px-6 py-3 border-b border-slate-200">
+          <h2 className="text-base font-semibold text-navy-900">Message Your Tutor</h2>
+        </div>
+        <div className="p-6">
+        {tutorId ? (
+          <>
+            {recentMessages && recentMessages.length > 0 && (
+              <div className="mb-4 max-h-72 overflow-y-auto space-y-3 flex flex-col-reverse">
+                <div className="space-y-3">
+                  {recentMessages.map((msg) => {
+                    const isMine = msg.from_user_id === user.id;
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${
+                          isMine
+                            ? 'bg-navy-900 text-white rounded-br-md'
+                            : 'bg-slate-100 text-navy-900 rounded-bl-md'
+                        }`}>
+                          <p>{msg.body}</p>
+                          <div className={`flex items-center gap-2 mt-1 text-[11px] ${isMine ? 'text-navy-400' : 'text-slate-400'}`}>
+                            <span>{isMine ? 'You' : tutorName}</span>
+                            <span>&middot;</span>
+                            <span>{(() => {
+                              const diff = Date.now() - new Date(msg.created_at).getTime();
+                              const mins = Math.floor(diff / 60000);
+                              if (mins < 60) return `${mins}m ago`;
+                              const hrs = Math.floor(mins / 60);
+                              if (hrs < 24) return `${hrs}h ago`;
+                              return `${Math.floor(hrs / 24)}d ago`;
+                            })()}</span>
+                            {isMine && <DeleteMessageButton messageId={msg.id} />}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <MessageForm tutorId={tutorId} />
+          </>
+        ) : (
+          <p className="text-sm text-slate-400">No tutor available for messaging.</p>
+        )}
+        </div>
       </div>
     </div>
   );

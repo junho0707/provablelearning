@@ -32,12 +32,15 @@ export default async function StudentReschedulePage({
   }
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-2">Reschedule Session</h1>
-      <p className="text-gray-500 mb-6">
-        Pick a new time for your 1:1 session within the next 2 weeks.
-      </p>
-      <RescheduleWidget cancellationId={cancellationId} />
+    <div className="space-y-6">
+      <div>
+        <h1 className="mb-2 text-3xl font-bold tracking-tight text-navy-900">Reschedule Session</h1>
+        <p className="text-slate-500">Pick a new time for your 1:1 session within the next 2 weeks.</p>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
+        <RescheduleWidget cancellationId={cancellationId} />
+      </div>
     </div>
   );
 }

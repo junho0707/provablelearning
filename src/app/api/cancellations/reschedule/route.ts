@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   // Verify cancellation ownership and eligibility
   const { data: cancellation, error: fetchError } = await supabase
     .from('session_cancellations')
-    .select('id, student_id, group_size_type, status, course_id, session_number')
+    .select('id, student_id, group_size_type, status, class_id, session_number')
     .eq('id', cancellationId)
     .single();
 

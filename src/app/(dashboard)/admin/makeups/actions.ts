@@ -35,7 +35,7 @@ export async function reviewMakeupRequest(params: {
     metadata_json: {
       original_log_id: params.logId,
       student_id: metadata.student_id,
-      course_id: metadata.course_id,
+      class_id: metadata.class_id,
       session_number: metadata.session_number,
       decision: params.decision,
       admin_note: params.adminNote || null,

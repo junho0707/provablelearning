@@ -1,9 +1,7 @@
 import Stripe from 'stripe';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { autoEnrollFromWaitlist } from '@/lib/waitlist/auto-enroll';
-import { createClassEvent } from '@/lib/google/calendar';
+import { dispatchWaitlistAutoEnroll } from '@/lib/waitlist/auto-enroll';
 import { inviteStudentToClassroom } from '@/lib/google/classroom';
-import { COURSE_DURATION_WEEKS } from '@/lib/constants';
 
 export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const supabase = createAdminClient();
@@ -14,14 +12,21 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
     return;
   }
 
-  // Activate enrollment — match on enrollment_id + stripe_session_id + pending status
-  // Triple-match prevents replay attacks and ensures idempotency
+  // ACH / bank transfers: checkout.session.completed fires with payment_status 'unpaid'.
+  // Don't activate yet — wait for checkout.session.async_payment_succeeded.
+  if (session.payment_status === 'unpaid') {
+    console.log('ACH payment pending for enrollment', enrollmentId);
+    return;
+  }
+
+  // Activate enrollment — match on enrollment_id + stripe_session_id
+  // Supports both pay-now (pending→active) and deferred payment (active+unpaid→active+paid)
   const { data: updated, error } = await supabase
     .from('enrollments')
-    .update({ status: 'active' })
+    .update({ status: 'active', payment_status: 'paid', payment_deadline: null })
     .eq('id', enrollmentId)
     .eq('stripe_session_id', session.id)
-    .eq('status', 'pending')
+    .in('status', ['pending', 'active'])
     .select('id')
     .maybeSingle();
 
@@ -33,20 +38,22 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
     return;
   }
 
-  // --- Post-enrollment Google integrations (best-effort, don't fail the webhook) ---
+  // --- Post-enrollment Google integrations (best-effort) ---
   try {
     const { data: enrollment } = await supabase
       .from('enrollments')
-      .select('student_id, class_id, course_id')
+      .select('student_id, class_id, slot_1_class_id, slot_2_class_id, student_start_date')
       .eq('id', enrollmentId)
       .single();
 
     if (enrollment) {
-      // Get class, course, student, and parent info
-      const [{ data: cls }, { data: course }, { data: student }] = await Promise.all([
-        supabase.from('classes').select('meeting_day, meeting_time, google_meet_link, google_classroom_id').eq('id', enrollment.class_id).single(),
-        supabase.from('courses').select('name, subject, level, start_date').eq('id', enrollment.course_id).single(),
-        supabase.from('students').select('user_id, parent_id').eq('id', enrollment.student_id).single(),
+      const slot1Id = enrollment.slot_1_class_id || enrollment.class_id;
+      const slot2Id = enrollment.slot_2_class_id;
+
+      // Get class info and student/parent info
+      const [{ data: slot1Class }, { data: student }] = await Promise.all([
+        supabase.from('classes').select('name, subject, level, meeting_day, meeting_time, meeting_day_2, meeting_time_2, group_size_type, google_classroom_id, google_classroom_enrollment_code, class_start_date').eq('id', slot1Id).single(),
+        supabase.from('students').select('user_id, parent_id, email').eq('id', enrollment.student_id).single(),
       ]);
 
       // Get parent email for calendar invite
@@ -55,35 +62,79 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
         ? (await supabase.auth.admin.getUserById(parentId)).data?.user?.email
         : null;
 
-      // Get student email for classroom invite
-      const studentEmail = student?.user_id
+      const studentEmail = student?.email || (student?.user_id
         ? (await supabase.auth.admin.getUserById(student.user_id)).data?.user?.email
-        : null;
+        : null);
 
-      // 1) Google Calendar invite to parent
-      if (parentEmail && cls && course) {
-        await createClassEvent({
-          summary: `${course.name} — ${course.subject.replace('_', ' ')} (${course.level})`,
-          startDate: course.start_date,
-          meetingDay: cls.meeting_day,
-          meetingTime: cls.meeting_time,
-          weeksCount: COURSE_DURATION_WEEKS,
-          attendeeEmail: parentEmail,
-          meetLink: cls.google_meet_link,
-        }).catch((err) => console.error('Calendar invite failed:', err));
+      const startDate = enrollment.student_start_date || slot1Class?.class_start_date;
+      const calendarEmail = parentEmail || studentEmail;
+
+      // LG calendar blocks are already created when admin creates the class — no per-student invite needed
+
+      // 2) Google Classroom invite for slot 2 (if dual-slot SG)
+      if (slot2Id && studentEmail) {
+        const { data: slot2Class } = await supabase
+          .from('classes')
+          .select('google_classroom_id, google_classroom_enrollment_code')
+          .eq('id', slot2Id)
+          .single();
+
+        if (slot2Class?.google_classroom_id) {
+          const result = await inviteStudentToClassroom({
+            classroomId: slot2Class.google_classroom_id,
+            studentEmail,
+            enrollmentCode: slot2Class.google_classroom_enrollment_code,
+          });
+          if (result.success && !result.selfJoinRequired) {
+            // classroom_joined tracks slot 1 primarily
+          }
+        }
       }
 
-      // 2) Google Classroom invite for student
-      if (studentEmail && cls?.google_classroom_id) {
-        await inviteStudentToClassroom({
-          classroomId: cls.google_classroom_id,
+      // 3) Google Classroom invite for slot 1
+      if (studentEmail && slot1Class?.google_classroom_id) {
+        const classroomResult = await inviteStudentToClassroom({
+          classroomId: slot1Class.google_classroom_id,
           studentEmail,
-        }).catch((err) => console.error('Classroom invite failed:', err));
+          enrollmentCode: slot1Class.google_classroom_enrollment_code,
+        });
+        if (classroomResult.success && !classroomResult.selfJoinRequired) {
+          await supabase.from('enrollments').update({ classroom_joined: true }).eq('id', enrollmentId);
+        }
+        if (!classroomResult.success) {
+          console.error('Classroom invite failed:', classroomResult.error);
+        }
       }
     }
   } catch (err) {
-    // Log but don't fail the webhook
     console.error('Post-enrollment Google integrations error:', err);
+  }
+}
+
+export async function handleAsyncPaymentSucceeded(session: Stripe.Checkout.Session) {
+  // ACH bank transfer cleared — activate the enrollment.
+  // Re-use handleCheckoutCompleted by passing a session with payment_status 'paid'.
+  await handleCheckoutCompleted({ ...session, payment_status: 'paid' } as Stripe.Checkout.Session);
+}
+
+export async function handleAsyncPaymentFailed(session: Stripe.Checkout.Session) {
+  // ACH bank transfer failed — treat like an expired checkout (free the seat + reverse credits).
+  await handleCheckoutExpired(session);
+
+  // Also log for admin visibility
+  const supabase = createAdminClient();
+  const enrollmentId = session.metadata?.enrollment_id;
+  if (enrollmentId) {
+    await supabase.from('admin_logs').insert({
+      admin_id: '00000000-0000-0000-0000-000000000000',
+      action: 'ach_payment_failed',
+      metadata_json: {
+        enrollment_id: enrollmentId,
+        stripe_session_id: session.id,
+        student_id: session.metadata?.student_id,
+        class_id: session.metadata?.class_id,
+      },
+    });
   }
 }
 
@@ -93,18 +144,24 @@ export async function handleCheckoutExpired(session: Stripe.Checkout.Session) {
 
   if (!enrollmentId) return;
 
-  // Check if credits were applied to this enrollment and reverse them
   const { data: enrollment } = await supabase
     .from('enrollments')
-    .select('id, student_id, credits_applied, credits_group_size_type')
+    .select('id, student_id, status, payment_status, credits_applied, credits_group_size_type')
     .eq('id', enrollmentId)
-    .eq('status', 'pending')
     .single();
 
-  if (!enrollment) {
-    // Already deleted or activated — idempotent
+  if (!enrollment) return;
+
+  // Deferred payment expired: active + unpaid enrollment stays, just clear stripe_session_id
+  if (enrollment.status === 'active' && enrollment.payment_status === 'unpaid') {
+    await supabase
+      .from('enrollments')
+      .update({ stripe_session_id: null })
+      .eq('id', enrollmentId);
     return;
   }
+
+  if (enrollment.status !== 'pending') return;
 
   // Reverse credits if any were applied
   if (enrollment.credits_applied > 0 && enrollment.credits_group_size_type) {
@@ -116,43 +173,37 @@ export async function handleCheckoutExpired(session: Stripe.Checkout.Session) {
 
     if (reverseError) {
       console.error('Failed to reverse credits:', reverseError.message);
-      // Log for manual reconciliation but continue with enrollment cleanup
-      await supabase.from('admin_logs').insert({
-        admin_id: '00000000-0000-0000-0000-000000000000',
-        action: 'credit_reversal_failed',
-        metadata_json: {
-          enrollment_id: enrollmentId,
-          student_id: enrollment.student_id,
-          credits_applied: enrollment.credits_applied,
-          error: reverseError.message,
-        },
-      });
     }
   }
 
   // Delete pending enrollment to free the seat
-  const { error } = await supabase
+  const { data: deletedEnrollment } = await supabase
+    .from('enrollments')
+    .select('class_id, slot_1_class_id, slot_2_class_id')
+    .eq('id', enrollmentId)
+    .eq('status', 'pending')
+    .single();
+
+  await supabase
     .from('enrollments')
     .delete()
     .eq('id', enrollmentId)
     .eq('status', 'pending');
 
-  if (error) {
-    console.error('Failed to release seat:', error.message);
-    return;
-  }
+  // Notify next waitlisted student for both slots
+  if (deletedEnrollment) {
+    const classIds = [
+      deletedEnrollment.slot_1_class_id || deletedEnrollment.class_id,
+      deletedEnrollment.slot_2_class_id,
+    ].filter(Boolean) as string[];
 
-  // Notify next waitlisted student for this class
-  const classId = session.metadata?.class_id;
-  if (classId) {
-    await autoEnrollFromWaitlist(classId);
+    for (const cId of classIds) {
+      await dispatchWaitlistAutoEnroll(cId);
+    }
   }
 }
 
 export async function handlePaymentFailed(session: Stripe.Checkout.Session) {
-  // FIX #23: Handle payment failure — log it for admin visibility
-  // The enrollment stays pending; Stripe session will eventually expire
-  // and handleCheckoutExpired will clean up
   const supabase = createAdminClient();
   const enrollmentId = session.metadata?.enrollment_id;
 
@@ -174,7 +225,6 @@ export async function reconcileStripePayments() {
   const supabase = createAdminClient();
   const { stripe } = await import('./client');
 
-  // Find active enrollments with stripe_session_ids
   const { data: enrollments } = await supabase
     .from('enrollments')
     .select('id, stripe_session_id, status')
@@ -187,10 +237,7 @@ export async function reconcileStripePayments() {
 
   for (const enrollment of enrollments) {
     try {
-      const session = await stripe.checkout.sessions.retrieve(
-        enrollment.stripe_session_id!
-      );
-
+      const session = await stripe.checkout.sessions.retrieve(enrollment.stripe_session_id!);
       if (session.payment_status !== 'paid') {
         mismatches++;
         await supabase.from('admin_logs').insert({
@@ -204,16 +251,15 @@ export async function reconcileStripePayments() {
           },
         });
       }
-    } catch (err) {
+    } catch {
       mismatches++;
     }
   }
 
-  // Check pending enrollments WITH stripe_session_id where Stripe session may have expired
-  // (webhook never arrived — belt-and-suspenders cleanup)
+  // Check stale pending enrollments
   const { data: pendingWithStripe } = await supabase
     .from('enrollments')
-    .select('id, stripe_session_id, student_id, class_id, credits_applied, credits_group_size_type')
+    .select('id, stripe_session_id, student_id, class_id, slot_1_class_id, slot_2_class_id, credits_applied, credits_group_size_type')
     .eq('status', 'pending')
     .not('stripe_session_id', 'is', null)
     .lt('created_at', new Date(Date.now() - 30 * 60 * 1000).toISOString());
@@ -224,7 +270,6 @@ export async function reconcileStripePayments() {
         const session = await stripe.checkout.sessions.retrieve(pending.stripe_session_id!);
 
         if (session.status === 'expired') {
-          // Stripe session expired but webhook never arrived — clean up
           if (pending.credits_applied > 0 && pending.credits_group_size_type) {
             await supabase.rpc('reverse_credits', {
               p_student_id: pending.student_id,
@@ -239,37 +284,53 @@ export async function reconcileStripePayments() {
             .eq('id', pending.id)
             .eq('status', 'pending');
 
-          if (pending.class_id) {
-            await autoEnrollFromWaitlist(pending.class_id);
+          const classIds = [
+            pending.slot_1_class_id || pending.class_id,
+            pending.slot_2_class_id,
+          ].filter(Boolean) as string[];
+
+          for (const cId of classIds) {
+            await dispatchWaitlistAutoEnroll(cId);
           }
 
           mismatches++;
-          await supabase.from('admin_logs').insert({
-            admin_id: '00000000-0000-0000-0000-000000000000',
-            action: 'reconciliation_expired_pending_cleaned',
-            metadata_json: {
-              enrollment_id: pending.id,
-              stripe_session_id: pending.stripe_session_id,
-              credits_reversed: pending.credits_applied > 0,
-            },
-          });
         } else if (session.payment_status === 'paid') {
-          // Payment succeeded but webhook never arrived — activate
           await supabase
             .from('enrollments')
-            .update({ status: 'active' })
+            .update({ status: 'active', payment_status: 'paid', payment_deadline: null })
             .eq('id', pending.id)
-            .eq('status', 'pending');
+            .in('status', ['pending', 'active']);
+
+          // Invite to Google Classroom (best-effort)
+          const slot1Id = pending.slot_1_class_id || pending.class_id;
+          if (slot1Id && pending.student_id) {
+            try {
+              const [{ data: cls }, { data: student }] = await Promise.all([
+                supabase.from('classes').select('google_classroom_id, google_classroom_enrollment_code').eq('id', slot1Id).single(),
+                supabase.from('students').select('user_id, email').eq('id', pending.student_id).single(),
+              ]);
+
+              if (cls?.google_classroom_id) {
+                const studentEmail = student?.email || (student?.user_id
+                  ? (await supabase.auth.admin.getUserById(student.user_id)).data?.user?.email
+                  : null);
+                if (studentEmail) {
+                  const classroomResult = await inviteStudentToClassroom({
+                    classroomId: cls.google_classroom_id,
+                    studentEmail,
+                    enrollmentCode: cls.google_classroom_enrollment_code,
+                  });
+                  if (classroomResult.success && !classroomResult.selfJoinRequired) {
+                    await supabase.from('enrollments').update({ classroom_joined: true }).eq('id', pending.id);
+                  }
+                }
+              }
+            } catch {
+              // Non-critical
+            }
+          }
 
           mismatches++;
-          await supabase.from('admin_logs').insert({
-            admin_id: '00000000-0000-0000-0000-000000000000',
-            action: 'reconciliation_paid_pending_activated',
-            metadata_json: {
-              enrollment_id: pending.id,
-              stripe_session_id: pending.stripe_session_id,
-            },
-          });
         }
       } catch {
         mismatches++;
@@ -277,7 +338,7 @@ export async function reconcileStripePayments() {
     }
   }
 
-  // Also check for pending enrollments without stripe_session_id (orphaned)
+  // Orphaned pending enrollments
   const { data: orphaned } = await supabase
     .from('enrollments')
     .select('id, created_at')

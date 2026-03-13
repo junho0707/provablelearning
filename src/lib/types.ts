@@ -1,10 +1,10 @@
 export type UserRole = 'parent' | 'student' | 'admin';
 
-export type GroupSizeType = 'one_on_one' | 'small' | 'medium' | 'large';
+export type GroupSizeType = 'one_on_one' | 'small' | 'large';
 
 export type EnrollmentStatus = 'pending' | 'active' | 'completed' | 'refunded' | 'canceled';
 
-export type CancellationStatus = 'cancelled' | 'rescheduled' | 'credit_issued' | 'expired';
+export type CancellationStatus = 'cancelled' | 'rescheduled' | 'expired' | 'absent';
 
 export type MakeupBookingStatus = 'booked' | 'attended' | 'no_show' | 'cancelled';
 
@@ -12,9 +12,11 @@ export type WaitlistStatus = 'waiting' | 'notified' | 'expired' | 'converted';
 
 export type MakeupWaitlistStatus = 'waiting' | 'notified' | 'expired' | 'booked';
 
-export type Subject = 'digital_rw' | 'digital_math';
+export type Subject = 'digital_rw' | 'digital_math' | 'digital_rw_math';
 
-export type CourseLevel = 'essentials' | 'advanced';
+export type CourseLevel = 'essentials' | 'advanced' | 'all_levels';
+
+export type SubjectCategory = 'dsat_rw' | 'dsat_math' | 'dsat_rw_math' | 'general_math';
 
 export type StudentActiveStatus = 'active' | 'inactive';
 
@@ -37,38 +39,48 @@ export interface Student {
   created_at: string;
 }
 
-export interface Course {
-  id: string;
-  subject: Subject;
-  level: CourseLevel;
-  name: string;
-  start_date: string;
-  end_date: string;
-  max_reenroll: number;
-  created_at: string;
-}
-
 export interface Class {
   id: string;
-  course_id: string;
+  name: string;
+  subject: Subject | null;
+  level: CourseLevel | null;
+  class_start_date: string | null;
+  class_end_date: string | null;
   group_size_type: GroupSizeType;
   capacity: number;
   meeting_day: string;
   meeting_time: string;
+  meeting_day_2: string | null;
+  meeting_time_2: string | null;
   google_meet_link: string | null;
+  google_classroom_id: string | null;
+  enrollment_window_start: string | null;
+  enrollment_window_end: string | null;
   active: boolean;
   created_at: string;
 }
+
+export type PaymentStatus = 'paid' | 'unpaid';
 
 export interface Enrollment {
   id: string;
   student_id: string;
   class_id: string;
-  course_id: string;
+  slot_1_class_id: string | null;
+  slot_2_class_id: string | null;
+  slot_3_class_id: string | null;
+  student_start_date: string | null;
+  student_end_date: string | null;
   stripe_session_id: string | null;
   status: EnrollmentStatus;
+  payment_status: PaymentStatus;
+  payment_deadline: string | null;
+  group_size_blocked: boolean;
   agreement_version: string | null;
   agreement_timestamp: string | null;
+  subject_category: SubjectCategory | null;
+  subject_detail: string | null;
+  slots_per_week: number | null;
   created_at: string;
 }
 
@@ -84,7 +96,7 @@ export interface WaitlistEntry {
 export interface PerformanceLog {
   id: string;
   student_id: string;
-  course_id: string;
+  class_id: string;
   week_number: number;
   session_number: number;
   attendance: boolean;
@@ -100,6 +112,8 @@ export interface Credit {
   amount: number;
   remaining_amount: number;
   reason: string;
+  subject: Subject | null;
+  level: CourseLevel | null;
   expires_at: string | null;
   created_at: string;
 }
@@ -153,10 +167,11 @@ export interface RefundRequest {
 
 export interface MakeupBooking {
   id: string;
-  cancellation_id: string;
+  cancellation_id: string | null;
+  credit_id: string | null;
   student_id: string;
-  host_class_id: string;
-  host_course_id: string;
+  host_class_id: string | null;
+  enrollment_id: string | null;
   session_number: number;
   session_date: string;
   status: MakeupBookingStatus;

@@ -62,9 +62,10 @@ $$;
 -- for pending/active enrollments only
 -- ============================================================
 ALTER TABLE public.enrollments DROP CONSTRAINT IF EXISTS uq_student_module;
--- Use course_id (renamed from module_id in migration 00032)
-CREATE UNIQUE INDEX IF NOT EXISTS uq_student_course_active
-  ON public.enrollments (student_id, course_id)
+-- Index uq_student_module_active already exists from 00006, recreate to ensure correct definition
+DROP INDEX IF EXISTS uq_student_module_active;
+CREATE UNIQUE INDEX uq_student_module_active
+  ON public.enrollments (student_id, module_id)
   WHERE status IN ('pending', 'active');
 
 -- ============================================================
@@ -76,8 +77,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_student_course_active
 -- ============================================================
 CREATE OR REPLACE FUNCTION reserve_seat(
   p_student_id UUID,
-  p_class_id UUID,
-  p_course_id UUID,
+  p_cohort_id UUID,
+  p_module_id UUID,
   p_agreement_version TEXT,
   p_agreement_timestamp TIMESTAMPTZ
 )
@@ -90,41 +91,41 @@ DECLARE
   v_capacity INTEGER;
   v_current_count INTEGER;
   v_enrollment_id UUID;
-  v_course_start DATE;
+  v_module_start DATE;
   v_max_reenroll INTEGER;
   v_reenroll_count INTEGER;
-  v_class_course_id UUID;
-  v_class_active BOOLEAN;
+  v_cohort_module_id UUID;
+  v_cohort_active BOOLEAN;
 BEGIN
   -- 0. Validate agreement fields
   IF p_agreement_version IS NULL OR p_agreement_timestamp IS NULL THEN
     RAISE EXCEPTION 'Agreement must be signed before enrollment';
   END IF;
 
-  -- 1. Lock the class row to prevent concurrent modifications
-  SELECT c.capacity, c.course_id, c.active, cr.start_date, cr.max_reenroll
-  INTO v_capacity, v_class_course_id, v_class_active, v_course_start, v_max_reenroll
-  FROM classes c
-  JOIN courses cr ON cr.id = c.course_id
-  WHERE c.id = p_class_id
+  -- 1. Lock the cohort row to prevent concurrent modifications
+  SELECT c.capacity, c.module_id, c.active, m.start_date, m.max_reenroll
+  INTO v_capacity, v_cohort_module_id, v_cohort_active, v_module_start, v_max_reenroll
+  FROM cohorts c
+  JOIN modules m ON m.id = c.module_id
+  WHERE c.id = p_cohort_id
   FOR UPDATE OF c;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Class not found';
   END IF;
 
-  -- 1a. Validate class belongs to the specified course
-  IF v_class_course_id != p_course_id THEN
+  -- 1a. Validate cohort belongs to the specified module
+  IF v_cohort_module_id != p_module_id THEN
     RAISE EXCEPTION 'Class does not belong to the specified course';
   END IF;
 
-  -- 1b. Check class is active
-  IF NOT v_class_active THEN
+  -- 1b. Check cohort is active
+  IF NOT v_cohort_active THEN
     RAISE EXCEPTION 'Class is not active';
   END IF;
 
-  -- 2. Check course hasn't started
-  IF v_course_start <= CURRENT_DATE THEN
+  -- 2. Check module hasn't started
+  IF v_module_start <= CURRENT_DATE THEN
     RAISE EXCEPTION 'Cannot enroll: course has already started';
   END IF;
 
@@ -132,7 +133,7 @@ BEGIN
   SELECT COUNT(*)
   INTO v_current_count
   FROM enrollments
-  WHERE class_id = p_class_id
+  WHERE cohort_id = p_cohort_id
     AND status IN ('pending', 'active');
 
   -- 4. Check capacity
@@ -145,9 +146,9 @@ BEGIN
   INTO v_reenroll_count
   FROM enrollments e
   WHERE e.student_id = p_student_id
-    AND e.course_id IN (
-      SELECT id FROM courses WHERE subject = (
-        SELECT subject FROM courses WHERE id = p_course_id
+    AND e.module_id IN (
+      SELECT id FROM modules WHERE subject = (
+        SELECT subject FROM modules WHERE id = p_module_id
       )
     )
     AND e.status IN ('active', 'completed');
@@ -158,11 +159,11 @@ BEGIN
 
   -- 6. Insert enrollment with status = 'pending'
   INSERT INTO enrollments (
-    student_id, class_id, course_id,
+    student_id, cohort_id, module_id,
     status, agreement_version, agreement_timestamp
   )
   VALUES (
-    p_student_id, p_class_id, p_course_id,
+    p_student_id, p_cohort_id, p_module_id,
     'pending', p_agreement_version, p_agreement_timestamp
   )
   RETURNING id INTO v_enrollment_id;
@@ -323,9 +324,10 @@ $outer$;
 -- Allows re-joining after expiry
 -- ============================================================
 ALTER TABLE public.waitlist DROP CONSTRAINT IF EXISTS uq_waitlist_student_cohort;
--- Use class_id (renamed from cohort_id in migration 00032)
-CREATE UNIQUE INDEX IF NOT EXISTS uq_waitlist_student_class_active
-  ON public.waitlist (student_id, class_id)
+-- Index already exists from 00007, this is a no-op
+DROP INDEX IF EXISTS uq_waitlist_student_cohort_active;
+CREATE UNIQUE INDEX uq_waitlist_student_cohort_active
+  ON public.waitlist (student_id, cohort_id)
   WHERE status IN ('waiting', 'notified');
 
 -- ============================================================

@@ -3,7 +3,8 @@ import { stripe } from '@/lib/stripe/client';
 import {
   handleCheckoutCompleted,
   handleCheckoutExpired,
-  handlePaymentFailed,
+  handleAsyncPaymentSucceeded,
+  handleAsyncPaymentFailed,
 } from '@/lib/stripe/webhook-handlers';
 
 export async function POST(request: Request) {
@@ -36,8 +37,11 @@ export async function POST(request: Request) {
     case 'checkout.session.expired':
       await handleCheckoutExpired(event.data.object);
       break;
+    case 'checkout.session.async_payment_succeeded':
+      await handleAsyncPaymentSucceeded(event.data.object);
+      break;
     case 'checkout.session.async_payment_failed':
-      await handlePaymentFailed(event.data.object);
+      await handleAsyncPaymentFailed(event.data.object);
       break;
     default:
       // Unhandled event type

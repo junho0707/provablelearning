@@ -4,8 +4,7 @@ CREATE TABLE public.waitlist (
   cohort_id UUID NOT NULL REFERENCES public.cohorts(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   notified_at TIMESTAMPTZ,
-  status waitlist_status NOT NULL DEFAULT 'waiting',
-
+  status waitlist_status NOT NULL DEFAULT 'waiting'
 );
 
 -- Partial unique index: allows re-joining waitlist after expiry

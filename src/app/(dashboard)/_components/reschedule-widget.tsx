@@ -81,15 +81,15 @@ export function RescheduleWidget({ cancellationId }: Props) {
   }
 
   if (loading) {
-    return <div className="text-gray-500 py-8">Loading available times...</div>;
+    return <div className="text-slate-500 py-8">Loading available times...</div>;
   }
 
   if (step === 'done') {
     return (
-      <div className="text-center py-12 border rounded-lg">
+      <div className="text-center py-12 border border-slate-200 rounded-xl">
         <div className="text-4xl mb-4">&#10003;</div>
-        <h2 className="text-xl font-semibold mb-2">Session Rescheduled!</h2>
-        <p className="text-gray-600 mb-1">
+        <h2 className="text-xl font-semibold text-navy-900 mb-2">Session Rescheduled!</h2>
+        <p className="text-slate-600 mb-1">
           {new Date(selectedSlot).toLocaleDateString('en-US', {
             weekday: 'long',
             month: 'long',
@@ -101,7 +101,7 @@ export function RescheduleWidget({ cancellationId }: Props) {
             minute: '2-digit',
           })}
         </p>
-        <p className="text-sm text-gray-500 mt-2">
+        <p className="text-sm text-slate-500 mt-2">
           A calendar invite has been sent with the meeting details.
         </p>
       </div>
@@ -109,9 +109,9 @@ export function RescheduleWidget({ cancellationId }: Props) {
   }
 
   return (
-    <div className="border rounded-lg p-6">
+    <div className="border border-slate-200 rounded-xl p-6">
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded p-3 mb-4">
+        <div className="bg-error-light border border-red-200 text-red-700 text-sm rounded p-3 mb-4">
           {error}
         </div>
       )}
@@ -121,7 +121,7 @@ export function RescheduleWidget({ cancellationId }: Props) {
         <div>
           <h2 className="font-semibold mb-4">Select a Date (1-hour session)</h2>
           {dates.length === 0 ? (
-            <p className="text-gray-500">No available times in the next 2 weeks.</p>
+            <p className="text-slate-500">No available times in the next 2 weeks.</p>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {dates.map((date) => {
@@ -133,7 +133,7 @@ export function RescheduleWidget({ cancellationId }: Props) {
                       setSelectedDate(date);
                       setStep('time');
                     }}
-                    className="border rounded p-3 text-left hover:bg-gray-50"
+                    className="border rounded p-3 text-left hover:bg-navy-50"
                   >
                     <p className="font-medium text-sm">
                       {d.toLocaleDateString('en-US', {
@@ -142,7 +142,7 @@ export function RescheduleWidget({ cancellationId }: Props) {
                         day: 'numeric',
                       })}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-slate-500">
                       {slotsByDate[date].length} slot
                       {slotsByDate[date].length === 1 ? '' : 's'}
                     </p>
@@ -162,7 +162,7 @@ export function RescheduleWidget({ cancellationId }: Props) {
               setStep('date');
               setSelectedSlot('');
             }}
-            className="text-sm text-gray-500 hover:text-black mb-4"
+            className="text-sm text-slate-500 hover:text-black mb-4"
           >
             &larr; Back to dates
           </button>
@@ -180,8 +180,8 @@ export function RescheduleWidget({ cancellationId }: Props) {
                 onClick={() => setSelectedSlot(slot)}
                 className={`border rounded p-2 text-sm font-medium transition-colors ${
                   selectedSlot === slot
-                    ? 'bg-black text-white'
-                    : 'hover:bg-gray-50'
+                    ? 'bg-navy-900 text-white'
+                    : 'hover:bg-navy-50'
                 }`}
               >
                 {new Date(slot).toLocaleTimeString('en-US', {
@@ -194,7 +194,7 @@ export function RescheduleWidget({ cancellationId }: Props) {
 
           {selectedSlot && (
             <div className="border-t pt-4">
-              <p className="text-sm text-gray-600 mb-3">
+              <p className="text-sm text-slate-600 mb-3">
                 Reschedule to{' '}
                 {new Date(selectedSlot).toLocaleDateString('en-US', {
                   weekday: 'long',
@@ -211,7 +211,7 @@ export function RescheduleWidget({ cancellationId }: Props) {
               <button
                 onClick={handleConfirm}
                 disabled={submitting}
-                className="w-full rounded bg-black px-4 py-3 text-white font-medium hover:bg-gray-800 disabled:opacity-50"
+                className="w-full rounded bg-navy-900 px-4 py-3 text-white font-medium hover:bg-navy-800 disabled:opacity-50"
               >
                 {submitting ? 'Rescheduling...' : 'Confirm Reschedule'}
               </button>

@@ -343,7 +343,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 -- 12. Recreate RPCs with renamed table/column references
 -- ============================================================
 
--- 12a. reserve_seat
+-- 12a. reserve_seat (must DROP first — parameter names changed from p_cohort_id/p_module_id)
+DROP FUNCTION IF EXISTS reserve_seat(UUID, UUID, UUID, TEXT, TIMESTAMPTZ);
 CREATE OR REPLACE FUNCTION reserve_seat(
   p_student_id UUID,
   p_class_id UUID,

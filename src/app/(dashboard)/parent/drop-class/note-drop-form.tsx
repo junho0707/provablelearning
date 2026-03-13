@@ -22,7 +22,7 @@ export function NoteDropForm({ enrollmentId }: { enrollmentId: string }) {
     return (
       <button
         onClick={() => setConfirming(true)}
-        className="rounded border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+        className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-700 hover:bg-error-light transition-colors"
       >
         Drop This Class
       </button>
@@ -33,7 +33,7 @@ export function NoteDropForm({ enrollmentId }: { enrollmentId: string }) {
     <form action={handleSubmit} className="space-y-3">
       <input type="hidden" name="enrollment_id" value={enrollmentId} />
 
-      <div className="bg-red-50 border border-red-200 rounded p-3">
+      <div className="bg-error-light border border-red-200 rounded-lg p-3">
         <p className="text-sm text-red-800 font-medium">
           This class will be dropped immediately. You will not be able to
           re-enroll in this section.
@@ -43,7 +43,7 @@ export function NoteDropForm({ enrollmentId }: { enrollmentId: string }) {
       <div>
         <label
           htmlFor={`note-${enrollmentId}`}
-          className="block text-sm font-medium text-gray-700 mb-1"
+          className="block text-sm font-medium text-slate-700 mb-1"
         >
           Leave a note for the admin
         </label>
@@ -52,13 +52,13 @@ export function NoteDropForm({ enrollmentId }: { enrollmentId: string }) {
           name="note"
           required
           rows={3}
-          className="w-full rounded border px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-navy-400 focus:ring-1 focus:ring-navy-400 outline-none"
           placeholder="Please let us know why you are dropping..."
         />
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded p-3">
+        <div className="bg-error-light border border-red-200 text-red-700 text-sm rounded-lg p-3">
           {error}
         </div>
       )}
@@ -67,7 +67,7 @@ export function NoteDropForm({ enrollmentId }: { enrollmentId: string }) {
         <button
           type="submit"
           disabled={submitting}
-          className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+          className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
         >
           {submitting ? 'Dropping...' : 'Confirm Drop'}
         </button>
@@ -77,7 +77,7 @@ export function NoteDropForm({ enrollmentId }: { enrollmentId: string }) {
             setConfirming(false);
             setError('');
           }}
-          className="rounded border px-4 py-2 text-sm font-medium hover:bg-gray-50"
+          className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-navy-50 transition-colors"
         >
           Cancel
         </button>

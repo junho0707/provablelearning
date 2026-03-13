@@ -1,4 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { inviteStudentToClassroom } from '@/lib/google/classroom';
+import { formatTime } from '@/lib/constants';
 
 interface AutoBookResult {
   booking_id: string;
@@ -67,13 +69,44 @@ export async function autoBookMakeupFromWaitlist(
       if (notifyUserId) {
         await supabase.from('notifications').insert({
           user_id: notifyUserId,
-          message: `Makeup auto-booked for ${studentName || 'you'}${dateStr ? ` — ${dateStr}` : ''}${meetingTime ? ` at ${meetingTime}` : ''}`,
+          message: `Makeup auto-booked for ${studentName || 'you'}${dateStr ? ` — ${dateStr}` : ''}${meetingTime ? ` at ${formatTime(meetingTime)}` : ''}`,
           type: 'makeup',
         });
       }
     }
   } catch {
     // Non-critical — don't fail the auto-book if notification insert fails
+  }
+
+  // Invite student to host class's Google Classroom (best-effort)
+  try {
+    const { data: booking } = await supabase
+      .from('makeup_bookings')
+      .select('host_class_id')
+      .eq('id', result.booking_id)
+      .single();
+
+    if (booking?.host_class_id) {
+      const [{ data: cls }, { data: student }] = await Promise.all([
+        supabase.from('classes').select('google_classroom_id, google_classroom_enrollment_code').eq('id', booking.host_class_id).single(),
+        supabase.from('students').select('user_id, email').eq('id', result.student_id).single(),
+      ]);
+
+      if (cls?.google_classroom_id) {
+        const studentEmail = student?.email || (student?.user_id
+          ? (await supabase.auth.admin.getUserById(student.user_id)).data?.user?.email
+          : null);
+        if (studentEmail) {
+          await inviteStudentToClassroom({
+            classroomId: cls.google_classroom_id,
+            studentEmail,
+            enrollmentCode: cls.google_classroom_enrollment_code,
+          });
+        }
+      }
+    }
+  } catch {
+    // Non-critical
   }
 
   return result;

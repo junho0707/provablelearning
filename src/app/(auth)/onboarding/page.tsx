@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import Link from 'next/link';
 
 export default function OnboardingPage() {
   const [fullName, setFullName] = useState('');
@@ -12,7 +13,6 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [existingRole, setExistingRole] = useState<string | null>(null);
 
-  // On mount, check if user already has a profile (re-entry case)
   useEffect(() => {
     async function checkExisting() {
       const supabase = createClient();
@@ -31,7 +31,6 @@ export default function OnboardingPage() {
         if (profile.full_name) setFullName(profile.full_name);
         if (profile.phone) setPhone(profile.phone);
       } else {
-        // Pre-fill from Google metadata
         const name = user.user_metadata?.full_name || user.user_metadata?.name || '';
         if (name) setFullName(name);
       }
@@ -55,10 +54,8 @@ export default function OnboardingPage() {
       return;
     }
 
-    // Use existing role if re-entering (role is immutable)
     const effectiveRole = existingRole || role;
 
-    // Validate phone format (US: 10+ digits)
     if (phone) {
       const digitsOnly = phone.replace(/\D/g, '');
       if (digitsOnly.length < 10) {
@@ -68,26 +65,16 @@ export default function OnboardingPage() {
       }
     }
 
-    // Phone required for parents and independent students
-    if (!phone) {
-      setError('Phone number is required.');
-      setLoading(false);
-      return;
-    }
-
-    // Grade required for independent students
     if (effectiveRole === 'student' && !gradeLevel) {
       setError('Please select your grade level.');
       setLoading(false);
       return;
     }
 
-    // Update auth user metadata
     await supabase.auth.updateUser({
       data: { role: effectiveRole, full_name: fullName, phone: phone || null },
     });
 
-    // Create/update public.users row via upsert
     const { error: upsertError } = await supabase.from('users').upsert({
       id: user.id,
       role: effectiveRole,
@@ -102,8 +89,6 @@ export default function OnboardingPage() {
     }
 
     if (effectiveRole === 'student') {
-      // Independent student: create students row with email + name + grade
-      // Check if a student record already exists for this user
       const { data: existingStudent } = await supabase
         .from('students')
         .select('id')
@@ -111,7 +96,6 @@ export default function OnboardingPage() {
         .maybeSingle();
 
       if (!existingStudent) {
-        // Try insert with full schema (email, full_name from migration 00046)
         let studentError;
         const { error: err1 } = await supabase.from('students').insert({
           user_id: user.id,
@@ -122,7 +106,6 @@ export default function OnboardingPage() {
           grade_level: parseInt(gradeLevel, 10),
         });
         if (err1?.message?.includes('column') && err1?.message?.includes('does not exist')) {
-          // Migration 00046 not applied — insert without email/full_name columns
           const { error: err2 } = await supabase.from('students').insert({
             user_id: user.id,
             parent_id: null,
@@ -146,76 +129,110 @@ export default function OnboardingPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-8">
-      <div className="w-full max-w-sm space-y-6">
-        <h1 className="text-2xl font-bold text-center">
-          {existingRole ? 'Complete Your Profile' : 'Create Your Profile'}
-        </h1>
-        <p className="text-center text-sm text-gray-600">
-          {role === 'parent'
-            ? 'Sign up as a parent to enroll your children in SAT prep courses.'
-            : 'Sign up as a student to enroll yourself in SAT prep courses.'}
-        </p>
-        {error && <p className="text-red-600 text-sm text-center">{error}</p>}
+    <main className="flex min-h-screen items-center justify-center bg-navy-50 p-8">
+      <div className="w-full max-w-sm space-y-6 rounded-xl bg-white p-8 shadow-sm">
+        <div className="text-center">
+          <Link href="/" className="text-lg font-semibold text-navy-900">
+            Provable<span className="text-gold-500">Learning</span>
+          </Link>
+          <h1 className="mt-3 text-2xl font-semibold text-navy-900">
+            {existingRole ? 'Complete Your Profile' : 'Set Up Your Profile'}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {existingRole
+              ? `Finishing setup for your ${existingRole} account.`
+              : 'Tell us a bit about yourself'}
+          </p>
+        </div>
+
+        {error && (
+          <div className="rounded-lg bg-error-light px-4 py-3 text-sm text-error">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {!existingRole && (
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setRole('parent')}
-                className={`flex-1 rounded border py-2 text-sm font-medium ${role === 'parent' ? 'bg-black text-white' : ''}`}
-              >
-                Parent
-              </button>
-              <button
-                type="button"
-                onClick={() => setRole('student')}
-                className={`flex-1 rounded border py-2 text-sm font-medium ${role === 'student' ? 'bg-black text-white' : ''}`}
-              >
-                Student
-              </button>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">I am a...</label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRole('parent')}
+                  className={`flex-1 rounded-lg py-3 text-sm font-semibold transition ${
+                    role === 'parent'
+                      ? 'bg-navy-900 text-white'
+                      : 'border border-slate-300 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  Parent
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRole('student')}
+                  className={`flex-1 rounded-lg py-3 text-sm font-semibold transition ${
+                    role === 'student'
+                      ? 'bg-navy-900 text-white'
+                      : 'border border-slate-300 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  Student
+                </button>
+              </div>
+              <p className="mt-2 text-center text-xs text-slate-400">
+                {role === 'parent'
+                  ? 'You will be able to enroll your students in Digital SAT prep.'
+                  : 'You will enroll yourself directly in Digital SAT prep.'}
+              </p>
             </div>
           )}
 
-          <input
-            type="text"
-            placeholder="Full Name"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            required
-            className="w-full rounded border px-3 py-2"
-          />
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">Full Name</label>
+            <input
+              type="text"
+              placeholder="Your full name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+              className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm placeholder:text-slate-400 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/20"
+            />
+          </div>
 
-          <input
-            type="tel"
-            placeholder="Phone Number"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            required
-            className="w-full rounded border px-3 py-2"
-          />
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">Phone Number <span className="text-slate-400">(optional)</span></label>
+            <input
+              type="tel"
+              placeholder="(555) 123-4567"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm placeholder:text-slate-400 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/20"
+            />
+          </div>
 
           {role === 'student' && (
-            <select
-              value={gradeLevel}
-              onChange={(e) => setGradeLevel(e.target.value)}
-              required
-              className="w-full rounded border px-3 py-2"
-            >
-              <option value="">Select your grade</option>
-              {[6, 7, 8, 9, 10, 11, 12].map((g) => (
-                <option key={g} value={g}>
-                  Grade {g}
-                </option>
-              ))}
-            </select>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">Grade Level</label>
+              <select
+                value={gradeLevel}
+                onChange={(e) => setGradeLevel(e.target.value)}
+                required
+                className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-700 focus:border-navy-500 focus:ring-2 focus:ring-navy-500/20"
+              >
+                <option value="">Select your grade</option>
+                {[6, 7, 8, 9, 10, 11, 12].map((g) => (
+                  <option key={g} value={g}>
+                    Grade {g}
+                  </option>
+                ))}
+              </select>
+            </div>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded bg-black py-2 text-white font-medium hover:bg-gray-800 disabled:opacity-50"
+            className="w-full rounded-lg bg-navy-900 py-3 text-sm font-semibold text-white hover:bg-navy-800 disabled:opacity-50"
           >
             {loading ? 'Saving...' : 'Continue'}
           </button>

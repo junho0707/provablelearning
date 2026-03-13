@@ -23,8 +23,8 @@ CREATE POLICY google_tokens_admin ON google_tokens
     EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
   );
 
--- Add Google Classroom ID to classes (renamed from cohorts)
-ALTER TABLE classes ADD COLUMN IF NOT EXISTS google_classroom_id text;
+-- Add Google Classroom ID to cohorts (renamed to classes in migration 00032)
+ALTER TABLE cohorts ADD COLUMN IF NOT EXISTS google_classroom_id text;
 
 -- Bookings table for parent meeting requests
 CREATE TABLE IF NOT EXISTS bookings (
