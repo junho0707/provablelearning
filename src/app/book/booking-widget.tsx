@@ -91,6 +91,13 @@ export function BookingWidget({
       const res = await fetch('/api/bookings/available-slots');
       const data = await res.json();
 
+      // API error — show error, not "closed"
+      if (!res.ok) {
+        setError(data.error || 'Failed to load available times.');
+        setLoading(false);
+        return;
+      }
+
       // If no window is set, bookings are closed
       if (!data.windowStart || !data.windowEnd) {
         setStep('closed');

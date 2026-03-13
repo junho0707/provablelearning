@@ -2,6 +2,30 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFreeBusy } from '@/lib/google/calendar';
 import { createClient } from '@/lib/supabase/server';
 
+// ET offset helpers — handles EST/EDT automatically
+function getETOffset(date: Date): number {
+  // US Eastern: UTC-5 (EST) or UTC-4 (EDT)
+  // DST: second Sunday in March to first Sunday in November
+  const year = date.getUTCFullYear();
+  const mar = new Date(Date.UTC(year, 2, 1));
+  const nov = new Date(Date.UTC(year, 10, 1));
+  // Second Sunday in March
+  const dstStart = new Date(Date.UTC(year, 2, 14 - mar.getUTCDay()));
+  dstStart.setUTCHours(7); // 2am EST = 7am UTC
+  // First Sunday in November
+  const dstEnd = new Date(Date.UTC(year, 10, 7 - nov.getUTCDay()));
+  dstEnd.setUTCHours(6); // 2am EDT = 6am UTC
+  return (date >= dstStart && date < dstEnd) ? -4 : -5;
+}
+
+/** Create a UTC Date for a given ET hour on a given date string (YYYY-MM-DD) */
+function etToUTC(dateStr: string, hour: number, minute: number): Date {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  const offset = getETOffset(d);
+  d.setUTCHours(hour - offset, minute, 0, 0);
+  return d;
+}
+
 // Generate 30-min slots between 9am-2pm ET for the admin-configured booking window,
 // then subtract busy times from Google Calendar
 export async function GET(request: NextRequest) {
@@ -20,56 +44,62 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ slots: [], windowStart: null, windowEnd: null });
   }
 
-  const windowStart = new Date(bw.window_start + 'T00:00:00');
-  const windowEnd = new Date(bw.window_end + 'T23:59:59');
+  // Work with date strings (YYYY-MM-DD) to avoid timezone confusion
+  const today = new Date().toISOString().split('T')[0];
 
-  // For single-date queries, clamp to window
-  let startDate: Date;
-  let endDate: Date;
+  let startDateStr: string;
+  let endDateStr: string;
 
   if (dateParam) {
-    const requested = new Date(dateParam);
-    requested.setHours(0, 0, 0, 0);
-    if (requested < windowStart || requested > windowEnd) {
+    if (dateParam < bw.window_start || dateParam > bw.window_end) {
       return NextResponse.json({ slots: [], windowStart: bw.window_start, windowEnd: bw.window_end });
     }
-    startDate = requested;
-    endDate = new Date(requested);
-    endDate.setDate(endDate.getDate() + 1);
+    startDateStr = dateParam;
+    endDateStr = dateParam;
   } else {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    startDate = now > windowStart ? now : windowStart;
-    endDate = new Date(windowEnd);
-    endDate.setDate(endDate.getDate() + 1); // inclusive end
+    startDateStr = today > bw.window_start ? today : bw.window_start;
+    endDateStr = bw.window_end;
   }
 
   // If window is entirely in the past, return empty
-  if (startDate > windowEnd) {
+  if (startDateStr > bw.window_end) {
     return NextResponse.json({ slots: [], windowStart: bw.window_start, windowEnd: bw.window_end });
   }
 
   try {
-    const busySlots = await getFreeBusy(
-      startDate.toISOString(),
-      endDate.toISOString()
-    );
+    // FreeBusy query range: 9am ET on start date to 2pm ET on end date
+    const fbStart = etToUTC(startDateStr, 9, 0);
+    const fbEndDate = new Date(`${endDateStr}T00:00:00Z`);
+    fbEndDate.setUTCDate(fbEndDate.getUTCDate() + 1);
+    const fbEnd = fbEndDate;
+
+    let busySlots: { start?: string | null; end?: string | null }[] = [];
+    try {
+      busySlots = await getFreeBusy(fbStart.toISOString(), fbEnd.toISOString());
+    } catch (calErr) {
+      console.error('[SLOTS] getFreeBusy failed, generating slots without busy check:', calErr);
+      // Continue with empty busy list — slots will still show up
+    }
 
     // Generate available 30-min slots (9am-2pm ET, weekdays only)
     const slots: string[] = [];
-    const current = new Date(startDate);
 
     // At least 2 hours from now for booking
     const minBookTime = new Date(Date.now() + 2 * 60 * 60 * 1000);
 
-    while (current < endDate && current <= windowEnd) {
-      const dayOfWeek = current.getDay();
+    // Iterate date strings day by day
+    const cursor = new Date(`${startDateStr}T12:00:00Z`); // noon UTC to avoid date drift
+    const endCheck = new Date(`${endDateStr}T12:00:00Z`);
+
+    while (cursor <= endCheck) {
+      const dayOfWeek = cursor.getUTCDay();
+      const dateStr = cursor.toISOString().split('T')[0];
+
       // Skip weekends
       if (dayOfWeek !== 0 && dayOfWeek !== 6) {
         for (let hour = 9; hour < 14; hour++) {
           for (const minute of [0, 30]) {
-            const slotStart = new Date(current);
-            slotStart.setHours(hour, minute, 0, 0);
+            const slotStart = etToUTC(dateStr, hour, minute);
             const slotEnd = new Date(slotStart.getTime() + 30 * 60 * 1000);
 
             // Skip past slots
@@ -88,7 +118,7 @@ export async function GET(request: NextRequest) {
           }
         }
       }
-      current.setDate(current.getDate() + 1);
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
 
     return NextResponse.json({
@@ -98,9 +128,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: unknown) {
     const err = error as Error & { response?: { data?: unknown }; code?: string };
-    console.error('Failed to fetch available slots:', err.message, err.code, err.response?.data);
+    console.error('Failed to generate slots:', err.message, err.code, err.response?.data);
     return NextResponse.json(
-      { error: 'Unable to fetch availability. Please try again later.', debug: err.message },
+      { error: 'Unable to fetch availability. Please try again later.', debug: err.message,
+        windowStart: bw.window_start, windowEnd: bw.window_end },
       { status: 500 }
     );
   }
