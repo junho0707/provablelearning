@@ -118,7 +118,7 @@ export function MobileNav({ userRole, userName, showPayments }: MobileNavProps) 
               <Link
                 href="/signup"
                 onClick={() => setOpen(false)}
-                className="rounded-lg bg-gold-500 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-gold-400"
+                className="rounded-md px-3 py-2 text-sm font-medium text-navy-200 hover:bg-navy-800 hover:text-white"
               >
                 Sign Up
               </Link>

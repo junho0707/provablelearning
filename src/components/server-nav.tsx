@@ -39,10 +39,10 @@ export function ServerNav({ userRole, userName, showPayments }: ServerNavProps) 
               </form>
             ) : !userRole ? (
               <Link
-                href="/signup"
-                className="rounded-lg bg-gold-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gold-400"
+                href="/login"
+                className="rounded-md px-2 py-1.5 text-xs font-medium text-navy-200 hover:bg-navy-800 hover:text-white"
               >
-                Sign Up
+                Log In
               </Link>
             ) : null}
           </div>
@@ -128,7 +128,7 @@ export function ServerNav({ userRole, userName, showPayments }: ServerNavProps) 
                 </Link>
                 <Link
                   href="/signup"
-                  className="rounded-lg bg-gold-500 px-4 py-1.5 text-sm font-semibold text-white hover:bg-gold-400"
+                  className="rounded-md px-3 py-1.5 text-sm font-medium text-navy-200 hover:bg-navy-800 hover:text-white"
                 >
                   Sign Up
                 </Link>
