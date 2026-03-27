@@ -32,14 +32,14 @@ export default async function Home() {
             {!userRole && (
               <Link
                 href="/book"
-                className="rounded-xl bg-gold-500 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-gold-500/25 hover:bg-gold-400"
+                className="rounded-xl bg-gold-500 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-gold-500/25 hover:bg-gold-400 min-w-[240px] text-center"
               >
                 Book a Free Consultation
               </Link>
             )}
             <Link
               href="/offerings"
-              className="rounded-xl border border-white/30 px-8 py-3 text-sm font-semibold text-navy-100 hover:border-white/60 hover:text-white"
+              className="rounded-xl border border-white/30 px-8 py-3 text-sm font-semibold text-navy-100 hover:border-white/60 hover:text-white min-w-[240px] text-center"
             >
               View Schedule
             </Link>
