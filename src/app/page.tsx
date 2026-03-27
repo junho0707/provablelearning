@@ -22,11 +22,12 @@ export default async function Home() {
           <p className="mb-4 text-sm font-bold uppercase tracking-widest text-gold-400">
             Digital SAT &amp; General Math Tutoring
           </p>
-          <h1 className="mb-10 text-4xl font-extrabold leading-[1.1] tracking-[-0.02em] sm:text-5xl lg:text-[3.5rem]">
-            Small group tutoring for Digital SAT and Math.
-            <br />
-            Max 3 students &mdash; structured sessions with dedicated 1-on-1 time.
+          <h1 className="mb-6 text-4xl font-extrabold leading-[1.1] tracking-[-0.02em] sm:text-5xl lg:text-[3.5rem]">
+            Small Group Tutoring for Digital SAT and Math.
           </h1>
+          <p className="mx-auto mb-10 max-w-xl text-lg text-navy-200">
+            Max 3 students &mdash; structured sessions with dedicated 1-on-1 time.
+          </p>
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             {!userRole && (
               <Link
