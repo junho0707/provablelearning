@@ -115,6 +115,7 @@ export default async function Home() {
                 <p className="mb-4 text-sm text-slate-400">Max 3 students per session</p>
                 <p className="mb-6">
                   <span className="text-3xl font-bold text-navy-900">$300</span>
+                  <span className="text-sm font-medium text-slate-400"> for 4 weeks (8 sessions)</span>
                 </p>
                 <ul className="mb-8 flex-1 space-y-3">
                   {[
