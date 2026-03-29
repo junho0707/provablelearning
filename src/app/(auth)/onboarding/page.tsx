@@ -26,6 +26,22 @@ export default function OnboardingPage() {
         .maybeSingle();
 
       if (profile) {
+        // Check if profile is already complete — redirect to dashboard
+        if (profile.role === 'parent') {
+          window.location.href = '/parent';
+          return;
+        }
+        if (profile.role === 'student') {
+          const { data: studentRow } = await supabase
+            .from('students')
+            .select('id')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          if (studentRow) {
+            window.location.href = '/student';
+            return;
+          }
+        }
         setExistingRole(profile.role);
         setRole(profile.role as 'parent' | 'student');
         if (profile.full_name) setFullName(profile.full_name);

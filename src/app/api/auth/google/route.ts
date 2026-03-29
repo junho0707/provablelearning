@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const redirectTo = searchParams.get('redirectTo') || '/onboarding';
+  const redirectTo = searchParams.get('redirectTo') || null;
 
   const cookiesToSet: { name: string; value: string; options: Record<string, unknown> }[] = [];
 

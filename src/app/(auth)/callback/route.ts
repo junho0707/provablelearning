@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
           destination = redirectTo
             ? `${origin}${redirectTo}`
             : `${origin}/onboarding`;
-        } else if (redirectTo) {
+        } else if (redirectTo && redirectTo !== '/onboarding') {
           destination = `${origin}${redirectTo}`;
         } else {
           destination = `${origin}/${profile.role}`;
