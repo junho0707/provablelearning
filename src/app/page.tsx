@@ -20,26 +20,26 @@ export default async function Home() {
 
         <div className="relative mx-auto flex min-h-[60vh] max-w-[1280px] flex-col items-center justify-center px-5 text-center sm:min-h-[70vh] sm:px-8 lg:px-16">
           <p className="mb-4 text-sm font-bold uppercase tracking-widest text-gold-400">
-            Digital SAT &amp; General Math Tutoring
+            Digital SAT &amp; School Math
           </p>
           <h1 className="mb-6 text-4xl font-extrabold leading-[1.1] tracking-[-0.02em] sm:text-5xl lg:text-[3.5rem]">
-            Small Group Tutoring for Digital SAT and Math.
+            Small Group Tutoring
           </h1>
           <p className="mx-auto mb-10 max-w-xl text-lg text-navy-200">
-            Max 3 students &mdash; structured sessions with dedicated 1-on-1 time.
+            Max 3 students per class with dedicated 1-on-1 time
           </p>
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             {!userRole && (
               <Link
                 href="/book"
-                className="rounded-xl bg-gold-500 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-gold-500/25 hover:bg-gold-400 min-w-[240px] text-center"
+                className="rounded-xl bg-gold-500 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-gold-500/25 hover:bg-gold-400 w-full sm:w-auto sm:min-w-[240px] text-center"
               >
                 Book a Free Consultation
               </Link>
             )}
             <Link
               href="/offerings"
-              className="rounded-xl border border-white/30 px-8 py-3 text-sm font-semibold text-navy-100 hover:border-white/60 hover:text-white min-w-[240px] text-center"
+              className="rounded-xl border border-white/30 px-8 py-3 text-sm font-semibold text-navy-100 hover:border-white/60 hover:text-white w-full sm:w-auto sm:min-w-[240px] text-center"
             >
               View Schedule
             </Link>
@@ -78,7 +78,7 @@ export default async function Home() {
                 ),
               },
               {
-                title: '30 Min of 1-on-1 Time',
+                title: '30 Mins of 1-on-1 Time',
                 desc: 'With max 3 students, each student gets at least 3 dedicated 10-minute review sessions with the tutor throughout the class.',
                 icon: (
                   <svg className="h-7 w-7 text-gold-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -121,7 +121,7 @@ export default async function Home() {
                   {[
                     '1.5-hour sessions, 2 slots per week',
                     '30 minutes of dedicated 1-on-1 time per session',
-                    'Digital SAT (RW, Math, or both) & General Math',
+                    'Digital SAT (RW, Math, or both) & School Math',
                     'Flexible slot selection',
                     'Cancel & reschedule anytime',
                   ].map((f) => (
@@ -202,14 +202,14 @@ export default async function Home() {
             {!userRole && (
               <Link
                 href="/book"
-                className="rounded-xl bg-gold-500 px-10 py-3 text-sm font-semibold text-white shadow-sm hover:bg-gold-400"
+                className="rounded-xl bg-gold-500 px-10 py-3 text-sm font-semibold text-white shadow-sm hover:bg-gold-400 w-full sm:w-auto sm:min-w-[240px] text-center"
               >
                 Book a Free Consultation
               </Link>
             )}
             <Link
               href="/offerings"
-              className="rounded-xl border border-white/30 px-10 py-3 text-sm font-semibold text-navy-100 hover:border-white/60 hover:text-white"
+              className="rounded-xl border border-white/30 px-10 py-3 text-sm font-semibold text-navy-100 hover:border-white/60 hover:text-white w-full sm:w-auto sm:min-w-[240px] text-center"
             >
               View Schedule
             </Link>

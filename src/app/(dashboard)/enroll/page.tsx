@@ -64,8 +64,7 @@ export default async function EnrollPage({
     <div className="space-y-6">
       {/* Page header — flat style, matches /offerings */}
       <div>
-        <h1 className="mb-2 text-3xl font-bold tracking-tight text-navy-900">Enroll</h1>
-        <p className="text-slate-500">Pick 2 weekly time slots that work for you. You&apos;ll choose your subject on the next step.</p>
+        <h1 className="text-3xl font-bold tracking-tight text-navy-900">Enroll</h1>
       </div>
 
       {waitlisted && (

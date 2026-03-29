@@ -97,7 +97,7 @@ function subjectShort(subject: string | null): string {
 function groupSizeLabel(gs: string): string {
   switch (gs) {
     case 'one_on_one': return '1:1';
-    case 'small': return 'SG';
+    case 'small': return 'Small Group';
     case 'large': return 'LG';
     default: return gs;
   }

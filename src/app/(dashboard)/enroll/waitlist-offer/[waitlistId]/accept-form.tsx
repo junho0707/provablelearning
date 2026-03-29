@@ -45,7 +45,7 @@ const SUBJECT_OPTIONS = [
   { value: 'dsat_rw', label: 'DSAT Reading & Writing' },
   { value: 'dsat_math', label: 'DSAT Math' },
   { value: 'dsat_rw_math', label: 'DSAT Reading, Writing & Math' },
-  { value: 'general_math', label: 'General Math' },
+  { value: 'general_math', label: 'School Math' },
 ];
 
 export default function AcceptOfferForm({ waitlistId, slots, price, offerExpiresAt, stripeEnabled, groupSizeType }: Props) {

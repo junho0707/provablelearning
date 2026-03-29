@@ -138,11 +138,6 @@ export default function OnboardingPage() {
           <h1 className="mt-3 text-2xl font-semibold text-navy-900">
             {existingRole ? 'Complete Your Profile' : 'Set Up Your Profile'}
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {existingRole
-              ? `Finishing setup for your ${existingRole} account.`
-              : 'Tell us a bit about yourself'}
-          </p>
         </div>
 
         {error && (

@@ -55,7 +55,7 @@ const SUBJECT_OPTIONS = [
   { value: 'dsat_rw', label: 'DSAT Reading & Writing' },
   { value: 'dsat_math', label: 'DSAT Math' },
   { value: 'dsat_rw_math', label: 'DSAT Reading, Writing & Math' },
-  { value: 'general_math', label: 'General Math' },
+  { value: 'general_math', label: 'School Math' },
 ] as const;
 
 export default function EnrollForm({ slot1ClassId, slot2ClassId, students, price, stripeEnabled, groupSizeType, slot1Label, slot2Label, enrollmentWindowStart, enrollmentWindowEnd, slot1MeetingDay, slot2MeetingDay }: Props) {

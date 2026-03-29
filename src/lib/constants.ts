@@ -79,7 +79,7 @@ export function formatSubjectCategory(category: string | null, detail?: string |
     case 'dsat_rw': return 'DSAT Reading & Writing';
     case 'dsat_math': return 'DSAT Math';
     case 'dsat_rw_math': return 'DSAT Reading, Writing & Math';
-    case 'general_math': return detail ? `General Math: ${detail}` : 'General Math';
+    case 'general_math': return detail ? `School Math: ${detail}` : 'School Math';
     case null: return '';
     default: return category;
   }

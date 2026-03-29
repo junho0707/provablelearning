@@ -115,7 +115,6 @@ export default function LoginPage() {
       <div className="w-full max-w-sm space-y-6 rounded-xl bg-white p-8 shadow-sm">
         <div className="text-center">
           <h1 className="text-2xl font-semibold text-navy-900">Welcome back</h1>
-          <p className="mt-1 text-sm text-slate-500">Log in to your account</p>
         </div>
         <Suspense>
           <LoginForm />

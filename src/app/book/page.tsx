@@ -24,11 +24,7 @@ export default async function BookPage({
 
       <div className="mx-auto max-w-7xl px-6 py-8">
         <div className="mb-8">
-          <h1 className="mb-2 text-3xl font-bold tracking-tight text-navy-900">Book a Consultation</h1>
-          <p className="text-slate-500">
-            Pick a time that works for you. You&apos;ll receive a calendar invite
-            with a Google Meet link.
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight text-navy-900">Book a Consultation Meeting</h1>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-6">

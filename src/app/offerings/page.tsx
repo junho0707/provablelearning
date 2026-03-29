@@ -70,10 +70,7 @@ export default async function OfferingsPage() {
       <div className="mx-auto max-w-7xl px-6 py-8">
         {/* Page header */}
         <div className="mb-8">
-          <h1 className="mb-2 text-3xl font-bold tracking-tight text-navy-900">Class Schedule</h1>
-          <p className="text-slate-500">
-            Pick 2 weekly time slots that fit your schedule. Choose your subject when you enroll.
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight text-navy-900">Class Schedule</h1>
         </div>
 
         {availableClasses.length === 0 ? (

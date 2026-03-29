@@ -53,8 +53,7 @@ export default async function StudentPaymentsPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="mb-2 text-3xl font-bold tracking-tight text-navy-900">Payment History</h1>
-          <p className="text-slate-500">View your enrollment payments and billing details.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-navy-900">Payment History</h1>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-6">
           <p className="text-slate-500">Student profile not found. Contact admin.</p>

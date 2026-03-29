@@ -239,7 +239,7 @@ export default function ClassBrowser({ classes, enrollmentCounts }: ClassBrowser
         <div className="border-b border-slate-100 px-6 py-4">
           <h2 className="text-lg font-bold text-navy-900">Weekly Schedule</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Small group sessions &mdash; max 3 students, 1.5 hours each
+            Pick 2 weekly time slots that fit your schedule
           </p>
         </div>
 

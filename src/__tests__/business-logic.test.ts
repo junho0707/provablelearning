@@ -149,9 +149,9 @@ describe('formatSubjectCategory', () => {
   });
 
   it('handles general_math with detail', () => {
-    expect(formatSubjectCategory('general_math', 'Algebra 2')).toBe('General Math: Algebra 2');
-    expect(formatSubjectCategory('general_math', null)).toBe('General Math');
-    expect(formatSubjectCategory('general_math')).toBe('General Math');
+    expect(formatSubjectCategory('general_math', 'Algebra 2')).toBe('School Math: Algebra 2');
+    expect(formatSubjectCategory('general_math', null)).toBe('School Math');
+    expect(formatSubjectCategory('general_math')).toBe('School Math');
   });
 
   it('returns empty string for null', () => {

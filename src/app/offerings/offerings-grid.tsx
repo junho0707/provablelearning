@@ -70,7 +70,7 @@ export default function OfferingsGrid({ classes, enrollmentCounts }: OfferingsGr
         <div className="border-b border-slate-100 px-4 py-4 sm:px-6">
           <h2 className="text-lg font-bold text-navy-900">Weekly Schedule</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Small group sessions &mdash; max 3 students, 1.5 hours each
+            Pick 2 weekly time slots that fit your schedule
           </p>
         </div>
 
