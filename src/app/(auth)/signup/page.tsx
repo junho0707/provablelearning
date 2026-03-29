@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { signInWithGoogle } from '@/lib/auth/google-oauth';
 import { signupWithPasswordAction } from './actions';
 import Link from 'next/link';
 
@@ -9,15 +8,7 @@ export default function SignupPage() {
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
 
-  async function handleGoogleSignup() {
-    try {
-      await signInWithGoogle('/onboarding');
-    } catch (err: unknown) {
-      const digest = (err as { digest?: string })?.digest;
-      if (typeof digest === 'string' && digest.includes('NEXT_REDIRECT')) throw err;
-      setError('Failed to sign in with Google');
-    }
-  }
+  const googleAuthUrl = '/api/auth/google?redirectTo=%2Fonboarding';
 
   function handlePasswordSignup(formData: FormData) {
     startTransition(async () => {
@@ -80,8 +71,8 @@ export default function SignupPage() {
           <div className="flex-1 border-t border-slate-200" />
         </div>
 
-        <button
-          onClick={handleGoogleSignup}
+        <a
+          href={googleAuthUrl}
           className="flex w-full items-center justify-center gap-3 rounded-lg border border-slate-300 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -91,7 +82,7 @@ export default function SignupPage() {
             <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
           </svg>
           Sign up with Google
-        </button>
+        </a>
 
         <p className="text-center text-sm text-slate-500">
           Already have an account?{' '}

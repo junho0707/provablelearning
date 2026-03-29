@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, Suspense, useTransition } from 'react';
-import { signInWithGoogle } from '@/lib/auth/google-oauth';
 import { loginWithPasswordAction } from './actions';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -21,15 +20,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const redirectTo = sanitizeRedirect(searchParams.get('redirectTo'));
 
-  async function handleGoogleLogin() {
-    try {
-      await signInWithGoogle(redirectTo);
-    } catch (err: unknown) {
-      const digest = (err as { digest?: string })?.digest;
-      if (typeof digest === 'string' && digest.includes('NEXT_REDIRECT')) throw err;
-      setError('Failed to sign in with Google');
-    }
-  }
+  const googleAuthUrl = `/api/auth/google${redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : ''}`;
 
   function handlePasswordLogin(formData: FormData) {
     startTransition(async () => {
@@ -95,8 +86,8 @@ function LoginForm() {
         <div className="flex-1 border-t border-slate-200" />
       </div>
 
-      <button
-        onClick={handleGoogleLogin}
+      <a
+        href={googleAuthUrl}
         className="flex w-full items-center justify-center gap-3 rounded-lg border border-slate-300 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
       >
         <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -106,7 +97,7 @@ function LoginForm() {
           <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
         </svg>
         Sign in with Google
-      </button>
+      </a>
 
       <p className="text-center text-sm text-slate-500">
         Don&apos;t have an account?{' '}

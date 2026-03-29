@@ -11,7 +11,8 @@ export async function POST(request: Request) {
   // that causes bad_oauth_state on the next login attempt
   const cookieStore = await cookies();
   const allCookies = cookieStore.getAll();
-  const response = NextResponse.redirect(new URL('/login', request.url));
+  // Use 303 (See Other) so the browser follows the redirect with GET, not POST
+  const response = NextResponse.redirect(new URL('/login', request.url), 303);
 
   for (const cookie of allCookies) {
     if (cookie.name.startsWith('sb-')) {
