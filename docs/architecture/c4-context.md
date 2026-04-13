@@ -3,35 +3,48 @@
 The highest-level view: ProvableLearning as a single system, the people who use it, and the external services it depends on.
 
 ```mermaid
-C4Context
-    title ProvableLearning — System Context
+flowchart TB
+    subgraph actors [" "]
+        direction LR
+        student("👤 <b>Student</b><br/>Takes classes, manages<br/>schedule and makeups")
+        parent("👤 <b>Parent</b><br/>Enrolls children, manages<br/>payments, messages tutor")
+        admin("👤 <b>Admin / Tutor</b><br/>Creates classes, tracks<br/>performance, manages credits")
+    end
 
-    Person(student, "Student", "Takes SAT prep or math classes, manages schedule and makeups")
-    Person(parent, "Parent", "Enrolls children, manages payments, communicates with tutor")
-    Person(admin, "Admin / Tutor", "Creates classes, tracks performance, manages enrollments and credits")
+    pl[/"🎓 <b>ProvableLearning</b><br/>SAT tutoring platform: enrollment,<br/>scheduling, payments, performance"/]
 
-    System(pl, "ProvableLearning", "SAT tutoring platform: class enrollment, scheduling, payments, and performance tracking")
+    subgraph services ["External Services"]
+        direction LR
+        supabase[("<b>Supabase</b><br/>PostgreSQL + Auth + RLS")]
+        stripe[("<b>Stripe</b><br/>Payment processing")]
+        google[("<b>Google Workspace</b><br/>Calendar, Classroom, Drive")]
+        resend[("<b>Resend</b><br/>Email delivery")]
+        twilio[("<b>Twilio</b><br/>SMS delivery")]
+        vercel[("<b>Vercel</b><br/>Hosting + Cron")]
+    end
 
-    System_Ext(supabase, "Supabase", "PostgreSQL database, authentication, row-level security")
-    System_Ext(stripe, "Stripe", "Payment processing: checkout sessions, webhooks")
-    System_Ext(google, "Google Workspace", "Calendar events, Classroom spaces, Drive folders")
-    System_Ext(resend, "Resend", "Transactional email delivery")
-    System_Ext(twilio, "Twilio", "SMS notifications")
-    System_Ext(vercel, "Vercel", "Hosting, serverless functions, cron scheduling")
+    student -- "Enroll, cancel,<br/>book makeups" --> pl
+    parent -- "Enroll children,<br/>pay, message tutor" --> pl
+    admin -- "Manage classes,<br/>credits, refunds" --> pl
 
-    Rel(student, pl, "Browses classes, enrolls, cancels sessions, books makeups, redeems credits")
-    Rel(parent, pl, "Enrolls children, pays, cancels sessions, messages tutor")
-    Rel(admin, pl, "Creates classes, logs performance, manages credits and refunds")
+    pl -- "Data + Auth" --> supabase
+    pl -- "Checkout +<br/>Webhooks" --> stripe
+    pl -- "Calendar +<br/>Classroom" --> google
+    pl -- "Emails" --> resend
+    pl -- "SMS" --> twilio
+    pl -. "Deployed on" .-> vercel
 
-    Rel(pl, supabase, "Reads/writes all data, authenticates users")
-    Rel(pl, stripe, "Creates checkout sessions, receives payment webhooks")
-    Rel(pl, google, "Creates calendar events, classroom spaces, drive folders")
-    Rel(pl, resend, "Sends enrollment confirmations, waitlist notifications, reminders")
-    Rel(pl, twilio, "Sends SMS booking reminders and waitlist alerts")
-
-    UpdateRelStyle(student, pl, $offsetY="-30")
-    UpdateRelStyle(parent, pl, $offsetY="-30")
-    UpdateRelStyle(admin, pl, $offsetY="-30")
+    style actors fill:none,stroke:none
+    style pl fill:#1168bd,stroke:#0b4884,color:#fff
+    style supabase fill:#999,stroke:#666,color:#fff
+    style stripe fill:#999,stroke:#666,color:#fff
+    style google fill:#999,stroke:#666,color:#fff
+    style resend fill:#999,stroke:#666,color:#fff
+    style twilio fill:#999,stroke:#666,color:#fff
+    style vercel fill:#999,stroke:#666,color:#fff
+    style student fill:#08427b,stroke:#052e56,color:#fff
+    style parent fill:#08427b,stroke:#052e56,color:#fff
+    style admin fill:#08427b,stroke:#052e56,color:#fff
 ```
 
 ## Actors

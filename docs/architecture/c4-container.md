@@ -3,49 +3,72 @@
 Zooms into the ProvableLearning system to show its runtime containers and the data flow between them.
 
 ```mermaid
-C4Container
-    title ProvableLearning — Container Diagram
+flowchart TB
+    subgraph actors [" "]
+        direction LR
+        student("👤 Student")
+        parent("👤 Parent")
+        admin("👤 Admin / Tutor")
+    end
 
-    Person(student, "Student")
-    Person(parent, "Parent")
-    Person(admin, "Admin / Tutor")
+    subgraph vercel_boundary ["Vercel"]
+        webapp["<b>Next.js App</b><br/>Next.js 15, App Router<br/>Server-rendered pages +<br/>client components"]
+        api["<b>API Routes</b><br/>Route Handlers<br/>auth, bookings, cancellations,<br/>export, Google integration"]
+        cron["<b>Cron Jobs</b><br/>7 scheduled tasks<br/>reconcile, waitlist-notify,<br/>backup, reports, etc."]
+        webhook["<b>Webhook Handler</b><br/>Stripe payment events"]
+        mw["<b>Middleware</b><br/>Auth + role-based routing<br/>+ session refresh"]
+    end
 
-    Container_Boundary(vercel, "Vercel") {
-        Container(webapp, "Next.js App", "Next.js 15, App Router, React, TypeScript", "Server-rendered pages + client components for all three roles")
-        Container(api, "API Routes", "Next.js Route Handlers", "REST endpoints: auth, bookings, cancellations, export, Google integration")
-        Container(cron, "Cron Jobs", "Vercel Cron → Next.js Route Handlers", "7 scheduled tasks: reconcile, waitlist-notify, backup, reports, cancel-credits, booking-reminders, auto-unenroll")
-        Container(webhook, "Webhook Handler", "Next.js Route Handler", "Receives Stripe payment events")
-        Container(middleware, "Middleware", "Next.js Middleware", "Auth enforcement, role-based route protection, session refresh")
-    }
+    subgraph supabase_boundary ["Supabase"]
+        db[("<b>PostgreSQL</b><br/>users, students, classes,<br/>enrollments, credits, waitlist<br/>RLS · RPCs · triggers")]
+        auth["<b>Supabase Auth</b><br/>Email+password, Google OAuth<br/>PKCE, session management"]
+    end
 
-    Container_Boundary(supabase_boundary, "Supabase") {
-        ContainerDb(db, "PostgreSQL", "Supabase Postgres", "Core data: users, students, classes, enrollments, credits, waitlist, performance_logs, etc. RLS policies, RPCs, triggers")
-        Container(auth, "Supabase Auth", "Supabase Auth", "Email+password and Google OAuth, session management, PKCE flow")
-    }
+    subgraph ext ["External Services"]
+        direction LR
+        stripe["<b>Stripe</b><br/>Checkout + webhooks"]
+        google["<b>Google Workspace</b><br/>Calendar, Classroom, Drive"]
+        resend["<b>Resend</b><br/>Email"]
+        twilio["<b>Twilio</b><br/>SMS"]
+    end
 
-    System_Ext(stripe, "Stripe", "Checkout sessions, payment intents, webhooks")
-    System_Ext(google, "Google Workspace", "Calendar, Classroom, Drive")
-    System_Ext(resend, "Resend", "Email delivery")
-    System_Ext(twilio, "Twilio", "SMS delivery")
+    student -- HTTPS --> webapp
+    parent -- HTTPS --> webapp
+    admin -- HTTPS --> webapp
 
-    Rel(student, webapp, "HTTPS")
-    Rel(parent, webapp, "HTTPS")
-    Rel(admin, webapp, "HTTPS")
+    webapp -- "Server actions" --> api
+    webapp -- "Anon key + RLS" --> db
+    webapp --> auth
+    mw -- "Session verify" --> auth
 
-    Rel(webapp, api, "Internal fetch / server actions")
-    Rel(webapp, db, "Supabase client (anon key + RLS)")
-    Rel(webapp, auth, "Sign in, sign up, session refresh")
-    Rel(api, db, "Supabase server client (anon key + RLS)")
-    Rel(api, stripe, "Create checkout sessions")
-    Rel(api, google, "Create calendars, classrooms, drive folders")
-    Rel(api, resend, "Send emails")
-    Rel(api, twilio, "Send SMS")
-    Rel(cron, db, "Supabase admin client (service role key, bypasses RLS)")
-    Rel(cron, resend, "Send reminder/notification emails")
-    Rel(cron, twilio, "Send reminder SMS")
-    Rel(webhook, db, "Update enrollment payment status")
-    Rel(stripe, webhook, "POST /api/webhooks/stripe")
-    Rel(middleware, auth, "Verify session, refresh tokens")
+    api -- "Anon key + RLS" --> db
+    api --> stripe
+    api --> google
+    api --> resend
+    api --> twilio
+
+    cron -- "Service role key<br/>(bypasses RLS)" --> db
+    cron --> resend
+    cron --> twilio
+
+    stripe -- "POST /api/webhooks/stripe" --> webhook
+    webhook -- "Update payment status" --> db
+
+    style actors fill:none,stroke:none
+    style webapp fill:#1168bd,stroke:#0b4884,color:#fff
+    style api fill:#1168bd,stroke:#0b4884,color:#fff
+    style cron fill:#1168bd,stroke:#0b4884,color:#fff
+    style webhook fill:#1168bd,stroke:#0b4884,color:#fff
+    style mw fill:#1168bd,stroke:#0b4884,color:#fff
+    style db fill:#08427b,stroke:#052e56,color:#fff
+    style auth fill:#08427b,stroke:#052e56,color:#fff
+    style stripe fill:#999,stroke:#666,color:#fff
+    style google fill:#999,stroke:#666,color:#fff
+    style resend fill:#999,stroke:#666,color:#fff
+    style twilio fill:#999,stroke:#666,color:#fff
+    style student fill:#08427b,stroke:#052e56,color:#fff
+    style parent fill:#08427b,stroke:#052e56,color:#fff
+    style admin fill:#08427b,stroke:#052e56,color:#fff
 ```
 
 ## Containers

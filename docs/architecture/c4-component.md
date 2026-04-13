@@ -3,61 +3,88 @@
 Zooms into the Next.js application to show the library modules, their responsibilities, and how they interact.
 
 ```mermaid
-C4Component
-    title ProvableLearning — Component Diagram (Next.js App)
+flowchart TB
+    subgraph pages ["Pages · src/app"]
+        direction LR
+        auth_pages["<b>Auth</b><br/>login, signup,<br/>onboarding, OAuth"]
+        student_pages["<b>Student</b><br/>dashboard, payments,<br/>cancel, makeup, credit"]
+        parent_pages["<b>Parent</b><br/>dashboard, add student,<br/>payments, cancel, credit"]
+        admin_pages["<b>Admin</b><br/>classes, students, perf,<br/>credits, messages, logs"]
+        enroll_pages["<b>Enrollment</b><br/>browse, select slots,<br/>checkout, waitlist"]
+        public_pages["<b>Public</b><br/>landing, offerings,<br/>booking"]
+    end
 
-    Container_Boundary(pages, "Pages (src/app)") {
-        Component(auth_pages, "Auth Pages", "(auth)/", "Login, signup, onboarding, password reset, OAuth callback")
-        Component(student_pages, "Student Dashboard", "(dashboard)/student/", "Dashboard, payments, cancel session, drop class, makeup, redeem credit")
-        Component(parent_pages, "Parent Dashboard", "(dashboard)/parent/", "Dashboard, add student, payments, cancel session, drop class, redeem credit")
-        Component(admin_pages, "Admin Dashboard", "(dashboard)/admin/", "Classes, students, performance, credits, makeups, refunds, messages, calendar, logs, export")
-        Component(enroll_pages, "Enrollment Flow", "enroll/", "Browse classes, select slots, Stripe checkout, waitlist offers")
-        Component(public_pages, "Public Pages", "/", "Landing, offerings, booking widget")
-    }
+    subgraph lib ["Core Libraries · src/lib"]
+        enrollment_lib["<b>Enrollment</b><br/>eligibility, reserve_seat<br/>RPC, 3-phase drop, pay-now"]
+        cancellation_lib["<b>Cancellation</b><br/>cancel-session, book-makeup,<br/>find-alternates, makeup-waitlist"]
+        credits_lib["<b>Credits</b><br/>balance, apply_credits<br/>RPC, find-sessions, redeem"]
+        waitlist_lib["<b>Waitlist</b><br/>join, notify-next,<br/>auto-enroll"]
+        scheduling_lib["<b>Scheduling</b><br/>computeSessionDates,<br/>computeEnrollmentSessions"]
+        stripe_lib["<b>Stripe</b><br/>client, prices,<br/>create-checkout, webhooks"]
+        google_lib["<b>Google</b><br/>auth, calendar,<br/>classroom, drive"]
+        notifications_lib["<b>Notifications</b><br/>send-email (Resend),<br/>send-sms (Twilio)"]
+        auth_lib["<b>Auth</b><br/>get-user-role, OAuth,<br/>nav-props, cron-secret"]
+        supabase_lib["<b>Supabase Clients</b><br/>browser, server+RLS,<br/>admin (service role)"]
+        validators_lib["<b>Validators</b><br/>Zod schemas"]
+    end
 
-    Container_Boundary(lib, "Core Libraries (src/lib)") {
-        Component(enrollment_lib, "Enrollment", "src/lib/enrollment/", "check-eligibility, reserve (calls reserve_seat RPC), drop (3-phase), pay-now")
-        Component(cancellation_lib, "Cancellation", "src/lib/cancellation/", "cancel-session, book-makeup, auto-book-makeup, find-alternate-sessions, join-makeup-waitlist")
-        Component(credits_lib, "Credits", "src/lib/credits/", "get-balance, apply-credits (calls apply_credits RPC), find-sessions-for-credit, redeem-credit")
-        Component(waitlist_lib, "Waitlist", "src/lib/waitlist/", "join, notify-next, auto-enroll, send-waitlist-notification")
-        Component(scheduling_lib, "Scheduling", "src/lib/scheduling/", "computeSessionDates, computeEnrollmentSessions — session date math from slots + start date")
-        Component(stripe_lib, "Stripe", "src/lib/stripe/", "client, prices, create-checkout, webhook-handlers")
-        Component(google_lib, "Google", "src/lib/google/", "auth (service account), calendar, classroom, drive-folders")
-        Component(notifications_lib, "Notifications", "src/lib/notifications/", "send-email (Resend), send-sms (Twilio), send-booking-notification")
-        Component(auth_lib, "Auth", "src/lib/auth/", "get-user-role, google-oauth, get-nav-props, verify-cron-secret")
-        Component(supabase_lib, "Supabase Clients", "src/lib/supabase/", "client.ts (browser), server.ts (server+RLS), admin.ts (service role)")
-        Component(validators_lib, "Validators", "src/lib/validators/", "Zod schemas for class creation and other inputs")
-    }
+    mw["<b>Middleware</b> · src/middleware.ts<br/>Auth enforcement, role routing, session refresh"]
+    types["<b>Types & Constants</b> · src/lib/types.ts, constants.ts"]
 
-    Component(middleware, "Middleware", "src/middleware.ts", "Auth enforcement, role-based routing, session refresh")
-    Component(types, "Types & Constants", "src/lib/types.ts, constants.ts", "TypeScript interfaces, enums, pricing, config")
+    %% Pages → Libraries
+    auth_pages --> auth_lib
+    auth_pages --> supabase_lib
+    student_pages --> enrollment_lib
+    student_pages --> cancellation_lib
+    student_pages --> credits_lib
+    parent_pages --> enrollment_lib
+    parent_pages --> cancellation_lib
+    parent_pages --> credits_lib
+    admin_pages --> supabase_lib
+    enroll_pages --> enrollment_lib
+    enroll_pages --> stripe_lib
+    enroll_pages --> scheduling_lib
+    enroll_pages --> waitlist_lib
 
-    Rel(auth_pages, auth_lib, "Sign in/up, OAuth")
-    Rel(auth_pages, supabase_lib, "Auth client")
-    Rel(student_pages, enrollment_lib, "View enrollments")
-    Rel(student_pages, cancellation_lib, "Cancel sessions, book makeups")
-    Rel(student_pages, credits_lib, "View balance, redeem")
-    Rel(parent_pages, enrollment_lib, "Enroll children, view enrollments")
-    Rel(parent_pages, cancellation_lib, "Cancel on behalf of children")
-    Rel(parent_pages, credits_lib, "View balance, redeem for children")
-    Rel(admin_pages, supabase_lib, "Direct DB queries for management")
-    Rel(enroll_pages, enrollment_lib, "Check eligibility, reserve seat")
-    Rel(enroll_pages, stripe_lib, "Create checkout session")
-    Rel(enroll_pages, scheduling_lib, "Compute session dates for preview")
-    Rel(enroll_pages, waitlist_lib, "Join waitlist if full")
+    %% Library → Library
+    enrollment_lib --> supabase_lib
+    enrollment_lib --> scheduling_lib
+    cancellation_lib --> supabase_lib
+    cancellation_lib --> credits_lib
+    credits_lib --> supabase_lib
+    waitlist_lib --> supabase_lib
+    waitlist_lib --> notifications_lib
+    stripe_lib --> supabase_lib
+    google_lib --> supabase_lib
+    notifications_lib --> supabase_lib
 
-    Rel(enrollment_lib, supabase_lib, "reserve_seat RPC, enrollment CRUD")
-    Rel(enrollment_lib, scheduling_lib, "Compute session dates")
-    Rel(cancellation_lib, supabase_lib, "Cancellation + makeup records")
-    Rel(cancellation_lib, credits_lib, "Apply credits for makeups")
-    Rel(credits_lib, supabase_lib, "apply_credits RPC")
-    Rel(waitlist_lib, supabase_lib, "Waitlist CRUD")
-    Rel(waitlist_lib, notifications_lib, "Notify next in queue")
-    Rel(stripe_lib, supabase_lib, "Update payment status via webhook")
-    Rel(google_lib, supabase_lib, "Store Google IDs on classes/enrollments")
-    Rel(notifications_lib, supabase_lib, "Log notifications")
-    Rel(middleware, auth_lib, "Role resolution")
-    Rel(middleware, supabase_lib, "Session refresh")
+    %% Middleware
+    mw --> auth_lib
+    mw --> supabase_lib
+
+    style pages fill:#e8f0fe,stroke:#1168bd
+    style lib fill:#fef3e8,stroke:#c8952e
+    style mw fill:#1168bd,stroke:#0b4884,color:#fff
+    style types fill:#f0f0f0,stroke:#999
+
+    style auth_pages fill:#1168bd,stroke:#0b4884,color:#fff
+    style student_pages fill:#1168bd,stroke:#0b4884,color:#fff
+    style parent_pages fill:#1168bd,stroke:#0b4884,color:#fff
+    style admin_pages fill:#1168bd,stroke:#0b4884,color:#fff
+    style enroll_pages fill:#1168bd,stroke:#0b4884,color:#fff
+    style public_pages fill:#1168bd,stroke:#0b4884,color:#fff
+
+    style enrollment_lib fill:#c8952e,stroke:#a07724,color:#fff
+    style cancellation_lib fill:#c8952e,stroke:#a07724,color:#fff
+    style credits_lib fill:#c8952e,stroke:#a07724,color:#fff
+    style waitlist_lib fill:#c8952e,stroke:#a07724,color:#fff
+    style scheduling_lib fill:#c8952e,stroke:#a07724,color:#fff
+    style stripe_lib fill:#c8952e,stroke:#a07724,color:#fff
+    style google_lib fill:#c8952e,stroke:#a07724,color:#fff
+    style notifications_lib fill:#c8952e,stroke:#a07724,color:#fff
+    style auth_lib fill:#c8952e,stroke:#a07724,color:#fff
+    style supabase_lib fill:#c8952e,stroke:#a07724,color:#fff
+    style validators_lib fill:#c8952e,stroke:#a07724,color:#fff
 ```
 
 ## Module Details
