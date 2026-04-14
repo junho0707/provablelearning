@@ -11,6 +11,92 @@
 
 ---
 
+## 0. Core Logic Overview
+
+Every piece of business logic implemented in the system, grouped by domain. Each item maps to one or more flows in section B.
+
+### Enrollment & Eligibility
+- **Eligibility prefetch** — duplicates, blocked classes, time conflicts across all active slots → B2, B4
+- **Atomic seat reservation** — `reserve_seat` RPC, `FOR UPDATE` row lock both slots → B2, B3, B4
+- **Dual-slot model** — `slot_1_class_id` + `slot_2_class_id` (+ optional `slot_3`), distinct classes, group_size match → B2, B3
+- **Pay-now branch** — pending → Stripe checkout → webhook activates → B2
+- **Pay-later branch** — immediate `active+unpaid`, `payment_deadline = start + 7d` → B3
+- **LG-specific gate** — block enrollment when `class_start_date <= today` → B4
+- **Re-enroll cap** — `MAX_REENROLL_PER_SUBJECT = 3` per subject → B9
+
+### Scheduling
+- **Session date computation** — `computeEnrollmentSessions()` (2-slot=8 odd/even, 3-slot=12 round-robin, LG=8) → B2, B4
+- **Rolling student window** — `student_start_date` / `student_end_date` (+35d) for SG/1:1 → A14, B2
+- **LG fixed window** — uses `class_start_date` / `class_end_date` as-is → B4
+
+### Payment & Stripe
+- **Checkout creation** — `unit_amount = getPriceForEnrollment()`, `expires_at = now+30min`, metadata pinned → B2, B10
+- **Webhook activation (sync)** — `checkout.session.completed` + `paid` → activate idempotently → B2, B10
+- **Webhook activation (async ACH)** — `async_payment_succeeded` → re-runs activation → B10
+- **Checkout expiry** — `checkout.session.expired` → delete pending, reverse credits, cascade waitlist → B2, B10
+- **Reconcile cron** — hourly catch for missed webhooks → B10, B12
+- **Auto-unenroll cron** — daily cancel `active+unpaid` past deadline → B3, B12
+
+### Cancellation & Makeup
+- **Session cancel** — LG-blocked, 24h notice guard, `session_cancellations` row → B7
+- **Alternate session finder** — same group_size, different class, capacity available, within window → B7
+- **Makeup booking** — `book_makeup_session` RPC → B7
+- **Makeup waitlist** — auto-book FIFO when host class frees → B7
+- **Auto-issue credit** — `cancel-credits` cron after Sunday 11:59 PM if no makeup (SG/1:1 only) → B7, B12
+
+### Credits
+- **Balance** — `remaining_amount > 0 AND not expired`, grouped by group_size_type → B8
+- **FIFO atomic deduction** — `apply_credits` RPC, `FOR UPDATE` row lock → B8
+- **Credit-for-makeup picker** — enrollment-window bounded, excludes own class, dedupes same-host-date → B8
+- **Credits are makeup-only** — never used for enrollment payment → B8
+
+### Drop & Re-enroll
+- **3-phase drop boundary** — `COALESCE(student_start_date, class_start_date) - today` → B9
+- **Phase 1** (>7d before): self-serve, `class_blocked=false` → B9
+- **Phase 2** (-7..7d): note required, `class_blocked=true` → B9
+- **Phase 3** (>7d after): refund consultation only → B9, B11
+- **Paid-block** — paid enrollments cannot self-drop in any phase → B9, B11
+
+### Waitlist
+- **LG waitlist** — FIFO, auto-enroll as `active+unpaid`, time-conflict guard → B6
+- **SG waitlist** — preferred 2–4 slots, notify when ≥2 day-distinct preferred slots open, 72h offer window → B5
+- **SG auto-enroll** — picks first preferred + day-distinct partner → B5
+- **Cascade on expiry** — expired offer → notify next FIFO entry → B5
+
+### Classroom & Calendar (Google)
+- **LG class create** — Calendar event (COUNT) + Classroom course at admin time → B1
+- **SG/1:1 class create** — Calendar event (UNTIL) only at admin time; per-student Classroom at enrollment → B1, B2
+- **Classroom invite on activation** — best-effort per-student invite, slot_1 + slot_2 → B2
+- **Classroom removal on drop** — both slots → B9
+
+### Refund
+- **Parent-initiated** — explanation page → `/book` consultation → B11
+- **Admin issuance** — Stripe `refunds.create` OR credit, logged in `admin_logs` → B11
+- **RLS** — parents cannot write `refund_requests` (admin-only) → B11
+
+### Auth & Access Control
+- **Email+password + Google OAuth** — auto-link by email match in callback
+- **Role immutability** — DB trigger
+- **RLS** — users see own; parents see children; admins see all
+- **Enrollment INSERT** — only via `SECURITY DEFINER` RPC
+
+### Admin Class Authoring
+- **Zod validation** — SG/1:1 reject subject/level; LG requires both + 2 days; capacity ranges enforced → B1
+- **Class capacity CHECK** — DB constraint per group_size_type → A4–A6, B1
+
+### Notifications
+- **Booking reminders** — hourly cron, 11–12h out window → B12
+- **Waitlist offer / auto-enroll emails** — sent on transition → B5, B6
+- **Cancellation / makeup confirmations** — sent on RPC success → B7
+
+### System Hardening
+- **Idempotency** — webhooks + crons safe to re-run → B10, B12
+- **CRON_SECRET guard** — every `/api/cron/*` route → B12
+- **Agreement immutability** — DB trigger on active enrollments
+- **Phone enforcement** — DB triggers on users + students
+
+---
+
 ## A. Constants
 
 Every row = a value that must match business intent. Source: `src/lib/constants.ts` unless noted.
