@@ -1,15 +1,21 @@
 # Claude Code Instructions
 
-## Architecture Documentation
+## Documentation
 
-When making changes that affect the system's structure, check and update the C4 architecture docs in `docs/architecture/`. Specifically:
+Five docs in `docs/`. Keep them in sync with code changes:
 
-- **Adding/removing an external service** → update `c4-context.md` (L1) and `c4-container.md` (L2)
-- **Adding/removing an API route group** under `src/app/api/` → update `c4-container.md` (L2)
-- **Adding/removing a library module** under `src/lib/` → update `c4-component.md` (L3)
-- **Adding/removing a cron job** in `vercel.json` → update `c4-container.md` (L2)
-- **Adding/removing a page route group** under `src/app/` → update `c4-component.md` (L3)
-- **Changing the deployment target or database** → update `c4-container.md` (L2)
-- **Changing core business terms** (e.g., renaming enrollment concepts) → update glossary in `c4-index.md`
+- **`SYSTEM.md`** — how every feature works + files to edit. Update when feature behavior changes.
+- **`SYSTEM_MANAGER_CHECKLIST.md`** — constants + user flows (state diagrams) + code checkpoints. Update when a migration, RPC, webhook handler, constant, or user flow changes.
+- **`ARCHITECTURE.md`** — C4 structural view. Update when:
+  - External service added/removed (L1 + L2)
+  - API route group under `src/app/api/` added/removed (L2)
+  - Cron in `vercel.json` added/removed (L2)
+  - Deployment target or database changes (L2)
+  - Library module under `src/lib/` added/removed (L3)
+  - Page route group under `src/app/` added/removed (L3)
+  - Core business term renamed (Glossary)
+- **`parent-guide.md`** / **`student-guide.md`** — end-user guides. Update on user-facing UX changes.
 
-You do not need to update docs for changes within existing modules (bug fixes, new functions in an existing lib, UI tweaks).
+No update needed for bug fixes, new functions inside an existing module, or UI polish that doesn't change behavior.
+
+If a change touches multiple docs, update all of them in the same commit.

@@ -23,7 +23,8 @@
 14. [Notifications & Messaging](#14-notifications--messaging)
 15. [Cron Jobs](#15-cron-jobs)
 16. [Database Schema Summary](#16-database-schema-summary)
-17. [File Map](#17-file-map)
+
+> For module layout, API groups, crons, and dependency flow between libraries, see `ARCHITECTURE.md` (C4).
 
 ---
 
@@ -583,48 +584,4 @@ Cron schedule configured in `vercel.json`.
 
 ---
 
-## 17. File Map
-
-```
-src/
-├── app/
-│   ├── (auth)/           # Login, signup, callback, onboarding
-│   ├── (dashboard)/
-│   │   ├── _components/  # Shared: cancel-session-form, alternate-session-picker,
-│   │   │                 #   reschedule-widget, credit-makeup-picker, message-form, etc.
-│   │   ├── admin/        # Admin pages (classes, students, performance, etc.)
-│   │   ├── parent/       # Parent dashboard, cancel-session, drop-class, redeem-credit
-│   │   ├── student/      # Student dashboard (parity with parent)
-│   │   ├── enroll/       # Browse, enroll, waitlist, waitlist-offer
-│   │   └── layout.tsx    # Dashboard layout (nav + container)
-│   ├── api/
-│   │   ├── webhooks/stripe/  # Stripe webhook
-│   │   ├── cron/             # Cron jobs
-│   │   ├── bookings/         # Consultation booking API
-│   │   ├── cancellations/    # Reschedule + alternate sessions API
-│   │   └── auth/             # Sign out
-│   ├── book/             # Public consultation booking
-│   ├── offerings/        # Public class offerings
-│   └── page.tsx          # Landing page
-├── lib/
-│   ├── auth/             # Auth helpers (google-oauth, get-user-role)
-│   ├── cancellation/     # Cancel, book makeup, find alternates, waitlist
-│   ├── credits/          # Balance, find sessions, redeem
-│   ├── enrollment/       # Eligibility, reserve, drop, pay-now
-│   ├── google/           # Calendar + Classroom APIs
-│   ├── notifications/    # Email (Resend), SMS (Twilio)
-│   ├── scheduling/       # Session date computation
-│   ├── stripe/           # Checkout, prices, webhook handlers
-│   ├── supabase/         # Client factories (server, admin, browser)
-│   ├── validators/       # Zod schemas
-│   ├── waitlist/         # Join, notify, auto-enroll
-│   ├── constants.ts      # Prices, durations, group size ranges, formatting
-│   └── types.ts          # TypeScript interfaces
-├── components/           # Shared UI (nav, weekly-schedule-grid)
-└── middleware.ts          # Route protection
-
-supabase/
-└── migrations/           # 89 migration files (00001–00089)
-
-vercel.json               # Cron schedule configuration
-```
+> See `ARCHITECTURE.md` for the component-level file map.
