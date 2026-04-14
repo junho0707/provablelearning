@@ -119,7 +119,7 @@ export default async function StudentDashboard() {
   const wlClassIds = (waitlistEntries || [])
     .map((w: Record<string, unknown>) => w.class_id)
     .filter(Boolean) as string[];
-  let wlClassMap: Record<string, Record<string, unknown>> = {};
+  const wlClassMap: Record<string, Record<string, unknown>> = {};
   if (wlClassIds.length > 0) {
     const { data: wlClasses } = await adminClient
       .from('classes')
@@ -134,7 +134,7 @@ export default async function StudentDashboard() {
   const allPreferredIds = (waitlistEntries || [])
     .filter((w: Record<string, unknown>) => !w.class_id && w.preferred_class_ids)
     .flatMap((w: Record<string, unknown>) => w.preferred_class_ids as string[]);
-  let preferredClassMap: Record<string, { name: string | null; meeting_day: string; meeting_time: string; group_size_type: string }> = {};
+  const preferredClassMap: Record<string, { name: string | null; meeting_day: string; meeting_time: string; group_size_type: string }> = {};
   if (allPreferredIds.length > 0) {
     const { data: prefClasses } = await adminClient
       .from('classes')
@@ -178,7 +178,7 @@ export default async function StudentDashboard() {
 
   // Filter out cancellations for dropped/canceled enrollments
   const cancellationEnrollmentIds = [...new Set((cancellationsRaw || []).map((c) => c.enrollment_id as string))];
-  let enrollmentStatusMap: Record<string, string> = {};
+  const enrollmentStatusMap: Record<string, string> = {};
   if (cancellationEnrollmentIds.length > 0) {
     const { data: enrRows } = await adminClient
       .from('enrollments')
@@ -191,7 +191,7 @@ export default async function StudentDashboard() {
 
   // Makeup bookings for cancellations (cancellation-based + credit-based)
   const cancellationIds = (cancellationsRaw || []).map((c) => c.id as string);
-  let makeupMap: Record<string, Record<string, unknown>> = {};
+  const makeupMap: Record<string, Record<string, unknown>> = {};
   if (cancellationIds.length > 0) {
     const { data: makeups } = await adminClient
       .from('makeup_bookings')
@@ -209,9 +209,9 @@ export default async function StudentDashboard() {
     ...(cancellationsRaw || []).map((c) => c.class_id as string),
     ...Object.values(makeupMap).map((m) => m.host_class_id as string),
   ].filter(Boolean);
-  let classInfoMap: Record<string, { meeting_day: string; meeting_time: string; google_classroom_id: string | null; google_classroom_link: string | null; google_meet_link: string | null }> = {};
+  const classInfoMap: Record<string, { meeting_day: string; meeting_time: string; google_classroom_id: string | null; google_classroom_link: string | null; google_meet_link: string | null }> = {};
   // Also need subject+level from classes for cancellation credit redemption links
-  let classInfoForCanc: Record<string, { subject: string; level: string }> = {};
+  const classInfoForCanc: Record<string, { subject: string; level: string }> = {};
   if (allClassIds.length > 0) {
     const { data: classRows } = await adminClient
       .from('classes')
@@ -245,7 +245,7 @@ export default async function StudentDashboard() {
     if (e.slot_2_class_id) extraSlotClassIds.add(e.slot_2_class_id as string);
     if (e.slot_3_class_id) extraSlotClassIds.add(e.slot_3_class_id as string);
   }
-  let slot2ClassMap: Record<string, Record<string, unknown>> = {};
+  const slot2ClassMap: Record<string, Record<string, unknown>> = {};
   if (extraSlotClassIds.size > 0) {
     const { data: extraRows } = await adminClient
       .from('classes')

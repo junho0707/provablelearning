@@ -62,7 +62,7 @@ export default async function ParentCancelSessionPage() {
 
   // Get existing cancellations for these students
   let existingCancellations: Record<string, unknown>[] = [];
-  let makeupBookings: Record<string, Record<string, unknown>> = {};
+  const makeupBookings: Record<string, Record<string, unknown>> = {};
   if (studentIds.length > 0) {
     const [{ data: cancelData }, { data: makeupData }] = await Promise.all([
       supabase

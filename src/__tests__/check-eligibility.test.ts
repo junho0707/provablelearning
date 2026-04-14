@@ -4,34 +4,35 @@ import { checkEligibility } from '@/lib/enrollment/check-eligibility';
 /**
  * Mock Supabase for checkEligibility.
  *
- * checkEligibility makes 6 sequential queries:
- *   0: enrollments (dupClass)    — count, no .single()
- *   1: enrollments (dupCourse)   — count, no .single()
- *   2: courses                   — .single()
- *   3: enrollments (reenroll)    — count, no .single()
- *   4: classes                   — .single()
- *   5: enrollments (conflicts)   — no .single(), returns { data: [...] }
+ * Query sequence (slot 1 only):
+ *   0: classes (slot1 fetch)       .single()
+ *   1: enrollments (dupEnrollment slot1)
+ *   2: enrollments (blocked slot1)
+ *   3: enrollments (active enrolls — prefetch for conflict detection)
+ *   4: classes (bulk committed day/time) — ONLY if step 3 returned ≥ 1 row
+ *   — slot 1 conflict check happens in memory —
  *
- * The mock tracks .from() calls and returns the right response.
+ * If slot2 provided:
+ *   next: classes (slot2)         .single()
+ *   — slot 2 conflict check in memory —
+ *   next: enrollments (dup slot2)
  */
 function createSupabaseMock(responses: Array<{ data?: unknown; count?: number | null; error?: unknown }>) {
   let fromCallCount = 0;
 
   return {
-    from: (_table: string) => {
+    from: () => {
       const idx = fromCallCount++;
 
       function makeChain(): unknown {
         return new Proxy({}, {
           get(_target, prop: string) {
-            // Make chain thenable — resolves to the response for this query
             if (prop === 'then') {
               const resp = responses[idx] || { data: null, count: null };
               return (resolve: (v: unknown) => void) => resolve(resp);
             }
             if (prop === 'catch') return () => {};
 
-            // .single() also resolves
             if (prop === 'single' || prop === 'maybeSingle') {
               return () => {
                 const resp = responses[idx] || { data: null };
@@ -39,7 +40,6 @@ function createSupabaseMock(responses: Array<{ data?: unknown; count?: number | 
               };
             }
 
-            // All other chain methods return the chain
             return (..._args: unknown[]) => makeChain();
           },
         });
@@ -47,138 +47,123 @@ function createSupabaseMock(responses: Array<{ data?: unknown; count?: number | 
 
       return makeChain();
     },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any;
 }
 
 describe('checkEligibility', () => {
-  const courseId = 'crs-1';
   const classId = 'cls-1';
   const studentId = 'stu-1';
 
-  const validCourse = {
-    start_date: '2099-01-01',
-    subject: 'digital_rw',
-    max_reenroll: 3,
-  };
   const validClass = {
+    id: classId,
+    name: 'Test Class',
+    subject: null,
+    level: null,
+    group_size_type: 'small',
     meeting_day: 'Monday',
     meeting_time: '10:00',
-    course_id: courseId,
+    class_start_date: null,
   };
-
-  it('rejects duplicate class enrollment', async () => {
-    const supabase = createSupabaseMock([
-      { count: 1 }, // dupClass: found
-    ]);
-
-    const result = await checkEligibility(supabase, studentId, classId, courseId);
-    expect(result.eligible).toBe(false);
-    expect(result.reason).toContain('Already enrolled in this class');
-  });
-
-  it('rejects duplicate course enrollment', async () => {
-    const supabase = createSupabaseMock([
-      { count: 0 },  // dupClass: none
-      { count: 1 },  // dupCourse: found
-    ]);
-
-    const result = await checkEligibility(supabase, studentId, classId, courseId);
-    expect(result.eligible).toBe(false);
-    expect(result.reason).toContain('Already enrolled in another class for this course');
-  });
-
-  it('rejects if course not found', async () => {
-    const supabase = createSupabaseMock([
-      { count: 0 },       // dupClass
-      { count: 0 },       // dupCourse
-      { data: null },      // course: not found
-    ]);
-
-    const result = await checkEligibility(supabase, studentId, classId, courseId);
-    expect(result.eligible).toBe(false);
-    expect(result.reason).toContain('Course not found');
-  });
-
-  it('rejects if course has already started', async () => {
-    const supabase = createSupabaseMock([
-      { count: 0 },
-      { count: 0 },
-      { data: { ...validCourse, start_date: '2020-01-01' } },
-    ]);
-
-    const result = await checkEligibility(supabase, studentId, classId, courseId);
-    expect(result.eligible).toBe(false);
-    expect(result.reason).toContain('already started');
-  });
-
-  it('rejects if re-enrollment limit reached', async () => {
-    const supabase = createSupabaseMock([
-      { count: 0 },
-      { count: 0 },
-      { data: validCourse },
-      { count: 3 },  // reenrollCount = max_reenroll
-    ]);
-
-    const result = await checkEligibility(supabase, studentId, classId, courseId);
-    expect(result.eligible).toBe(false);
-    expect(result.reason).toContain('Re-enrollment limit reached');
-  });
 
   it('rejects if class not found', async () => {
     const supabase = createSupabaseMock([
-      { count: 0 },
-      { count: 0 },
-      { data: validCourse },
-      { count: 0 },
-      { data: null },  // class not found
+      { data: null },
     ]);
-
-    const result = await checkEligibility(supabase, studentId, classId, courseId);
+    const result = await checkEligibility(supabase, studentId, classId);
     expect(result.eligible).toBe(false);
     expect(result.reason).toContain('Class not found');
   });
 
-  it('rejects if class does not belong to course', async () => {
+  it('rejects duplicate class enrollment', async () => {
     const supabase = createSupabaseMock([
-      { count: 0 },
-      { count: 0 },
-      { data: validCourse },
-      { count: 0 },
-      { data: { ...validClass, course_id: 'different-course' } },
+      { data: validClass },
+      { data: [{ id: 'enr-1' }] },
     ]);
-
-    const result = await checkEligibility(supabase, studentId, classId, courseId);
+    const result = await checkEligibility(supabase, studentId, classId);
     expect(result.eligible).toBe(false);
-    expect(result.reason).toContain('Class does not belong');
+    expect(result.reason).toContain('Already enrolled in this class');
   });
 
-  it('rejects if time conflict exists', async () => {
+  it('rejects if re-enrollment blocked (Phase 2 drop)', async () => {
     const supabase = createSupabaseMock([
-      { count: 0 },
-      { count: 0 },
-      { data: validCourse },
-      { count: 0 },
       { data: validClass },
-      { data: [{ class_id: 'other', classes: { meeting_day: 'Monday', meeting_time: '10:00' } }] },
+      { data: [] },
+      { data: [{ id: 'b1' }] },
     ]);
+    const result = await checkEligibility(supabase, studentId, classId);
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toContain('Re-enrollment into this class is not available');
+  });
 
-    const result = await checkEligibility(supabase, studentId, classId, courseId);
+  it('rejects LG class that has already started', async () => {
+    const startedLgClass = {
+      ...validClass,
+      group_size_type: 'large',
+      class_start_date: '2020-01-01',
+    };
+    const supabase = createSupabaseMock([
+      { data: startedLgClass },
+    ]);
+    const result = await checkEligibility(supabase, studentId, classId);
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toContain('already started');
+  });
+
+  it('rejects when new slot 1 conflicts with slot_1 of an existing enrollment', async () => {
+    const supabase = createSupabaseMock([
+      { data: validClass },                                           // slot1 class
+      { data: [] },                                                    // no dup
+      { data: [] },                                                    // no blocked
+      { data: [{ class_id: 'other', slot_1_class_id: 'other' }] },    // active enrolls
+      { data: [{ meeting_day: 'Monday', meeting_time: '10:00' }] },   // committed schedule
+    ]);
+    const result = await checkEligibility(supabase, studentId, classId);
     expect(result.eligible).toBe(false);
     expect(result.reason).toContain('Time conflict');
   });
 
-  it('allows eligible enrollment', async () => {
+  it('rejects when new slot 1 conflicts with slot_2 of an existing dual-slot enrollment (regression for cross-slot conflict bug)', async () => {
     const supabase = createSupabaseMock([
-      { count: 0 },
-      { count: 0 },
-      { data: validCourse },
-      { count: 0 },
       { data: validClass },
-      { data: [] },  // no conflicts
+      { data: [] },
+      { data: [] },
+      { data: [{ class_id: 'mon-cls', slot_1_class_id: 'mon-cls', slot_2_class_id: 'mon-other' }] },
+      // Committed includes a Monday 10:00 slot (from the student's slot_2). With the
+      // old implementation this was invisible because the join used class_id only.
+      { data: [
+        { meeting_day: 'Thursday', meeting_time: '15:00' },  // slot_1 of existing
+        { meeting_day: 'Monday',   meeting_time: '10:00' },  // slot_2 of existing — the conflict
+      ] },
     ]);
+    const result = await checkEligibility(supabase, studentId, classId);
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toContain('Time conflict');
+  });
 
-    const result = await checkEligibility(supabase, studentId, classId, courseId);
+  it('allows eligible enrollment with no existing commitments', async () => {
+    const supabase = createSupabaseMock([
+      { data: validClass },
+      { data: [] },
+      { data: [] },
+      { data: [] },  // no active enrolls → step 4 skipped
+    ]);
+    const result = await checkEligibility(supabase, studentId, classId);
     expect(result.eligible).toBe(true);
     expect(result.reason).toBeUndefined();
+  });
+
+  it('validates slot 2 when provided', async () => {
+    const slot2ClassId = 'cls-2';
+    const supabase = createSupabaseMock([
+      { data: validClass },  // slot 1 class
+      { data: [] },          // no dup slot 1
+      { data: [] },          // no blocked
+      { data: [] },          // no active enrolls → no committed fetch
+      { data: null },        // slot 2 class not found
+    ]);
+    const result = await checkEligibility(supabase, studentId, classId, slot2ClassId);
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toContain('Slot 2 class not found');
   });
 });

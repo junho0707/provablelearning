@@ -124,7 +124,8 @@ export function BookingWidget({
   }, []);
 
   useEffect(() => {
-    fetchSlots();
+    void fetchSlots();
+     
   }, [fetchSlots]);
 
   const dates = Object.keys(slotsByDate).sort();

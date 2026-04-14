@@ -54,8 +54,8 @@ describe('Business Constants', () => {
     expect(WAITLIST_CLAIM_WINDOW_HOURS).toBe(24);
   });
 
-  it('phase 1 boundary is 14 days before start', () => {
-    expect(PHASE_1_DAYS_BEFORE_START).toBe(14);
+  it('phase 1 self-serve boundary is 7 days before start (matches drop_enrollment RPC)', () => {
+    expect(PHASE_1_DAYS_BEFORE_START).toBe(7);
   });
 
   it('payment deadline is 7 days after start', () => {

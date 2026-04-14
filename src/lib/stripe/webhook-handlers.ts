@@ -56,18 +56,9 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
         supabase.from('students').select('user_id, parent_id, email').eq('id', enrollment.student_id).single(),
       ]);
 
-      // Get parent email for calendar invite
-      const parentId = student?.parent_id;
-      const parentEmail = parentId
-        ? (await supabase.auth.admin.getUserById(parentId)).data?.user?.email
-        : null;
-
       const studentEmail = student?.email || (student?.user_id
         ? (await supabase.auth.admin.getUserById(student.user_id)).data?.user?.email
         : null);
-
-      const startDate = enrollment.student_start_date || slot1Class?.class_start_date;
-      const calendarEmail = parentEmail || studentEmail;
 
       // LG calendar blocks are already created when admin creates the class — no per-student invite needed
 

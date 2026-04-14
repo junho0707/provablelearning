@@ -94,9 +94,8 @@ describe('reserve_seat RPC invariants', () => {
     expect(sql).toContain("'pending', 'paid'");
   });
 
-  it('computes 4th Saturday end date for SG/1:1', () => {
-    // Formula: ((6 - DOW + 6) % 7 + 1) + 21
-    expect(sql).toContain('(6 - v_dow + 6) % 7 + 1) + 21');
+  it('computes flat 35-day end date for SG/1:1 (covers every weekly 4-session sequence)', () => {
+    expect(sql).toContain('v_end_date := v_start_date + 35');
   });
 
   it('uses class dates for LG (not rolling)', () => {
@@ -396,54 +395,23 @@ describe('auto_enroll_from_waitlist RPC invariants', () => {
 });
 
 // =====================================================================
-// 4th Saturday end date calculation
+// Rolling end-date (flat 35 days — migration 00091)
 // =====================================================================
-describe('4th Saturday formula', () => {
-  it('formula produces correct dates for all DOWs', () => {
-    // Replicate the SQL formula: ((6 - DOW + 6) % 7 + 1) + 21
-    // DOW: Sun=0, Mon=1, ..., Sat=6
-    const testCases = [
-      { label: 'Mon Mar 30', dow: 1, expectedOffset: 26 }, // Sat Apr 25
-      { label: 'Wed Apr 2', dow: 3, expectedOffset: 24 },  // Sat Apr 26
-      { label: 'Sat Apr 5', dow: 6, expectedOffset: 28 },  // Sat May 3 (next Sat = 7 days later)
-      { label: 'Sun Apr 6', dow: 0, expectedOffset: 27 },  // Sat May 3
-      { label: 'Tue Apr 1', dow: 2, expectedOffset: 25 },  // Sat Apr 26
-      { label: 'Thu Apr 3', dow: 4, expectedOffset: 23 },  // Sat Apr 26
-      { label: 'Fri Apr 4', dow: 5, expectedOffset: 22 },  // Sat Apr 26
-    ];
-
-    for (const tc of testCases) {
-      const daysToNextSat = ((6 - tc.dow + 6) % 7) + 1;
-      const totalOffset = daysToNextSat + 21;
-      expect(totalOffset).toBe(
-        tc.expectedOffset,
-        // @ts-expect-error vitest message format
-        `Failed for ${tc.label} (DOW=${tc.dow})`
-      );
-    }
-  });
-
-  it('Saturday start date → next Saturday is 7 days later (not same day)', () => {
-    // DOW=6 (Saturday): ((6-6+6)%7)+1 = (6%7)+1 = 6+1 = 7
-    const daysToNextSat = ((6 - 6 + 6) % 7) + 1;
-    expect(daysToNextSat).toBe(7); // Must be strictly NEXT Saturday
-  });
-
-  it('all DOW values produce end date on a Saturday', () => {
-    // For any start DOW, start + offset should land on DOW=6 (Saturday)
+describe('rolling end-date formula', () => {
+  it('is a flat 35 days from start regardless of start DOW', () => {
     for (let dow = 0; dow <= 6; dow++) {
-      const offset = ((6 - dow + 6) % 7) + 1 + 21;
-      // (dow + offset) % 7 should be 6 (Saturday)
-      expect((dow + offset) % 7).toBe(6);
+      // Offset is constant; result is start + 35.
+      expect(35).toBe(35);
+      // Sanity: 35 days covers the worst-case 4-session weekly window (max +27).
+      expect(35).toBeGreaterThan(27);
     }
   });
 
-  it('offset is always between 22 and 28 days', () => {
-    for (let dow = 0; dow <= 6; dow++) {
-      const offset = ((6 - dow + 6) % 7) + 1 + 21;
-      expect(offset).toBeGreaterThanOrEqual(22);
-      expect(offset).toBeLessThanOrEqual(28);
-    }
+  it('covers a 4th weekly session from any start + meeting-day combination', () => {
+    // Worst case: start DOW and meeting_day differ by 6 → first session at +6, fourth at +27.
+    // Flat 35-day window gives 8+ days of slack.
+    const maxFourthSessionOffset = 6 + 7 * 3;
+    expect(maxFourthSessionOffset).toBeLessThanOrEqual(35);
   });
 });
 

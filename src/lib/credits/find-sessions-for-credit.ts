@@ -67,7 +67,7 @@ export async function findMakeupSessionsForCredit(
     [e.class_id, e.slot_1_class_id, e.slot_2_class_id, e.slot_3_class_id].filter((id): id is string => !!id)
   );
 
-  let enrolledClassMap: Record<string, { subject: string | null; level: string | null; group_size_type: string }> = {};
+  const enrolledClassMap: Record<string, { subject: string | null; level: string | null; group_size_type: string }> = {};
   if (allClassIds.length > 0) {
     const { data: classRows } = await adminClient
       .from('classes')

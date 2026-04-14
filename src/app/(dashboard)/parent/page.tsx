@@ -113,7 +113,7 @@ export default async function ParentDashboard() {
   const allStudentUserIds = (students || [])
     .filter((s: Record<string, unknown>) => s.user_id)
     .map((s: Record<string, unknown>) => s.user_id as string);
-  let userNameMap: Record<string, string> = {};
+  const userNameMap: Record<string, string> = {};
   if (allStudentUserIds.length > 0) {
     const { data: userRows } = await adminClient
       .from('users')
@@ -178,7 +178,7 @@ export default async function ParentDashboard() {
       const wlClassIds = (waitlistEntriesRaw || [])
         .map((w) => w.class_id)
         .filter(Boolean) as string[];
-      let wlClassMap: Record<string, Record<string, unknown>> = {};
+      const wlClassMap: Record<string, Record<string, unknown>> = {};
       if (wlClassIds.length > 0) {
         const { data: wlClasses } = await adminClient
           .from('classes')
@@ -194,7 +194,7 @@ export default async function ParentDashboard() {
       const allPreferredIds = waitlistEntries
         .filter((w) => !w.class_id && w.preferred_class_ids)
         .flatMap((w) => w.preferred_class_ids as string[]);
-      let preferredClassMap: Record<string, { name: string | null; meeting_day: string; meeting_time: string; group_size_type: string }> = {};
+      const preferredClassMap: Record<string, { name: string | null; meeting_day: string; meeting_time: string; group_size_type: string }> = {};
       if (allPreferredIds.length > 0) {
         const { data: prefClasses } = await adminClient
           .from('classes')
@@ -246,7 +246,7 @@ export default async function ParentDashboard() {
 
       // Fetch enrollment statuses to filter out dropped/canceled
       const cancellationEnrollmentIds = [...new Set((cancellationsRaw || []).map((c) => c.enrollment_id as string))];
-      let enrollmentStatusMap: Record<string, string> = {};
+      const enrollmentStatusMap: Record<string, string> = {};
       if (cancellationEnrollmentIds.length > 0) {
         const { data: enrRows } = await adminClient
           .from('enrollments')
@@ -259,7 +259,7 @@ export default async function ParentDashboard() {
 
       // Fetch makeup bookings for these cancellations (cancellation-based + credit-based)
       const cancellationIds = (cancellationsRaw || []).map((c) => c.id as string);
-      let makeupMap: Record<string, Record<string, unknown>> = {};
+      const makeupMap: Record<string, Record<string, unknown>> = {};
       if (cancellationIds.length > 0) {
         const { data: makeups } = await adminClient
           .from('makeup_bookings')
@@ -277,7 +277,7 @@ export default async function ParentDashboard() {
         ...(cancellationsRaw || []).map((c) => c.class_id as string),
         ...Object.values(makeupMap).map((m) => m.host_class_id as string),
       ].filter(Boolean);
-      let classInfoMap: Record<string, { meeting_day: string; meeting_time: string; google_meet_link: string | null }> = {};
+      const classInfoMap: Record<string, { meeting_day: string; meeting_time: string; google_meet_link: string | null }> = {};
       if (allClassIds.length > 0) {
         const { data: classRows } = await adminClient
           .from('classes')
@@ -290,7 +290,7 @@ export default async function ParentDashboard() {
 
       // Fetch class subject+level for cancellations (needed for credit redemption links)
       const cancellationClassIds = [...new Set((cancellationsRaw || []).map((c) => c.class_id as string).filter(Boolean))];
-      let classInfoForCancellations: Record<string, { subject: string | null; level: string | null }> = {};
+      const classInfoForCancellations: Record<string, { subject: string | null; level: string | null }> = {};
       if (cancellationClassIds.length > 0) {
         const { data: classRows } = await adminClient
           .from('classes')
@@ -341,7 +341,7 @@ export default async function ParentDashboard() {
         if (e.slot_2_class_id) extraSlotIds.add(e.slot_2_class_id as string);
         if (e.slot_3_class_id) extraSlotIds.add(e.slot_3_class_id as string);
       }
-      let slot2ClassMap: Record<string, Record<string, unknown>> = {};
+      const slot2ClassMap: Record<string, Record<string, unknown>> = {};
       if (extraSlotIds.size > 0) {
         const { data: extraRows } = await adminClient
           .from('classes')

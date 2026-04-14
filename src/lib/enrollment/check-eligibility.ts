@@ -11,7 +11,7 @@ export async function checkEligibility(
   slot1ClassId: string,
   slot2ClassId?: string | null,
   slot3ClassId?: string | null,
-  options?: { skipCapCheck?: boolean }
+  _options?: { skipCapCheck?: boolean }
 ): Promise<EligibilityResult> {
   // Fetch target class info
   const { data: slot1 } = await supabase
@@ -58,18 +58,35 @@ export async function checkEligibility(
     };
   }
 
-
-
-  // 3. Check time conflict with existing enrollments (slot_1)
-  const { data: conflicts } = await supabase
+  // 3. Pre-fetch student's committed (day, time) across ALL slot columns so
+  //    conflict checks cover slot_2/slot_3 of existing enrollments too.
+  const { data: activeEnrolls } = await supabase
     .from('enrollments')
-    .select('class_id, classes!inner(meeting_day, meeting_time)')
+    .select('class_id, slot_1_class_id, slot_2_class_id, slot_3_class_id')
     .eq('student_id', studentId)
-    .in('status', ['pending', 'active'])
-    .eq('classes.meeting_day', slot1.meeting_day)
-    .eq('classes.meeting_time', slot1.meeting_time);
+    .in('status', ['pending', 'active']);
 
-  if (conflicts && conflicts.length > 0) {
+  const committedClassIds: string[] = [];
+  for (const e of activeEnrolls || []) {
+    for (const id of [e.class_id, e.slot_1_class_id, e.slot_2_class_id, e.slot_3_class_id]) {
+      if (id) committedClassIds.push(id);
+    }
+  }
+
+  let committedSlots: Array<{ meeting_day: string; meeting_time: string }> = [];
+  if (committedClassIds.length > 0) {
+    const { data: cls } = await supabase
+      .from('classes')
+      .select('meeting_day, meeting_time')
+      .in('id', committedClassIds);
+    committedSlots = cls || [];
+  }
+
+  const hasConflict = (day: string, time: string): boolean =>
+    committedSlots.some((c) => c.meeting_day === day && c.meeting_time === time);
+
+  // Slot 1 conflict
+  if (hasConflict(slot1.meeting_day, slot1.meeting_time)) {
     return { eligible: false, reason: 'Time conflict with an existing enrollment.' };
   }
 
@@ -85,30 +102,18 @@ export async function checkEligibility(
       return { eligible: false, reason: 'Slot 2 class not found.' };
     }
 
-    // Only require same group_size_type (no subject/level match needed)
     if (slot2.group_size_type !== slot1.group_size_type) {
       return { eligible: false, reason: 'Both slots must have the same group size type.' };
     }
 
-    // Slot 1 and Slot 2 must be on different days
     if (slot2.meeting_day === slot1.meeting_day) {
       return { eligible: false, reason: 'Slot 1 and Slot 2 must be on different days.' };
     }
 
-    // Check slot2 time conflict
-    const { data: slot2Conflicts } = await supabase
-      .from('enrollments')
-      .select('class_id, classes!inner(meeting_day, meeting_time)')
-      .eq('student_id', studentId)
-      .in('status', ['pending', 'active'])
-      .eq('classes.meeting_day', slot2.meeting_day)
-      .eq('classes.meeting_time', slot2.meeting_time);
-
-    if (slot2Conflicts && slot2Conflicts.length > 0) {
+    if (hasConflict(slot2.meeting_day, slot2.meeting_time)) {
       return { eligible: false, reason: 'Time conflict with an existing enrollment for slot 2.' };
     }
 
-    // Check duplicate enrollment for slot2
     const { data: dupSlot2 } = await supabase
       .from('enrollments')
       .select('id')
@@ -137,20 +142,10 @@ export async function checkEligibility(
       return { eligible: false, reason: 'All slots must have the same group size type.' };
     }
 
-    // Check slot3 time conflict
-    const { data: slot3Conflicts } = await supabase
-      .from('enrollments')
-      .select('class_id, classes!inner(meeting_day, meeting_time)')
-      .eq('student_id', studentId)
-      .in('status', ['pending', 'active'])
-      .eq('classes.meeting_day', slot3.meeting_day)
-      .eq('classes.meeting_time', slot3.meeting_time);
-
-    if (slot3Conflicts && slot3Conflicts.length > 0) {
+    if (hasConflict(slot3.meeting_day, slot3.meeting_time)) {
       return { eligible: false, reason: 'Time conflict with an existing enrollment for slot 3.' };
     }
 
-    // Check duplicate enrollment for slot3
     const { data: dupSlot3 } = await supabase
       .from('enrollments')
       .select('id')

@@ -2,21 +2,14 @@ import { describe, it, expect } from 'vitest';
 import { checkEligibility } from '@/lib/enrollment/check-eligibility';
 
 /**
- * Updated checkEligibility tests for the current API (post-rearchitecture).
- *
- * Current signature:
- *   checkEligibility(supabase, studentId, slot1ClassId, slot2ClassId?, slot3ClassId?, options?)
- *
- * Query sequence (slot 1 only, no slot 2/3):
- *   0: classes .single()                — fetch slot 1 class
- *   1: enrollments (dup slot 1)         — returns { data: [...] }
- *   2: enrollments (blocked slot 1)     — returns { data: [...] }
- *   3: enrollments (conflicts slot 1)   — returns { data: [...] }
- *
- * With slot 2:
- *   4: classes .single()                — fetch slot 2 class
- *   5: enrollments (slot 2 conflicts)   — returns { data: [...] }
- *   6: enrollments (dup slot 2)         — returns { data: [...] }
+ * Query sequence for current checkEligibility (post cross-slot conflict fix):
+ *   0: classes .single()                 — slot 1 class
+ *   1: enrollments (dup slot 1)
+ *   2: enrollments (blocked)
+ *   3: enrollments (active — prefetch)
+ *   4: classes (committed day/times)     — ONLY if step 3 returns ≥ 1 row
+ *   5: classes .single()                 — slot 2 (if provided)
+ *   6: enrollments (dup slot 2)
  */
 function createSupabaseMock(
   responses: Array<{ data?: unknown; count?: number | null; error?: unknown }>
@@ -95,7 +88,7 @@ describe('checkEligibility — single slot', () => {
   it('rejects duplicate enrollment in same class', async () => {
     const supabase = createSupabaseMock([
       { data: validSlot1 },
-      { data: [{ id: 'existing-enr' }] }, // duplicate found
+      { data: [{ id: 'existing-enr' }] },
     ]);
     const result = await checkEligibility(supabase, studentId, slot1Id);
     expect(result.eligible).toBe(false);
@@ -105,24 +98,37 @@ describe('checkEligibility — single slot', () => {
   it('rejects when class is blocked (Phase 2 drop)', async () => {
     const supabase = createSupabaseMock([
       { data: validSlot1 },
-      { data: [] }, // no dup
-      { data: [{ id: 'blocked-enr' }] }, // blocked
+      { data: [] },
+      { data: [{ id: 'blocked-enr' }] },
     ]);
     const result = await checkEligibility(supabase, studentId, slot1Id);
     expect(result.eligible).toBe(false);
     expect(result.reason).toContain('Re-enrollment');
   });
 
-  it('rejects on time conflict', async () => {
+  it('rejects on time conflict with existing slot_1', async () => {
     const supabase = createSupabaseMock([
       { data: validSlot1 },
-      { data: [] }, // no dup
-      { data: [] }, // not blocked
-      {
-        data: [
-          { class_id: 'other', classes: { meeting_day: 'Monday', meeting_time: '15:00:00' } },
-        ],
-      }, // conflict
+      { data: [] },
+      { data: [] },
+      { data: [{ class_id: 'other', slot_1_class_id: 'other' }] },
+      { data: [{ meeting_day: 'Monday', meeting_time: '15:00:00' }] },
+    ]);
+    const result = await checkEligibility(supabase, studentId, slot1Id);
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toContain('Time conflict');
+  });
+
+  it('rejects on time conflict with existing slot_2 (cross-slot regression)', async () => {
+    const supabase = createSupabaseMock([
+      { data: validSlot1 },
+      { data: [] },
+      { data: [] },
+      { data: [{ class_id: 'existing-slot1', slot_1_class_id: 'existing-slot1', slot_2_class_id: 'existing-slot2' }] },
+      { data: [
+        { meeting_day: 'Wednesday', meeting_time: '15:00:00' }, // student's slot_1
+        { meeting_day: 'Monday',    meeting_time: '15:00:00' }, // student's slot_2 — conflicts with new slot_1
+      ] },
     ]);
     const result = await checkEligibility(supabase, studentId, slot1Id);
     expect(result.eligible).toBe(false);
@@ -132,9 +138,9 @@ describe('checkEligibility — single slot', () => {
   it('allows eligible enrollment', async () => {
     const supabase = createSupabaseMock([
       { data: validSlot1 },
-      { data: [] }, // no dup
-      { data: [] }, // not blocked
-      { data: [] }, // no conflicts
+      { data: [] },
+      { data: [] },
+      { data: [] },
     ]);
     const result = await checkEligibility(supabase, studentId, slot1Id);
     expect(result.eligible).toBe(true);
@@ -155,7 +161,7 @@ describe('checkEligibility — dual slot', () => {
       { data: [] },
       { data: [] },
       { data: [] },
-      { data: null }, // slot 2 not found
+      { data: null },
     ]);
     const result = await checkEligibility(supabase, studentId, slot1Id, slot2Id);
     expect(result.eligible).toBe(false);
@@ -181,23 +187,21 @@ describe('checkEligibility — dual slot', () => {
       { data: [] },
       { data: [] },
       { data: [] },
-      { data: { ...validSlot2, meeting_day: 'Monday' } }, // same day as slot 1
+      { data: { ...validSlot2, meeting_day: 'Monday' } },
     ]);
     const result = await checkEligibility(supabase, studentId, slot1Id, slot2Id);
     expect(result.eligible).toBe(false);
     expect(result.reason).toContain('different days');
   });
 
-  it('rejects slot 2 time conflict', async () => {
+  it('rejects slot 2 time conflict with an existing enrollment slot', async () => {
     const supabase = createSupabaseMock([
       { data: validSlot1 },
       { data: [] },
       { data: [] },
-      { data: [] },
+      { data: [{ class_id: 'ex', slot_1_class_id: 'ex' }] },
+      { data: [{ meeting_day: 'Thursday', meeting_time: '15:00:00' }] }, // conflicts w/ slot 2
       { data: validSlot2 },
-      {
-        data: [{ class_id: 'other', classes: { meeting_day: 'Thursday', meeting_time: '15:00:00' } }],
-      }, // slot 2 conflict
     ]);
     const result = await checkEligibility(supabase, studentId, slot1Id, slot2Id);
     expect(result.eligible).toBe(false);
@@ -212,8 +216,7 @@ describe('checkEligibility — dual slot', () => {
       { data: [] },
       { data: [] },
       { data: validSlot2 },
-      { data: [] }, // no slot 2 conflict
-      { data: [{ id: 'dup-slot-2' }] }, // dup enrollment for slot 2
+      { data: [{ id: 'dup-slot-2' }] },
     ]);
     const result = await checkEligibility(supabase, studentId, slot1Id, slot2Id);
     expect(result.eligible).toBe(false);
@@ -227,7 +230,6 @@ describe('checkEligibility — dual slot', () => {
       { data: [] },
       { data: [] },
       { data: validSlot2 },
-      { data: [] },
       { data: [] },
     ]);
     const result = await checkEligibility(supabase, studentId, slot1Id, slot2Id);

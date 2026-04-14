@@ -71,7 +71,7 @@ export default async function StudentPaymentsPage() {
 
   // Fetch class info
   const classIds = [...new Set((enrollments || []).map((e) => (e.slot_1_class_id || e.class_id) as string).filter(Boolean))];
-  let classMap: Record<string, { name: string; group_size_type: string; meeting_day: string; meeting_time: string }> = {};
+  const classMap: Record<string, { name: string; group_size_type: string; meeting_day: string; meeting_time: string }> = {};
   if (classIds.length > 0) {
     const { data: classes } = await adminClient
       .from('classes')
@@ -84,7 +84,7 @@ export default async function StudentPaymentsPage() {
 
   // Fetch refund requests
   const enrollmentIds = (enrollments || []).map((e) => e.id as string);
-  let refundMap: Record<string, { status: string; refund_type: string | null; created_at: string }> = {};
+  const refundMap: Record<string, { status: string; refund_type: string | null; created_at: string }> = {};
   if (enrollmentIds.length > 0) {
     const { data: refunds } = await adminClient
       .from('refund_requests')

@@ -77,7 +77,7 @@ describe('Enrollment Flow — Operation Ordering', () => {
 
     // Stripe checkout must still exist
     expect(source).toContain('createCheckoutSession');
-    expect(source).toContain('getPriceForGroupSize');
+    expect(source).toContain('getPriceForEnrollment');
   });
 });
 

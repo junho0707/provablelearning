@@ -127,10 +127,11 @@ describe('Course Validation (updateCourseSchema)', () => {
 // 2. Class Zod Validation
 // -----------------------------------------------------------
 describe('Class Validation (createClassSchema)', () => {
+  // SG/1:1 are subject-agnostic (subject/level set on enrollment, not class)
   const validSmallClass = {
-    name: 'SAT Math Essentials – Mon',
-    subject: 'digital_math',
-    level: 'essentials',
+    name: 'Small Group – Mon',
+    subject: null,
+    level: null,
     group_size_type: 'small',
     capacity: 3,
     meeting_day: 'Monday',
@@ -139,9 +140,9 @@ describe('Class Validation (createClassSchema)', () => {
   };
 
   const validOneOnOneClass = {
-    name: '1:1 SAT RW+Math – Tue',
-    subject: 'digital_rw_math',
-    level: 'all_levels',
+    name: '1:1 Private – Tue',
+    subject: null,
+    level: null,
     group_size_type: 'one_on_one',
     capacity: 1,
     meeting_day: 'Tuesday',
@@ -194,18 +195,18 @@ describe('Class Validation (createClassSchema)', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rejects 1:1 with non-all_levels level', () => {
-    const result = createClassSchema.safeParse({ ...validOneOnOneClass, level: 'essentials' });
+  it('rejects SG/1:1 with subject set (subject-agnostic)', () => {
+    const result = createClassSchema.safeParse({ ...validSmallClass, subject: 'digital_math' });
     expect(result.success).toBe(false);
   });
 
-  it('rejects SG with digital_rw_math subject', () => {
-    const result = createClassSchema.safeParse({ ...validSmallClass, subject: 'digital_rw_math' });
+  it('rejects SG/1:1 with level set (subject-agnostic)', () => {
+    const result = createClassSchema.safeParse({ ...validSmallClass, level: 'essentials' });
     expect(result.success).toBe(false);
   });
 
-  it('rejects SG with all_levels level', () => {
-    const result = createClassSchema.safeParse({ ...validSmallClass, level: 'all_levels' });
+  it('rejects 1:1 with subject and level set', () => {
+    const result = createClassSchema.safeParse({ ...validOneOnOneClass, subject: 'digital_rw_math', level: 'all_levels' });
     expect(result.success).toBe(false);
   });
 

@@ -5,13 +5,13 @@ import { getPriceForGroupSize, formatPrice } from '@/lib/stripe/prices';
 describe('Constants — Business Rules', () => {
   it('prices match rolling enrollment model', () => {
     expect(PRICES.large).toBe(2000);            // $20/mo
-    expect(PRICES.small).toBe(20000);           // $200/mo
+    expect(PRICES.small).toBe(30000);           // $300/mo
     expect(PRICES.one_on_one).toBe(80000);      // $800/mo (2x/wk, 1.5hr)
   });
 
-  it('group size ranges match north star doc', () => {
+  it('group size ranges match current model', () => {
     expect(GROUP_SIZE_RANGES.one_on_one).toEqual({ min: 1, max: 1 });
-    expect(GROUP_SIZE_RANGES.small).toEqual({ min: 2, max: 4 });
+    expect(GROUP_SIZE_RANGES.small).toEqual({ min: 1, max: 3 });
     expect(GROUP_SIZE_RANGES.large).toEqual({ min: 10, max: 20 });
   });
 
@@ -41,13 +41,13 @@ describe('getPriceForEnrollment', () => {
 describe('Price Functions', () => {
   it('getPriceForGroupSize returns correct prices', () => {
     expect(getPriceForGroupSize('one_on_one')).toBe(80000);
-    expect(getPriceForGroupSize('small')).toBe(20000);
+    expect(getPriceForGroupSize('small')).toBe(30000);
     expect(getPriceForGroupSize('large')).toBe(2000);
   });
 
   it('formatPrice formats cents to dollars', () => {
     expect(formatPrice(80000)).toBe('$800.00');
-    expect(formatPrice(20000)).toBe('$200.00');
+    expect(formatPrice(30000)).toBe('$300.00');
     expect(formatPrice(2000)).toBe('$20.00');
     expect(formatPrice(0)).toBe('$0.00');
     expect(formatPrice(99)).toBe('$0.99');

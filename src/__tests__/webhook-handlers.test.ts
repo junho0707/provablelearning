@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 
 /**
  * Webhook Handler Tests
  *
  * Tests verify:
- * - checkout.session.completed: activates enrollment with triple-match
+ * - checkout.session.completed: activates enrollment with idempotent matching
  * - checkout.session.expired: reverses credits + deletes enrollment + notifies waitlist
  * - payment_failed: logs to admin_logs
  * - reconciliation: catches expired pending + paid pending that webhook missed
@@ -25,13 +25,13 @@ describe('Webhook Handlers — Source Analysis', () => {
   });
 
   describe('handleCheckoutCompleted', () => {
-    it('uses triple-match for idempotent activation', () => {
+    it('uses idempotent matching for activation', () => {
       const funcBody = extractFunction(source, 'handleCheckoutCompleted');
 
-      // Must match on enrollment_id + stripe_session_id + pending status
+      // Must match on enrollment_id + stripe_session_id + status in (pending, active)
       expect(funcBody).toContain("eq('id', enrollmentId)");
       expect(funcBody).toContain("eq('stripe_session_id', session.id)");
-      expect(funcBody).toContain("eq('status', 'pending')");
+      expect(funcBody).toContain(".in('status', ['pending', 'active'])");
     });
 
     it('sets status to active', () => {
@@ -66,14 +66,14 @@ describe('Webhook Handlers — Source Analysis', () => {
       expect(funcBody).toContain("eq('status', 'pending')");
     });
 
-    it('auto-enrolls next waitlisted student', () => {
+    it('dispatches waitlist auto-enroll for freed slots', () => {
       const funcBody = extractFunction(source, 'handleCheckoutExpired');
-      expect(funcBody).toContain('autoEnrollFromWaitlist');
+      expect(funcBody).toContain('dispatchWaitlistAutoEnroll');
     });
 
-    it('logs credit reversal failure for manual reconciliation', () => {
+    it('logs credit reversal failure', () => {
       const funcBody = extractFunction(source, 'handleCheckoutExpired');
-      expect(funcBody).toContain('credit_reversal_failed');
+      expect(funcBody).toContain('Failed to reverse credits');
     });
   });
 
@@ -106,7 +106,7 @@ describe('Webhook Handlers — Source Analysis', () => {
     it('activates paid-but-pending enrollments (missed webhook recovery)', () => {
       const funcBody = extractFunction(source, 'reconcileStripePayments');
       expect(funcBody).toContain("session.payment_status === 'paid'");
-      expect(funcBody).toContain('reconciliation_paid_pending_activated');
+      expect(funcBody).toContain("status: 'active'");
     });
 
     it('reverses credits on expired pending enrollments', () => {
@@ -118,9 +118,9 @@ describe('Webhook Handlers — Source Analysis', () => {
       expect(expiredSection).toContain('reverse_credits');
     });
 
-    it('auto-enrolls from waitlist after cleaning up expired pending', () => {
+    it('dispatches waitlist auto-enroll after cleaning up expired pending', () => {
       const funcBody = extractFunction(source, 'reconcileStripePayments');
-      expect(funcBody).toContain('autoEnrollFromWaitlist');
+      expect(funcBody).toContain('dispatchWaitlistAutoEnroll');
     });
 
     it('detects orphaned pending enrollments without stripe_session_id', () => {
@@ -144,9 +144,8 @@ describe('Webhook Route — Event Dispatch', () => {
   });
 
   it('verifies Stripe signature before processing', () => {
-    const postFunc = source;
-    expect(postFunc).toContain('stripe-signature');
-    expect(postFunc).toContain('constructEvent');
+    expect(source).toContain('stripe-signature');
+    expect(source).toContain('constructEvent');
   });
 
   it('handles checkout.session.completed events', () => {
@@ -159,9 +158,9 @@ describe('Webhook Route — Event Dispatch', () => {
     expect(source).toContain('handleCheckoutExpired');
   });
 
-  it('handles payment failure events', () => {
+  it('handles async payment failure events', () => {
     expect(source).toContain("'checkout.session.async_payment_failed'");
-    expect(source).toContain('handlePaymentFailed');
+    expect(source).toContain('handleAsyncPaymentFailed');
   });
 
   it('returns 400 on missing signature', () => {
