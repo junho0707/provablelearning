@@ -1,5 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 
+/**
+ * Service-role Supabase client — bypasses RLS. Server-only.
+ * Use exclusively for trusted server-to-server paths (e.g. the Stripe webhook, cron).
+ */
 export function createAdminClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

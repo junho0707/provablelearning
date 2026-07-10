@@ -93,32 +93,3 @@ button, a, input, select, textarea {
   outline: 2px solid var(--navy-500);
   outline-offset: 2px;
 }
-
-/* Landing page: Method card hover */
-.method-card {
-  transition: box-shadow 0.2s ease;
-}
-.method-card:hover {
-  box-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.08);
-}
-
-/* Landing page: Pricing glassmorphism */
-.pricing-card {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.pricing-card:hover {
-  transform: translateY(-4px);
-}
-
-/* Landing page: Live pulse */
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-.live-dot {
-  animation: pulse-dot 2s ease-in-out infinite;
-}
-
