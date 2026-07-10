@@ -8,9 +8,7 @@ import { CancelMakeupButton } from '../_components/cancel-makeup-button';
 import { MessageForm } from '../_components/message-form';
 import { DeleteMessageButton } from '../_components/delete-message-button';
 import { ResetStudentPassword } from './reset-student-password';
-import { ExcuseNoteForm } from '../_components/excuse-note-form';
 import { PayNowButton } from '../_components/pay-now-button';
-import { submitExcuseNote } from './submit-excuse-action';
 import { computeEnrollmentSessions } from '@/lib/scheduling/session-dates';
 import { isStudentInClassroom } from '@/lib/google/classroom';
 import { LeaveWaitlistButton } from '../_components/leave-waitlist-button';
@@ -503,7 +501,7 @@ export default async function ParentDashboard() {
         });
       }
     }
-    // Cancelled sessions
+    // Cancelled sessions (includes admin-marked absences, which are stored as 'cancelled')
     for (const c of s.cancellations) {
       if ((c.status as string) !== 'cancelled') continue;
       const sessionDate = c.session_date as string;
@@ -933,7 +931,7 @@ export default async function ParentDashboard() {
                                     → Makeup {makeupClass?.meeting_day || ''} {formatTime(makeupClass?.meeting_time)} ({makeup.session_date as string})
                                   </span>
                                 )}
-                                {!makeup && c.status === 'absent' && (
+                                {!makeup && c.status === 'cancelled' && c.cancelled_by_type === 'admin_absent' && (
                                   <span className="text-amber-600">— Absent</span>
                                 )}
                                 {!makeup && c.status === 'expired' && (
@@ -944,13 +942,6 @@ export default async function ParentDashboard() {
                               <div className="flex items-center gap-1.5 shrink-0 ml-3">
                                 {makeup && makeup.status === 'booked' && (
                                   <CancelMakeupButton bookingId={makeup.id as string} />
-                                )}
-                                {!makeup && c.status === 'absent' && (
-                                  <ExcuseNoteForm
-                                    cancellationId={c.id as string}
-                                    deadline={new Date(new Date(c.session_date as string).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()}
-                                    submitAction={submitExcuseNote}
-                                  />
                                 )}
                                 {!makeup && c.status === 'cancelled' && (
                                   <Link

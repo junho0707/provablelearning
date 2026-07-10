@@ -2,8 +2,9 @@
 -- Migration 00052: Absence Tracking
 -- Admin marks student absent via performance logs →
 -- parent/student has 1 week to submit excuse note →
--- if excuse submitted, credit issued via existing cron;
--- if not, expired. Applies to small + one_on_one (large gets no credit).
+-- if excuse submitted, status → 'cancelled' so the session can be made up;
+-- if not, it stays absent (no makeup). Applies to small + one_on_one (large gets no makeup).
+-- NOTE: auto-credit issuance was removed in migration 00089 — there is no credit cron.
 -- ============================================================
 
 -- 1. Add 'absent' to cancellation_status enum
@@ -68,7 +69,7 @@ BEGIN
   FROM public.classes cls
   WHERE cls.id = p_class_id;
 
-  -- Only create for small + one_on_one (large gets no credit)
+  -- Only create for small + one_on_one (large gets no makeup)
   IF v_class.group_size_type NOT IN ('small', 'one_on_one') THEN
     RETURN NULL;
   END IF;
@@ -172,7 +173,7 @@ BEGIN
     RAISE EXCEPTION 'Not authorized to submit excuse for this student';
   END IF;
 
-  -- Update cancellation: excuse submitted → status becomes 'cancelled' (eligible for credit cron)
+  -- Update cancellation: excuse submitted → status becomes 'cancelled' (now eligible for makeup booking)
   UPDATE public.session_cancellations
   SET excuse_note = TRIM(p_note),
       excuse_submitted_at = NOW(),

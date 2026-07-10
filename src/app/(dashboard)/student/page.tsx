@@ -8,9 +8,7 @@ import { isStudentInClassroom } from '@/lib/google/classroom';
 import { MessageForm } from '../_components/message-form';
 import { CancelMakeupButton } from '../_components/cancel-makeup-button';
 import { DeleteMessageButton } from '../_components/delete-message-button';
-import { ExcuseNoteForm } from '../_components/excuse-note-form';
 import { PayNowButton } from '../_components/pay-now-button';
-import { submitExcuseNote } from './submit-excuse-action';
 import { computeEnrollmentSessions } from '@/lib/scheduling/session-dates';
 import { LeaveWaitlistButton } from '../_components/leave-waitlist-button';
 import { EditPreferredSlotsForm } from '../_components/edit-preferred-slots-form';
@@ -398,7 +396,7 @@ export default async function StudentDashboard() {
       });
     }
   }
-  // Cancelled sessions
+  // Cancelled sessions (includes admin-marked absences, which are stored as 'cancelled')
   for (const c of cancellations) {
     if ((c.status as string) !== 'cancelled') continue;
     const sessionDate = c.session_date as string;
@@ -890,8 +888,8 @@ export default async function StudentDashboard() {
                               → Makeup {makeupClass?.meeting_day || ''} {formatTime(makeupClass?.meeting_time)} ({makeup.session_date as string})
                             </span>
                           )}
-                          {!makeup && c.status === 'absent' && (
-                            <span className="text-amber-600">— Absent{!isIndependent ? ' (parent can submit excuse)' : ''}</span>
+                          {!makeup && c.status === 'cancelled' && c.cancelled_by_type === 'admin_absent' && (
+                            <span className="text-amber-600">— Absent</span>
                           )}
                           {!makeup && c.status === 'expired' && (
                             <span className="text-slate-400">— Expired</span>
@@ -901,13 +899,6 @@ export default async function StudentDashboard() {
                         <div className="flex items-center gap-1.5 shrink-0 ml-3">
                           {makeup && makeup.status === 'booked' && (
                             <CancelMakeupButton bookingId={makeup.id as string} />
-                          )}
-                          {!makeup && c.status === 'absent' && isIndependent && (
-                            <ExcuseNoteForm
-                              cancellationId={c.id as string}
-                              deadline={new Date(new Date(c.session_date as string).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()}
-                              submitAction={submitExcuseNote}
-                            />
                           )}
                           {!makeup && c.status === 'cancelled' && actionPrefix && (
                             <Link
