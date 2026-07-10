@@ -13,6 +13,10 @@ export default function ForgotPasswordPage() {
     startTransition(async () => {
       setError('');
       setSuccess(false);
+      if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
+        setError('Password reset is disabled in this portfolio demo.');
+        return;
+      }
       const email = (formData.get('email') as string)?.trim().toLowerCase();
       if (!email) {
         setError('Please enter your email address.');

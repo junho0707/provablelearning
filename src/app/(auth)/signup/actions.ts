@@ -5,6 +5,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { redirect } from 'next/navigation';
 
 export async function signupWithPasswordAction(formData: FormData) {
+  if (process.env.DEMO_MODE === 'true') {
+    return { error: 'Sign-up is disabled in this portfolio demo.' };
+  }
+
   const email = (formData.get('email') as string)?.trim().toLowerCase();
   const password = formData.get('password') as string;
 

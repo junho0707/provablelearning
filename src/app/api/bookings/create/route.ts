@@ -18,6 +18,13 @@ const BookingSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  if (process.env.DEMO_MODE === 'true') {
+    return NextResponse.json(
+      { error: 'Booking is disabled in this portfolio demo.' },
+      { status: 403 }
+    );
+  }
+
   const body = await request.json();
   const parsed = BookingSchema.safeParse(body);
 
