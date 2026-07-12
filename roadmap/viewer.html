@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<title>Content Roadmap</title>
+<style>
+  :root {
+    --navy: #0f1f3d; --navy-2: #1c3a63; --gold: #c8a24a;
+    --bg: #f4f6fb; --card: #fff; --ink: #14203a; --muted: #6b7690; --line: #d5dbe8;
+    --danger: #c0392b; --warn: #b8860b; --ok: #2f9e7d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    color: var(--ink); background: var(--bg); display: flex; flex-direction: column;
+    height: 100vh; overflow: hidden; }
+
+  header { display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+    background: var(--navy); color: #fff; flex: 0 0 auto; }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  header h1 .sub { color: var(--gold); font-weight: 500; }
+  .tabs { display: flex; gap: 4px; margin-left: 8px; }
+  .tab { padding: 6px 14px; border-radius: 999px; cursor: pointer; font-size: 13px;
+    font-weight: 500; color: #cdd6e8; border: none; background: transparent; }
+  .tab.active { background: var(--gold); color: var(--navy); }
+  .spacer { flex: 1; }
+  .counts { font-size: 12px; color: #aeb9d4; display: flex; gap: 12px; }
+  .counts b { color: #fff; }
+  .fstat { font-size: 11px; color: #aeb9d4; max-width: 190px; }
+  button.act { background: var(--navy-2); color: #fff; border: 1px solid #345282;
+    border-radius: 7px; padding: 6px 12px; font-size: 12px; cursor: pointer; font-weight: 500; }
+  button.act:hover { background: #274d80; }
+  button.act.save { background: var(--gold); color: var(--navy); border-color: var(--gold); font-weight: 700; }
+  button.act.save:hover { background: #d4b25e; }
+  button.act.save.dirty { box-shadow: 0 0 0 2px rgba(200,162,74,.5); }
+
+  #validation { flex: 0 0 auto; max-height: 120px; overflow: auto;
+    border-bottom: 1px solid var(--line); background: #fff; padding: 6px 16px; font-size: 12.5px; }
+  #validation:empty { display: none; }
+  .v-row { padding: 2px 0; display: flex; gap: 8px; align-items: baseline; }
+  .v-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+    padding: 1px 6px; border-radius: 4px; flex: 0 0 auto; }
+  .v-error .v-badge { background: #fbe4e1; color: var(--danger); }
+  .v-warn .v-badge  { background: #fcf3d9; color: var(--warn); }
+  .v-info .v-badge  { background: #e5f3ee; color: var(--ok); }
+  .v-error { color: var(--danger); }
+
+  main { flex: 1 1 auto; position: relative; overflow: hidden; }
+  .view { position: absolute; inset: 0; display: none; }
+  .view.active { display: block; }
+
+  /* MAP */
+  #map { cursor: grab; }
+  #map.panning { cursor: grabbing; }
+  #canvas { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+  #edges { position: absolute; top: 0; left: 0; overflow: visible; pointer-events: none; }
+  .node { position: absolute; width: 180px; min-height: 48px; background: var(--card);
+    border: 1.5px solid var(--line); border-left-width: 5px; border-radius: 10px;
+    padding: 8px 11px; box-shadow: 0 1px 3px rgba(20,32,58,.08); cursor: pointer;
+    transition: box-shadow .12s, opacity .12s, border-color .12s; }
+  .node:hover { box-shadow: 0 3px 12px rgba(20,32,58,.16); }
+  /* type pill — symmetric badge so concept vs lesson reads at a glance, even zoomed out */
+  .node .n-kind { display: inline-block; font-size: 9px; text-transform: uppercase; letter-spacing: .6px;
+    font-weight: 800; border-radius: 4px; padding: 1px 5px; margin-bottom: 3px; line-height: 1.4; }
+  .node .n-kind.k-lesson { background: var(--gold); color: var(--navy); }
+  .node .n-kind.k-concept { background: transparent; color: var(--navy-2); border: 1.5px solid var(--navy-2); }
+  .node .n-title { font-size: 13px; font-weight: 600; line-height: 1.25;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .node .n-sub { font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .node .n-crumb { font-size: 9.5px; color: var(--muted); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .node .n-num { display: inline-block; background: var(--gold); color: var(--navy); font-size: 10px; font-weight: 700; border-radius: 4px; padding: 0 5px; margin-right: 3px; }
+  /* concept = container: tinted + fully dashed + italic. lesson = solid white card. */
+  .node.concept { border-style: dashed; border-left-style: solid; background: #eef2fa; box-shadow: none; }
+  .node.concept .n-title { font-style: italic; }
+  .dimmed .node:not(.hl-self):not(.hl-pre):not(.hl-post) { opacity: .2; }
+  .node.hl-self { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
+  .node.hl-pre  { box-shadow: 0 0 0 2px var(--gold); }
+  .node.hl-post { box-shadow: 0 0 0 2px var(--ok); }
+  .hint { position: absolute; top: 10px; left: 12px; font-size: 11px; color: var(--muted);
+    background: rgba(255,255,255,.85); padding: 3px 9px; border-radius: 6px; }
+  .map-toggle { position: absolute; top: 8px; right: 12px; z-index: 5; font: inherit; font-size: 12px;
+    font-weight: 600; cursor: pointer; background: #fff; color: var(--navy); border: 1.5px solid var(--line);
+    border-radius: 999px; padding: 5px 13px; box-shadow: 0 1px 3px rgba(20,32,58,.12); }
+  .map-toggle.active { background: #6b4fbf; color: #fff; border-color: #6b4fbf; }
+  /* order-mode: rank badge on each lesson node */
+  .node .n-rank { position: absolute; top: -10px; left: -10px; min-width: 21px; height: 21px; padding: 0 4px;
+    border-radius: 11px; background: #6b4fbf; color: #fff; font-size: 11px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(20,32,58,.35); z-index: 3; }
+  .legend { position: absolute; bottom: 12px; right: 12px; background: rgba(255,255,255,.94);
+    border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; font-size: 11px;
+    box-shadow: 0 2px 8px rgba(20,32,58,.1); line-height: 1.8; }
+  .legend .row { display: flex; align-items: center; gap: 8px; }
+  .legend svg { flex: 0 0 auto; }
+  .empty-map { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 14px; text-align: center; }
+
+  /* ORDER */
+  #order { overflow: auto; padding: 20px 24px 60px; }
+  .seq { max-width: 760px; margin: 0 auto; }
+  .seq-item { display: flex; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .seq-num { flex: 0 0 32px; height: 32px; border-radius: 50%; background: var(--navy); color: #fff;
+    font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+  .seq-item.concept .seq-num { background: transparent; color: var(--muted); border: 1.5px dashed var(--line); font-size: 15px; }
+  .seq-item.concept .seq-title { font-style: italic; color: var(--navy-2); }
+  .seq-title { font-size: 15px; font-weight: 600; }
+  .seq-crumb { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .seq-needs { font-size: 11.5px; color: var(--navy-2); margin-top: 4px; }
+  .seq-needs .k { color: var(--muted); }
+  .chip { font-size: 10px; background: #eef1f8; color: var(--navy-2); border-radius: 4px; padding: 1px 6px; margin-left: 6px; vertical-align: middle; }
+
+  /* EDITOR */
+  body.editing #map { outline: 2px solid var(--gold); outline-offset: -2px; }
+  .editor { position: absolute; top: 0; right: 0; width: 312px; height: 100%; background: #fff;
+    border-left: 1px solid var(--line); box-shadow: -4px 0 18px rgba(20,32,58,.09);
+    padding: 16px 16px 40px; overflow: auto; transform: translateX(100%); transition: transform .18s; z-index: 20; }
+  .editor.open { transform: none; }
+  .editor h3 { margin: 0 0 6px; font-size: 14px; }
+  .editor label { display: block; font-size: 10.5px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .5px; margin: 12px 0 3px; }
+  .editor .help { font-size: 11px; color: var(--muted); font-weight: 400; text-transform: none;
+    letter-spacing: 0; margin-top: 2px; }
+  .editor input[type=text], .editor select { width: 100%; padding: 7px 9px; border: 1px solid var(--line);
+    border-radius: 7px; font-size: 13px; font-family: inherit; color: var(--ink); background: #fff; }
+  .editor input:disabled { background: #f1f3f8; color: var(--muted); }
+  .chk-list { max-height: 170px; overflow: auto; border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; }
+  .chk-list label { display: flex; gap: 8px; align-items: center; text-transform: none; letter-spacing: 0;
+    font-weight: 400; color: var(--ink); font-size: 12.5px; margin: 3px 0; }
+  .chk-list input { width: auto; }
+  .chk-list .cg { color: var(--muted); font-size: 11px; }
+  .ed-actions { display: flex; gap: 8px; margin-top: 18px; }
+  .primary { background: var(--gold); color: var(--navy); border: none; border-radius: 8px;
+    padding: 9px 14px; font-weight: 600; cursor: pointer; font-size: 13px; }
+  .ed-actions .primary { flex: 1; }
+  .btn-danger { background: #fbe4e1; color: var(--danger); border: none; border-radius: 8px;
+    padding: 9px 12px; font-weight: 600; cursor: pointer; font-size: 13px; }
+
+  /* LOADER */
+  #loader { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 30px; }
+  #loader.hidden { display: none; }
+  #drop { border: 2px dashed var(--line); border-radius: 14px; padding: 30px 42px; max-width: 460px; background: #fff; text-align: center; }
+  #drop.over { border-color: var(--gold); background: #fffdf6; }
+  #drop h2 { margin: 0 0 6px; font-size: 16px; }
+  #drop p { color: var(--muted); font-size: 13px; margin: 6px 0; }
+  #drop code { background: #eef1f8; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Content Roadmap <span class="sub" id="doc-title"></span></h1>
+  <div class="tabs">
+    <button class="tab active" data-view="map">Map</button>
+    <button class="tab" data-view="order">Order</button>
+  </div>
+  <div class="spacer"></div>
+  <div class="counts" id="counts"></div>
+  <span class="fstat" id="fileStatus"></span>
+  <button class="act" id="addNode" style="display:none">＋ Add node</button>
+  <button class="act" id="editMode">✎ Edit</button>
+  <button class="act save" id="saveBtn">Save</button>
+  <button class="act" id="connectFile">Connect file</button>
+  <button class="act" id="reload">Reload</button>
+</header>
+
+<div id="validation"></div>
+
+<main>
+  <div class="view active" id="map">
+    <div class="hint">scroll to zoom · drag to pan · click a node to trace prerequisites</div>
+    <button class="map-toggle" id="orderToggle">① Show order</button>
+    <div id="canvas"><svg id="edges"></svg></div>
+    <div class="legend" id="legend"></div>
+    <div class="empty-map" id="emptyMap" style="display:none">No nodes yet — click <b>&nbsp;✎ Edit&nbsp;</b> then <b>&nbsp;＋ Add node</b>.</div>
+  </div>
+  <div class="view" id="order"><div class="seq" id="seq"></div></div>
+
+  <div class="editor" id="editor">
+    <h3 id="ed-heading">Add node</h3>
+    <label>Type</label>
+    <select id="ed-type">
+      <option value="lesson">Lesson — a teachable unit</option>
+      <option value="concept">Concept — a container / organizing topic</option>
+    </select>
+    <label>ID</label>
+    <input type="text" id="ed-id" placeholder="kebab-case-id" />
+    <label>Title<div class="help">just the local name — the breadcrumb shows the rest</div></label>
+    <input type="text" id="ed-title" placeholder="e.g. Addition and Subtraction" />
+    <div id="ed-number-wrap">
+      <label>Lesson number<div class="help">shown on the card (lessons only)</div></label>
+      <input type="text" id="ed-number" placeholder="e.g. 3 or 3.2" />
+    </div>
+    <label>Parent<div class="help">the concept this lives inside (a lesson's parent is always a concept)</div></label>
+    <select id="ed-parent"></select>
+    <label>Strand<div class="help">colour group. Set on a parent-less lesson (or a branch's top concept) to keep it visually tied to its branch</div></label>
+    <select id="ed-strand"></select>
+    <div id="ed-prereq-wrap">
+      <label>Prerequisites<div class="help">other lessons this one depends on (applications & cross-branch)</div></label>
+      <div class="chk-list" id="ed-prereq"></div>
+    </div>
+    <div class="ed-actions">
+      <button class="primary" id="ed-save">Save</button>
+      <button class="btn-danger" id="ed-delete" style="display:none">Delete</button>
+      <button class="act" id="ed-cancel">Cancel</button>
+    </div>
+  </div>
+
+  <div id="loader" class="hidden">
+    <div id="drop">
+      <h2>Load your roadmap</h2>
+      <p>Couldn't auto-load <code>roadmap.json</code>.</p>
+      <p>Run <code>python3 -m http.server 8000</code> in this folder, open <code>localhost:8000/viewer.html</code>,</p>
+      <p>or drop <code>roadmap.json</code> here.</p>
+      <input type="file" id="file" accept=".json,application/json" hidden />
+      <button class="primary" id="pick" style="margin-top:10px">Choose roadmap.json</button>
+    </div>
+  </div>
+</main>
+
+<script>
+const PALETTE = ['#2e6db5','#2f9e7d','#a9578f','#c8843a','#5b6bbf','#3a9ca6','#b5546b','#7a8b3a','#4f8f52','#9c6bd6'];
+let DATA = null, fileHandle = null, dirty = false, ORDER_ON = false;
+const $ = id => document.getElementById(id);
+function status(m){ $('fileStatus').textContent = m; }
+
+/* ---------- model helpers ---------- */
+function nodes(){ return DATA.nodes || []; }
+function byIdMap(){ return new Map(nodes().map(n => [n.id, n])); }
+function isConcept(n){ return n.type === 'concept'; }
+function parentOf(n){ const ids = byIdMap(); return (n.parent && ids.has(n.parent) && n.parent !== n.id) ? n.parent : null; }
+function childrenMap(){
+  const m = new Map(nodes().map(n => [n.id, []]));
+  for (const n of nodes()){ const p = parentOf(n); if (p) m.get(p).push(n.id); }
+  return m;
+}
+function rootOf(id){
+  const ids = byIdMap(); let cur = id, seen = new Set();
+  while (true){ const n = ids.get(cur); const p = n ? parentOf(n) : null; if (!p || seen.has(p)) return cur; seen.add(cur); cur = p; }
+}
+/* which strand a node belongs to. An explicit `strand` tag wins, and it's inherited down the subtree —
+   so tagging one concept (e.g. Fractions) groups its whole subtree AND any parent-less "application"
+   lessons tagged with it, instead of each floater becoming its own stray-colored root. Falls back to
+   the top-level root ancestor when nothing in the chain is tagged. */
+function strandOf(n){
+  const ids = byIdMap();
+  const node = typeof n === 'string' ? ids.get(n) : n;
+  if (!node) return null;
+  let cur = node; const seen = new Set();
+  while (cur && !seen.has(cur.id)){
+    seen.add(cur.id);
+    if (cur.strand && ids.has(cur.strand)) return cur.strand;
+    const p = parentOf(cur); cur = p ? ids.get(p) : null;
+  }
+  return rootOf(node.id);
+}
+/* ancestor titles from root down to the immediate parent, e.g. "Fractions › Arithmetic" */
+function breadcrumb(n){
+  const ids = byIdMap(), parts = []; let cur = parentOf(n), guard = 0;
+  while (cur && guard++ < 30){ const p = ids.get(cur); parts.unshift(p.title || p.id); cur = parentOf(p); }
+  return parts.join(' › ');
+}
+function parentDepth(){
+  const ids = byIdMap(), memo = new Map(), vis = new Set();
+  function d(id){
+    if (memo.has(id)) return memo.get(id);
+    if (vis.has(id)) return 0;
+    vis.add(id); const p = parentOf(ids.get(id));
+    const val = p ? 1 + d(p) : 0; vis.delete(id); memo.set(id, val); return val;
+  }
+  for (const n of nodes()) d(n.id); return memo;
+}
+function prereqEdges(){
+  const ids = byIdMap(), out = [];
+  for (const n of nodes()) for (const p of (n.prereqs||[])) if (ids.has(p)) out.push({ from:p, to:n.id });
+  return out;
+}
+/* transitive reduction: drop a prereq edge that a longer prereq path already implies (it's assumed) */
+function reducedPrereqEdges(){
+  const ids = byIdMap(), all = prereqEdges();
+  const adj = new Map([...ids.keys()].map(k=>[k,[]]));
+  for (const e of all) adj.get(e.from).push(e.to);
+  const reach = (s,t)=>{ const st=[s], seen=new Set(); while(st.length){ const u=st.pop(); if(u===t) return true; if(seen.has(u)) continue; seen.add(u); for(const v of adj.get(u)) st.push(v); } return false; };
+  return all.filter(e => !adj.get(e.from).some(s => s!==e.to && reach(s, e.to)));
+}
+function descendants(id){
+  const ch = childrenMap(), out = new Set(), st = [id];
+  while (st.length){ const u = st.pop(); for (const c of ch.get(u)||[]) if (!out.has(c)){ out.add(c); st.push(c); } }
+  return out;
+}
+function colorMap(){
+  const m = new Map();
+  for (const n of nodes()){ const r = strandOf(n); if (r && !m.has(r)) m.set(r, PALETTE[m.size % PALETTE.length]); }
+  return m;
+}
+
+/* ---------- loading ---------- */
+async function loadFromFetch(){
+  const res = await fetch('roadmap.json?_=' + encodeURIComponent(String(performance.now())));
+  if (!res.ok) throw new Error('fetch failed');
+  return res.json();
+}
+async function reload(){
+  try {
+    if (fileHandle) { const f = await fileHandle.getFile(); DATA = JSON.parse(await f.text()); }
+    else DATA = await loadFromFetch();
+    dirty = false; reflectDirty();
+    $('loader').classList.add('hidden'); render();
+  } catch (e) {
+    if (!DATA) $('loader').classList.remove('hidden');
+    else setValidation([{ level:'error', msg:'Could not parse roadmap.json: ' + e.message }]);
+  }
+}
+$('reload').onclick = reload;
+$('pick').onclick = async () => {
+  if (window.showOpenFilePicker) { try { [fileHandle] = await window.showOpenFilePicker({types:[{description:'JSON',accept:{'application/json':['.json']}}]}); reload(); } catch(_){} }
+  else $('file').click();
+};
+$('file').onchange = async e => { const f = e.target.files[0]; if (!f) return; DATA = JSON.parse(await f.text()); $('loader').classList.add('hidden'); render(); };
+const drop = $('drop');
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = async e => { e.preventDefault(); drop.classList.remove('over'); const f = e.dataTransfer.files[0]; if (!f) return; DATA = JSON.parse(await f.text()); $('loader').classList.add('hidden'); render(); };
+
+/* ---------- validation ---------- */
+function validate(){
+  const msgs = [], ids = new Map();
+  for (const n of nodes()){
+    if (!n.id){ msgs.push({level:'error', msg:'A node is missing an id'}); continue; }
+    if (ids.has(n.id)) msgs.push({level:'error', msg:`Duplicate node id "${n.id}"`});
+    ids.set(n.id, n);
+  }
+  for (const n of nodes()){
+    if (n.parent){
+      if (n.parent === n.id) msgs.push({level:'error', msg:`Node "${n.id}" is its own parent`});
+      else if (!ids.has(n.parent)) msgs.push({level:'error', msg:`Node "${n.id}" has unknown parent "${n.parent}"`});
+    }
+    for (const p of (n.prereqs||[])){
+      if (p === n.id) msgs.push({level:'error', msg:`Node "${n.id}" lists itself as a prerequisite`});
+      else if (!ids.has(p)) msgs.push({level:'error', msg:`Node "${n.id}" needs unknown prerequisite "${p}"`});
+    }
+  }
+  const pc = findParentCycle();
+  if (pc) msgs.push({level:'error', msg:`Parent loop: ${pc.join(' → ')}`});
+  const rc = findPrereqCycle();
+  if (rc) msgs.push({level:'error', msg:`Prerequisite loop: ${rc.join(' → ')} (linear order impossible)`});
+  return msgs;
+}
+function findParentCycle(){
+  const ids = byIdMap();
+  for (const start of nodes()){
+    let cur = parentOf(start), path = [start.id], seen = new Set([start.id]);
+    while (cur){
+      path.push(cur);
+      if (seen.has(cur)) return path;
+      seen.add(cur); cur = parentOf(ids.get(cur));
+    }
+  }
+  return null;
+}
+function findPrereqCycle(){
+  const ids = byIdMap(), state = new Map(), stack = [];
+  let cycle = null;
+  function dfs(u){
+    state.set(u,1); stack.push(u);
+    for (const p of (ids.get(u).prereqs||[])){
+      if (cycle || !ids.has(p)) continue;
+      if (state.get(p)===1){ cycle = stack.slice(stack.indexOf(p)).concat(p); return; }
+      if (!state.get(p)) dfs(p);
+    }
+    stack.pop(); state.set(u,2);
+  }
+  for (const n of nodes()) if (!state.get(n.id) && !cycle) dfs(n.id);
+  return cycle;
+}
+function setValidation(msgs){
+  const el = $('validation');
+  if (!msgs.length){ el.innerHTML = ''; return; }
+  const rank = {error:0, warn:1, info:2};
+  msgs.sort((a,b)=>rank[a.level]-rank[b.level]);
+  el.innerHTML = msgs.map(m => `<div class="v-row v-${m.level}"><span class="v-badge">${m.level}</span><span>${esc(m.msg)}</span></div>`).join('');
+}
+
+/* ---------- tree layout (top-down) ---------- */
+const NW = 180, XGAP = 210, YGAP = 150;
+/* row depth = strictly below its parent AND below every prerequisite (transitively),
+   so a prereq always sits above the thing that needs it. */
+function nodeDepth(){
+  const ids = byIdMap(), memo = new Map(), vis = new Set();
+  function d(id){
+    if (memo.has(id)) return memo.get(id);
+    if (vis.has(id)) return 0;
+    vis.add(id); const n = ids.get(id); let mx = 0;
+    const par = parentOf(n); if (par) mx = Math.max(mx, d(par)+1);
+    for (const p of (n.prereqs||[])) if (ids.has(p)) mx = Math.max(mx, d(p)+1);
+    vis.delete(id); memo.set(id, mx); return mx;
+  }
+  for (const n of nodes()) d(n.id); return memo;
+}
+function layout(){
+  const dep = nodeDepth(), ch = childrenMap(), ids = byIdMap();
+  const mean = a => a.reduce((s,v)=>s+v,0)/a.length;
+
+  // Mutable sibling ordering: parentId -> [childIds]; '' holds the roots (any parent-less node, incl. a
+  // stray free lesson). We start from document order, then reorder each group by its cross-strand pull.
+  const order = new Map([['', nodes().filter(n => !parentOf(n)).map(n => n.id)]]);
+  for (const n of nodes()){ const kids = (ch.get(n.id) || []).slice(); if (kids.length) order.set(n.id, kids); }
+  const origIdx = new Map(nodes().map((n, i) => [n.id, i]));   // stable tie-break: equal-pull siblings keep sequence
+
+  // Place x from the current ordering: leaves take successive slots, a parent is centred over its children.
+  const x = new Map();
+  function place(){
+    x.clear(); let leaf = 0; const seen = new Set();
+    function assign(id){
+      if (seen.has(id)) return; seen.add(id);
+      const kids = (order.get(id) || []).filter(k => !seen.has(k));
+      if (!kids.length){ x.set(id, leaf * XGAP); leaf++; }
+      else { kids.forEach(assign); const cs = kids.map(k => x.get(k)); x.set(id, (Math.min(...cs) + Math.max(...cs)) / 2); }
+    }
+    (order.get('') || []).forEach(assign);
+  }
+
+  // A node's "pull" = mean x of its subtree's prerequisites that live in a DIFFERENT strand (another tree).
+  // Nodes with no cross-strand prereq keep their own x, so pure-containment structure is left intact.
+  function pull(id){
+    const home = strandOf(id), sub = new Set([id, ...descendants(id)]), tgt = [];
+    for (const s of sub) for (const p of (ids.get(s).prereqs || []))
+      if (ids.has(p) && !sub.has(p) && strandOf(ids.get(p)) !== home && x.has(p)) tgt.push(x.get(p));
+    return tgt.length ? mean(tgt) : (x.has(id) ? x.get(id) : 0);
+  }
+
+  // Iterate: place, then slide every sibling group toward its cross-strand pull so a dependent lesson lands
+  // at the edge of its tree nearest the tree it depends on, and prereq-linked trees end up adjacent.
+  place();
+  for (let it = 0; it < 8; it++){
+    for (const kids of order.values())
+      kids.sort((a, b) => (pull(a) - pull(b)) || (origIdx.get(a) - origIdx.get(b)));
+    place();
+  }
+
+  const pos = new Map();
+  for (const n of nodes()) pos.set(n.id, { x: x.get(n.id) || 0, y: dep.get(n.id)*YGAP, depth: dep.get(n.id) });
+  const xs = [...pos.values()].map(p=>p.x), ys = [...pos.values()].map(p=>p.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), maxY = Math.max(...ys);
+  const PADX = 40, PADY = 54;
+  for (const p of pos.values()){ p.x = p.x - minX + PADX; p.y = p.y + PADY; }
+  return { pos, totalW: (maxX-minX) + PADX*2 + NW, totalH: maxY + PADY*2 + 70 };
+}
+
+/* ---------- render map ---------- */
+let view = { tx:20, ty:20, scale:1 };
+function renderMap(){
+  const canvas = $('canvas'), svg = $('edges');
+  [...canvas.querySelectorAll('.node')].forEach(e=>e.remove());
+  $('map').classList.remove('dimmed');    // highlight state can't survive a rebuild — drop stale dimming
+  const has = nodes().length > 0;
+  $('emptyMap').style.display = has ? 'none' : 'flex';
+  $('legend').style.display = has ? '' : 'none';
+  if (!has){ canvas.style.width='0'; canvas.style.height='0'; svg.innerHTML=''; return; }
+
+  const L = layout(), colors = colorMap(), ids = byIdMap();
+  canvas.style.width = L.totalW+'px'; canvas.style.height = L.totalH+'px';
+  svg.setAttribute('width', L.totalW); svg.setAttribute('height', L.totalH);
+
+  for (const n of nodes()){
+    const p = L.pos.get(n.id);
+    const el = document.createElement('div');
+    el.className = 'node' + (isConcept(n) ? ' concept' : '');
+    el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.dataset.id=n.id;
+    el.style.borderLeftColor = colors.get(strandOf(n)) || '#888';
+    const nPre = (n.prereqs||[]).length, crumb = breadcrumb(n);
+    const numTag = (!isConcept(n) && n.number) ? `<span class="n-num">${esc(n.number)}</span>` : '';
+    const kind = isConcept(n)
+      ? `<span class="n-kind k-concept">◇ Concept</span>`
+      : `<span class="n-kind k-lesson">▸ Lesson</span>`;
+    el.innerHTML =
+      (crumb ? `<div class="n-crumb">${esc(crumb)}</div>` : '') +
+      kind +
+      `<div class="n-title">${numTag}${esc(n.title||n.id)}</div>` +
+      (nPre ? `<div class="n-sub">needs ${nPre}</div>` : '');
+    el.onclick = ev => { ev.stopPropagation(); if (EDIT.on) openForm(n.id); else highlight(n.id); };
+    canvas.appendChild(el);
+  }
+
+  const H = new Map();
+  canvas.querySelectorAll('.node').forEach(el=>H.set(el.dataset.id, el.offsetHeight));
+  svg.innerHTML = `<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#c8a24a"/></marker></defs>`;
+
+  // parent -> child (solid, structure, no arrowhead)
+  for (const n of nodes()){
+    const par = parentOf(n); if (!par) continue;
+    const a = L.pos.get(par), b = L.pos.get(n.id); if (!a || !b) continue;
+    const x1=a.x+NW/2, y1=a.y+(H.get(par)||48), x2=b.x+NW/2, y2=b.y, my=(y1+y2)/2;
+    addPath(svg, `M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`, { stroke:'#8b97b3', width:'1.6', opacity:'0.9' }, par, n.id, 'tree');
+  }
+  // prerequisite (dashed gold, arrow, ordering) — only the direct edges; the rest is assumed
+  for (const e of reducedPrereqEdges()){
+    const a = L.pos.get(e.from), b = L.pos.get(e.to); if (!a || !b) continue;
+    const x1=a.x+NW/2, y1=a.y+(H.get(e.from)||48)/2, x2=b.x+NW/2, y2=b.y+(H.get(e.to)||48)/2;
+    addPath(svg, `M${x1},${y1} L${x2},${y2}`, { stroke:'#c8a24a', width:'1.6', dash:'5 4', arrow:true, opacity:'0.9' }, e.from, e.to, 'pre');
+  }
+  if (ORDER_ON) drawOrderOverlay(canvas, svg, L, H);
+  applyView(); renderLegend();
+}
+/* Order overlay: number every lesson node by its learning-order rank and step a path 1→2→…→N through
+   them, dimming the structural/prereq edges so the sequence reads on top. */
+function drawOrderOverlay(canvas, svg, L, H){
+  const seq = linearSequence().filter(n => !isConcept(n));
+  const c = id => ({ x: L.pos.get(id).x + NW/2, y: L.pos.get(id).y + (H.get(id)||48)/2 });
+  svg.querySelectorAll('path[data-kind]').forEach(p => p.setAttribute('opacity','0.1'));
+  svg.insertAdjacentHTML('afterbegin', `<defs><marker id="aro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6b4fbf"/></marker></defs>`);
+  const NS = 'http://www.w3.org/2000/svg';
+  for (let i = 0; i < seq.length - 1; i++){
+    const a = c(seq[i].id), b = c(seq[i+1].id);
+    const dx = b.x-a.x, dy = b.y-a.y, len = Math.hypot(dx,dy)||1, ux = dx/len, uy = dy/len, off = 46;
+    const p = document.createElementNS(NS,'path');
+    p.setAttribute('d', `M${a.x+ux*off},${a.y+uy*off} L${b.x-ux*off},${b.y-uy*off}`);
+    p.setAttribute('fill','none'); p.setAttribute('stroke','#6b4fbf'); p.setAttribute('stroke-width','2.5');
+    p.setAttribute('opacity','0.8'); p.setAttribute('marker-end','url(#aro)'); p.dataset.kind = 'order';
+    svg.appendChild(p);
+  }
+  const els = [...canvas.querySelectorAll('.node')];
+  seq.forEach((n, i) => { const el = els.find(e => e.dataset.id === n.id); if (el){ const b = document.createElement('div'); b.className = 'n-rank'; b.textContent = i+1; el.appendChild(b); } });
+}
+function addPath(svg, d, o, from, to, kind){
+  const p = document.createElementNS('http://www.w3.org/2000/svg','path');
+  p.setAttribute('d', d); p.setAttribute('fill','none');
+  p.setAttribute('stroke', o.stroke); p.setAttribute('stroke-width', o.width);
+  if (o.dash) p.setAttribute('stroke-dasharray', o.dash);
+  if (o.arrow) p.setAttribute('marker-end', 'url(#ar)');
+  p.setAttribute('opacity', o.opacity);
+  p.dataset.from = from; p.dataset.to = to; p.dataset.kind = kind;
+  svg.appendChild(p);
+}
+function renderLegend(){
+  const ids = byIdMap(), colors = colorMap();
+  const strands = [...colors.keys()].map(sid => {
+    const s = ids.get(sid);
+    return `<div class="row"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;border-left:5px solid ${colors.get(sid)};background:#fff;border-top:1.5px solid var(--line);border-right:1.5px solid var(--line);border-bottom:1.5px solid var(--line);"></span>${esc(s ? (s.title || s.id) : sid)}</div>`;
+  }).join('');
+  $('legend').innerHTML =
+    `<div class="row"><span class="n-kind k-lesson">▸ Lesson</span></div>` +
+    `<div class="row"><span class="n-kind k-concept">◇ Concept</span></div>` +
+    `<div class="row"><svg width="24" height="10"><line x1="0" y1="5" x2="24" y2="5" stroke="#8b97b3" stroke-width="1.6"/></svg>contains (structure)</div>` +
+    `<div class="row"><svg width="24" height="10"><line x1="0" y1="5" x2="20" y2="5" stroke="#c8a24a" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#ar)"/></svg>prerequisite</div>` +
+    (strands ? `<div class="row" style="margin-top:4px;font-weight:700;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Strands</div>` + strands : '');
+}
+
+/* click a node: trace prerequisites up/down (not the parent tree) */
+function highlight(id){
+  const up=new Map(), down=new Map();
+  for (const e of prereqEdges()){ (down.get(e.from)||down.set(e.from,[]).get(e.from)).push(e.to); (up.get(e.to)||up.set(e.to,[]).get(e.to)).push(e.from); }
+  const pre=new Set(), post=new Set();
+  const walk=(s,g,set)=>{ const st=[s]; while(st.length){ const u=st.pop(); for(const v of (g.get(u)||[])) if(!set.has(v)){set.add(v);st.push(v);} } };
+  walk(id,up,pre); walk(id,down,post);
+  $('map').classList.add('dimmed');
+  document.querySelectorAll('.node').forEach(el=>{
+    el.classList.remove('hl-self','hl-pre','hl-post');
+    const n=el.dataset.id;
+    if(n===id) el.classList.add('hl-self'); else if(pre.has(n)) el.classList.add('hl-pre'); else if(post.has(n)) el.classList.add('hl-post');
+  });
+  const active=new Set([id,...pre,...post]);
+  document.querySelectorAll('#edges path').forEach(p=>p.setAttribute('opacity', p.dataset.kind==='pre' && active.has(p.dataset.from) && active.has(p.dataset.to) ? '1' : '0.08'));
+}
+function clearHighlight(){
+  $('map').classList.remove('dimmed');
+  document.querySelectorAll('.node').forEach(el=>el.classList.remove('hl-self','hl-pre','hl-post'));
+  document.querySelectorAll('#edges path').forEach(p=>p.setAttribute('opacity','0.9'));
+}
+
+/* pan + zoom */
+function applyView(){ $('canvas').style.transform=`translate(${view.tx}px,${view.ty}px) scale(${view.scale})`; }
+(function(){
+  const map=$('map'); let drag=false,sx=0,sy=0,ox=0,oy=0,moved=false;
+  map.addEventListener('mousedown',e=>{ if(e.target.closest('.node'))return; drag=true;moved=false;sx=e.clientX;sy=e.clientY;ox=view.tx;oy=view.ty;map.classList.add('panning'); });
+  window.addEventListener('mousemove',e=>{ if(!drag)return; view.tx=ox+(e.clientX-sx);view.ty=oy+(e.clientY-sy); if(Math.abs(e.clientX-sx)+Math.abs(e.clientY-sy)>3)moved=true; applyView(); });
+  window.addEventListener('mouseup',()=>{ map.classList.remove('panning'); drag=false; });
+  map.addEventListener('click',e=>{ if(e.target.closest('.node')||moved) return; if($('editor').classList.contains('open')) closeForm(); else clearHighlight(); });
+  map.addEventListener('wheel',e=>{ e.preventDefault(); const r=map.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top,f=e.deltaY<0?1.1:1/1.1,ns=Math.min(2.2,Math.max(.25,view.scale*f)); view.tx=mx-(mx-view.tx)*(ns/view.scale); view.ty=my-(my-view.ty)*(ns/view.scale); view.scale=ns; applyView(); },{passive:false});
+})();
+
+/* ---------- order: topo over (parent-before-child) + (prereq-before-node) ---------- */
+function linearSequence(){
+  const ids=byIdMap(), indeg=new Map([...ids.keys()].map(k=>[k,0])), adj=new Map([...ids.keys()].map(k=>[k,[]]));
+  const add=(a,b)=>{ if(ids.has(a)&&ids.has(b)&&a!==b){ adj.get(a).push(b); indeg.set(b,indeg.get(b)+1); } };
+  for(const n of nodes()){ const p=parentOf(n); if(p) add(p,n.id); for(const q of (n.prereqs||[])) add(q,n.id); }
+  const dep=parentDepth(), authIdx=new Map(nodes().map((n,i)=>[n.id,i]));
+  const rank=id=> dep.get(id)*10000 + authIdx.get(id);
+  const ready=[...indeg].filter(([,c])=>c===0).map(([k])=>k);
+  const out=[];
+  while(ready.length){ ready.sort((a,b)=>rank(a)-rank(b)); const u=ready.shift(); out.push(u); for(const v of adj.get(u)){ indeg.set(v,indeg.get(v)-1); if(indeg.get(v)===0) ready.push(v); } }
+  for(const n of nodes()) if(!out.includes(n.id)) out.push(n.id);
+  return out.map(id=>ids.get(id));
+}
+function renderOrder(){
+  const seq=linearSequence(), ids=byIdMap(); let num=0;
+  $('seq').innerHTML = seq.map(n=>{
+    const concept=isConcept(n), marker=concept?'◇':(++num);
+    const needs=(n.prereqs||[]).map(p=>ids.has(p)?ids.get(p).title:p);
+    const crumb=breadcrumb(n);
+    const numChip=(!concept && n.number)?`<span class="chip">#${esc(n.number)}</span>`:'';
+    return `<div class="seq-item${concept?' concept':''}"><div class="seq-num">${marker}</div><div>
+      <div class="seq-title">${esc(n.title||n.id)}${concept?'<span class="chip">concept</span>':''}${numChip}</div>
+      ${crumb?`<div class="seq-crumb">${esc(crumb)}</div>`:''}
+      ${needs.length?`<div class="seq-needs"><span class="k">needs:</span> ${needs.map(esc).join(', ')}</div>`:''}
+    </div></div>`;
+  }).join('') || '<p style="color:var(--muted);text-align:center">No nodes yet.</p>';
+}
+
+/* ---------- main render ---------- */
+function render(){
+  if (!DATA) return;
+  $('doc-title').textContent = DATA.meta && DATA.meta.title ? '· ' + DATA.meta.title : '';
+  const nLesson = nodes().filter(n=>!isConcept(n)).length, nConcept = nodes().filter(isConcept).length;
+  $('counts').innerHTML = `<span><b>${nLesson}</b> lessons</span><span><b>${nConcept}</b> concepts</span>`;
+  setValidation(validate());
+  renderMap(); renderOrder();
+}
+
+/* ---------- editing ---------- */
+const EDIT = { on:false, editingId:null };
+function setEditMode(on){
+  EDIT.on=on; document.body.classList.toggle('editing',on);
+  $('editMode').textContent = on?'✓ Editing':'✎ Edit'; $('addNode').style.display = on?'':'none';
+  clearHighlight();                       // never leave the map dimmed when toggling modes
+  if(!on) closeForm(); else status('edit mode — click a node, or ＋ Add node');
+}
+$('editMode').onclick=()=>setEditMode(!EDIT.on);
+$('addNode').onclick=()=>openForm(null);
+$('ed-cancel').onclick=closeForm;
+$('ed-type').onchange=toggleByType;
+function toggleByType(){
+  const concept = $('ed-type').value==='concept';
+  $('ed-number-wrap').style.display = concept ? 'none' : '';   // number: lessons only
+  $('ed-prereq-wrap').style.display = concept ? 'none' : '';    // prereqs: lessons only
+}
+function slugify(s){ return String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
+
+function openForm(id){
+  if(!DATA) return;
+  clearHighlight();                       // editing should never show the dimmed/trace state
+  EDIT.editingId=id;
+  const n = id ? nodes().find(x=>x.id===id) : null;
+  $('ed-heading').textContent = n?'Edit node':'Add node';
+  $('ed-type').value = n && n.type ? n.type : 'lesson';
+  $('ed-id').value = n?n.id:''; $('ed-id').disabled=!!n;
+  $('ed-title').value = n?(n.title||''):'';
+  $('ed-number').value = n && n.number ? n.number : '';
+  toggleByType();
+  // parent options: CONCEPTS only (a lesson's parent is a concept; concepts nest under concepts).
+  // exclude self + descendants so a concept can't be parented under its own subtree.
+  const banned = id ? new Set([id, ...descendants(id)]) : new Set();
+  const opts = ['<option value="">— none (top level) —</option>'].concat(
+    nodes().filter(x=>isConcept(x) && !banned.has(x.id)).map(x=>`<option value="${esc(x.id)}">${esc(breadcrumb(x)?breadcrumb(x)+' › ':'')}${esc(x.title||x.id)}</option>`)
+  );
+  $('ed-parent').innerHTML = opts.join('');
+  $('ed-parent').value = n && n.parent ? n.parent : '';
+  // strand options: any concept can serve as a strand label (incl. self — that's how a branch's top
+  // concept declares itself a strand root, e.g. Fractions as its own colour).
+  const strandOpts = ['<option value="">— inherit / auto —</option>'].concat(
+    nodes().filter(isConcept).map(x=>`<option value="${esc(x.id)}">${esc(x.title||x.id)}${x.id===id?' (this — strand root)':''}</option>`)
+  );
+  $('ed-strand').innerHTML = strandOpts.join('');
+  $('ed-strand').value = n && n.strand ? n.strand : '';
+  // prereq options: LESSONS only (lesson depends on lesson)
+  const preSet = new Set(n?(n.prereqs||[]):[]);
+  const lessons = nodes().filter(x=>x.id!==id && !isConcept(x));
+  $('ed-prereq').innerHTML = lessons.length ? lessons.map(x=>
+    `<label><input type="checkbox" value="${esc(x.id)}" ${preSet.has(x.id)?'checked':''}/> ${esc(x.number?('#'+x.number+' '):'')}${esc(x.title||x.id)}</label>`
+  ).join('') : '<span style="font-size:12px;color:var(--muted)">no other lessons yet</span>';
+  $('ed-delete').style.display = n?'':'none';
+  $('ed-title').oninput = n?null:()=>{ $('ed-id').value=slugify($('ed-title').value); };
+  $('editor').classList.add('open'); $('ed-title').focus();
+}
+function closeForm(){ $('editor').classList.remove('open'); EDIT.editingId=null; }
+/* Escape closes the editor panel from anywhere */
+window.addEventListener('keydown', e => { if (e.key === 'Escape' && $('editor').classList.contains('open')) closeForm(); });
+
+$('ed-save').onclick=()=>{
+  const id=$('ed-id').value.trim(), title=$('ed-title').value.trim();
+  if(!id) return alert('ID is required');
+  if(!title) return alert('Title is required');
+  const editing=EDIT.editingId;
+  if(!editing && nodes().some(n=>n.id===id)) return alert(`ID "${id}" already exists`);
+  const isConceptType=$('ed-type').value==='concept';
+  const parent=$('ed-parent').value;
+  const num=$('ed-number').value.trim();
+  const prereqs=isConceptType ? [] : [...$('ed-prereq').querySelectorAll('input:checked')].map(c=>c.value);
+  const strand=$('ed-strand').value;
+  const node={ id, title };
+  if(isConceptType) node.type='concept';
+  if(!isConceptType && num) node.number=num;
+  if(parent) node.parent=parent;
+  if(strand) node.strand=strand;
+  node.prereqs=prereqs;
+  DATA.nodes = DATA.nodes || [];
+  if(editing) DATA.nodes[DATA.nodes.findIndex(n=>n.id===editing)] = node;
+  else DATA.nodes.push(node);
+  dirty=true; closeForm(); render(); persist();
+};
+$('ed-delete').onclick=()=>{
+  const id=EDIT.editingId; if(!id) return;
+  if(!confirm(`Delete "${id}"? Children become top-level; it's removed from other nodes' prerequisites.`)) return;
+  DATA.nodes=(DATA.nodes||[]).filter(n=>n.id!==id);
+  for(const n of DATA.nodes){ if(n.parent===id) delete n.parent; if(n.prereqs) n.prereqs=n.prereqs.filter(p=>p!==id); }
+  dirty=true; closeForm(); render(); persist();
+};
+
+/* ---------- persistence ---------- */
+function reflectDirty(){ const b=$('saveBtn'); if(b) b.classList.toggle('dirty', dirty); }
+$('saveBtn').onclick=saveNow;
+/* one-press save: connect the file if needed, then write */
+async function saveNow(){
+  if(!DATA) return status('nothing loaded');
+  if(!(await haveWritePermission())){
+    if(!window.showOpenFilePicker) return status('In-place save needs Chrome/Edge over http://localhost.');
+    if(!await acquireHandle()) return status('not connected — pick roadmap.json to save');
+  }
+  await persist();
+}
+$('connectFile').onclick=connectForWrite;
+async function acquireHandle(){
+  if(!window.showOpenFilePicker) return false;
+  try{
+    const [h]=await window.showOpenFilePicker({types:[{description:'JSON',accept:{'application/json':['.json']}}]});
+    const p=await h.requestPermission({mode:'readwrite'});
+    if(p!=='granted') return false;
+    fileHandle=h; return true;
+  }catch(_){ return false; }
+}
+async function connectForWrite(){
+  if(!window.showOpenFilePicker) return status('In-place save needs Chrome/Edge over http://localhost.');
+  if(!await acquireHandle()) return status('not connected');
+  if(dirty) await persist();                 // you already made edits — write them, don't discard
+  else { await reload(); status('connected — saves write straight to the file'); }
+}
+async function haveWritePermission(){
+  if(!fileHandle || !fileHandle.createWritable) return false;
+  let p='granted';
+  if(fileHandle.queryPermission) p=await fileHandle.queryPermission({mode:'readwrite'});
+  if(p!=='granted' && fileHandle.requestPermission) p=await fileHandle.requestPermission({mode:'readwrite'});
+  return p==='granted';
+}
+/* Save to disk if connected; otherwise just flag unsaved. NEVER downloads. */
+async function persist(){
+  if(await haveWritePermission()){
+    try{
+      const w=await fileHandle.createWritable();
+      await w.write(JSON.stringify(DATA,null,2)+'\n');
+      await w.close(); dirty=false; reflectDirty(); return status('saved ✓');
+    }catch(e){ return status('save failed: '+e.message); }
+  }
+  dirty=true; reflectDirty();
+  status('⚠ unsaved — press Save to write to disk');
+}
+
+/* tabs */
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  t.classList.add('active'); $(t.dataset.view).classList.add('active');
+});
+
+/* order overlay toggle (map view) */
+$('orderToggle').onclick=()=>{
+  ORDER_ON=!ORDER_ON;
+  $('orderToggle').classList.toggle('active',ORDER_ON);
+  $('orderToggle').textContent = ORDER_ON ? '① Hide order' : '① Show order';
+  clearHighlight(); renderMap();
+};
+
+/* utils */
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+reload();
+</script>
+</body>
+</html>

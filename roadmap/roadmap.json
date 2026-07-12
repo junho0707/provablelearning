@@ -1,0 +1,200 @@
+{
+  "meta": {
+    "title": "Math up to Geometry"
+  },
+  "nodes": [
+    {
+      "id": "fractions",
+      "title": "Fractions",
+      "type": "concept",
+      "parent": "rationals",
+      "strand": "fractions",
+      "prereqs": []
+    },
+    {
+      "id": "fractions-definition",
+      "title": "Fractions - Definition",
+      "number": "1",
+      "parent": "fractions",
+      "prereqs": []
+    },
+    {
+      "id": "fractions-arithmetic",
+      "title": "Fractions - Arithmetic",
+      "type": "concept",
+      "parent": "fractions",
+      "prereqs": []
+    },
+    {
+      "id": "fractions-arithmetic-addition-and-subtraction",
+      "title": "Addition and Subtraction",
+      "type": "concept",
+      "parent": "fractions-arithmetic",
+      "prereqs": []
+    },
+    {
+      "id": "fractions-arithmetic-addition-and-subtraction-same-denominators",
+      "title": "Add_Sub: Same Denominators",
+      "number": "2",
+      "parent": "fractions-arithmetic-addition-and-subtraction",
+      "prereqs": [
+        "fractions-definition"
+      ]
+    },
+    {
+      "id": "elementary-math-definitions",
+      "title": "Elementary Math Definitions",
+      "type": "concept",
+      "prereqs": []
+    },
+    {
+      "id": "factors-and-multiples",
+      "title": "Factors and Multiples",
+      "number": "3",
+      "parent": "elementary-math-definitions",
+      "prereqs": []
+    },
+    {
+      "id": "factors-and-greatest-common-factors-gcf",
+      "title": "Factors and Greatest Common Factors (GCF)",
+      "number": "4",
+      "parent": "elementary-math-definitions",
+      "prereqs": [
+        "factors-and-multiples"
+      ]
+    },
+    {
+      "id": "multiples-and-least-common-multiples-lcm",
+      "title": "Multiples and Least Common Multiples (LCM)",
+      "number": "5",
+      "parent": "elementary-math-definitions",
+      "prereqs": [
+        "factors-and-multiples"
+      ]
+    },
+    {
+      "id": "simplifying-fractions",
+      "title": "Simplifying Fractions",
+      "number": "6",
+      "parent": "fractions-arithmetic",
+      "prereqs": [
+        "fractions-definition",
+        "factors-and-greatest-common-factors-gcf"
+      ]
+    },
+    {
+      "id": "making-denominators-of-fractions-the-same",
+      "title": "Making Denominators of Fractions the Same",
+      "number": "7",
+      "parent": "fractions-arithmetic",
+      "prereqs": [
+        "fractions-definition",
+        "multiples-and-least-common-multiples-lcm"
+      ]
+    },
+    {
+      "id": "different-denominators",
+      "title": "Add_Sub: Different Denominators",
+      "number": "8",
+      "parent": "fractions-arithmetic-addition-and-subtraction",
+      "prereqs": [
+        "fractions-arithmetic-addition-and-subtraction-same-denominators",
+        "factors-and-greatest-common-factors-gcf",
+        "multiples-and-least-common-multiples-lcm",
+        "simplifying-fractions",
+        "making-denominators-of-fractions-the-same"
+      ]
+    },
+    {
+      "id": "multiplication-lesson",
+      "title": "Multiplication",
+      "number": "9",
+      "parent": "multiplication-and-division",
+      "prereqs": []
+    },
+    {
+      "id": "division-lesson",
+      "title": "Division",
+      "number": "10",
+      "parent": "multiplication-and-division",
+      "prereqs": []
+    },
+    {
+      "id": "multiplication-and-division",
+      "title": "Multiplication and Division",
+      "type": "concept",
+      "parent": "fractions-arithmetic",
+      "prereqs": []
+    },
+    {
+      "id": "decimals",
+      "title": "Decimals",
+      "type": "concept",
+      "parent": "rationals",
+      "strand": "decimals",
+      "prereqs": []
+    },
+    {
+      "id": "rationals",
+      "title": "Rationals",
+      "type": "concept",
+      "prereqs": []
+    },
+    {
+      "id": "decimals-definition",
+      "title": "Decimals - Definition",
+      "number": "11",
+      "parent": "decimals",
+      "prereqs": []
+    },
+    {
+      "id": "arithmetic",
+      "title": "Decimals - Arithmetic",
+      "type": "concept",
+      "parent": "decimals",
+      "prereqs": []
+    },
+    {
+      "id": "decimals-addition-and-subtraction",
+      "title": "Decimals - Addition and Subtraction",
+      "type": "concept",
+      "parent": "arithmetic",
+      "prereqs": []
+    },
+    {
+      "id": "addition",
+      "title": "Addition",
+      "number": "12",
+      "parent": "decimals-addition-and-subtraction",
+      "prereqs": []
+    },
+    {
+      "id": "subtraction",
+      "title": "Subtraction",
+      "number": "13",
+      "parent": "decimals-addition-and-subtraction",
+      "prereqs": []
+    },
+    {
+      "id": "decimals-multiplication-and-division",
+      "title": "Decimals - Multiplication and Division",
+      "type": "concept",
+      "parent": "arithmetic",
+      "prereqs": []
+    },
+    {
+      "id": "multiplication",
+      "title": "Multiplication",
+      "number": "14",
+      "parent": "decimals-multiplication-and-division",
+      "prereqs": []
+    },
+    {
+      "id": "division",
+      "title": "Division",
+      "number": "15",
+      "parent": "decimals-multiplication-and-division",
+      "prereqs": []
+    }
+  ]
+}
