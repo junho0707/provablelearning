@@ -93,3 +93,57 @@ button, a, input, select, textarea {
   outline: 2px solid var(--navy-500);
   outline-offset: 2px;
 }
+
+/* Lesson prose — semantic, readable typography for rendered MDX (NFR-PERF-003 headings/a11y). */
+.lesson-prose {
+  color: var(--navy-800);
+  line-height: 1.75;
+  font-size: 1.0625rem;
+}
+.lesson-prose h2 {
+  margin-top: 2.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--navy-950);
+}
+.lesson-prose h3 {
+  margin-top: 2rem;
+  margin-bottom: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--navy-950);
+}
+.lesson-prose p {
+  margin-top: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.lesson-prose ul,
+.lesson-prose ol {
+  margin-top: 1.25rem;
+  margin-bottom: 1.25rem;
+  padding-left: 1.5rem;
+}
+.lesson-prose ul {
+  list-style: disc;
+}
+.lesson-prose ol {
+  list-style: decimal;
+}
+.lesson-prose li {
+  margin-top: 0.4rem;
+}
+.lesson-prose strong {
+  font-weight: 700;
+  color: var(--navy-950);
+}
+.lesson-prose a {
+  color: var(--navy-600);
+  text-decoration: underline;
+}
+/* Display math scrolls on narrow screens rather than forcing horizontal page scroll. */
+.lesson-prose .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0;
+}
