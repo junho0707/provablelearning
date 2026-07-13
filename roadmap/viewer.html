@@ -57,34 +57,66 @@
   #map.panning { cursor: grabbing; }
   #canvas { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
   #edges { position: absolute; top: 0; left: 0; overflow: visible; pointer-events: none; }
-  .node { position: absolute; width: 180px; min-height: 48px; background: var(--card);
-    border: 1.5px solid var(--line); border-left-width: 5px; border-radius: 10px;
-    padding: 8px 11px; box-shadow: 0 1px 3px rgba(20,32,58,.08); cursor: pointer;
+  /* nesting = containment: a forest of root boxes; each concept box holds its children */
+  .forest { display: inline-flex; align-items: flex-start; gap: 48px; }
+  .cbox { display: inline-flex; flex-direction: column; vertical-align: top; overflow: hidden;
+    border: 1.5px solid var(--line); border-radius: 12px;
+    background: rgba(28,58,99,.02); box-shadow: 0 1px 3px rgba(20,32,58,.05); }
+  .cbox-head { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+    color: var(--navy-2); padding: 7px 12px; display: flex; align-items: center; gap: 6px;
+    cursor: pointer; border-bottom: 1px solid rgba(20,32,58,.08); white-space: nowrap; }
+  .cbox-mark { color: var(--gold); }
+  .cbox-body { display: flex; flex-direction: column; gap: 26px; padding: 18px; align-items: center; }
+  /* lessons form a small dependency tree inside the box: depth-rows stacked, arrows flow down between them */
+  .cbox-lessons { display: flex; flex-direction: column; gap: 36px; align-items: center; }
+  .lesson-row { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; justify-content: center; }
+  /* compact chip: number badge + title, with a small gold dot marking applications */
+  .node { position: relative; display: inline-flex; align-items: center; gap: 7px; max-width: 210px;
+    background: var(--card); border: 1.5px solid var(--line); border-radius: 8px;
+    padding: 5px 9px; box-shadow: 0 1px 2px rgba(20,32,58,.06); cursor: pointer;
     transition: box-shadow .12s, opacity .12s, border-color .12s; }
-  .node:hover { box-shadow: 0 3px 12px rgba(20,32,58,.16); }
-  /* type pill — symmetric badge so concept vs lesson reads at a glance, even zoomed out */
-  .node .n-kind { display: inline-block; font-size: 9px; text-transform: uppercase; letter-spacing: .6px;
-    font-weight: 800; border-radius: 4px; padding: 1px 5px; margin-bottom: 3px; line-height: 1.4; }
-  .node .n-kind.k-lesson { background: var(--gold); color: var(--navy); }
-  .node .n-kind.k-concept { background: transparent; color: var(--navy-2); border: 1.5px solid var(--navy-2); }
-  .node .n-title { font-size: 13px; font-weight: 600; line-height: 1.25;
+  .node:hover { box-shadow: 0 2px 9px rgba(20,32,58,.15); }
+  .node .n-title { font-size: 12px; font-weight: 600; line-height: 1.2;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .node .n-sub { font-size: 10px; color: var(--muted); margin-top: 3px; }
-  .node .n-crumb { font-size: 9.5px; color: var(--muted); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .node .n-num { display: inline-block; background: var(--gold); color: var(--navy); font-size: 10px; font-weight: 700; border-radius: 4px; padding: 0 5px; margin-right: 3px; }
-  /* concept = container: tinted + fully dashed + italic. lesson = solid white card. */
-  .node.concept { border-style: dashed; border-left-style: solid; background: #eef2fa; box-shadow: none; }
-  .node.concept .n-title { font-style: italic; }
+  .node .n-num { display: inline-block; background: var(--gold); color: var(--navy); font-size: 10px; font-weight: 700; border-radius: 4px; padding: 0 5px; margin-right: 4px; }
+  .node .n-dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--gold); }
+  /* application = applies/extends its concept: faint warm tint + the gold dot */
+  .node.application { background: #fdf9ef; }
   .dimmed .node:not(.hl-self):not(.hl-pre):not(.hl-post) { opacity: .2; }
   .node.hl-self { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
   .node.hl-pre  { box-shadow: 0 0 0 2px var(--gold); }
   .node.hl-post { box-shadow: 0 0 0 2px var(--ok); }
   .hint { position: absolute; top: 10px; left: 12px; font-size: 11px; color: var(--muted);
     background: rgba(255,255,255,.85); padding: 3px 9px; border-radius: 6px; }
-  .map-toggle { position: absolute; top: 8px; right: 12px; z-index: 5; font: inherit; font-size: 12px;
+  .map-toggles { position: absolute; top: 8px; right: 12px; z-index: 5; display: flex; gap: 8px; }
+  .map-toggle { font: inherit; font-size: 12px;
     font-weight: 600; cursor: pointer; background: #fff; color: var(--navy); border: 1.5px solid var(--line);
     border-radius: 999px; padding: 5px 13px; box-shadow: 0 1px 3px rgba(20,32,58,.12); }
   .map-toggle.active { background: #6b4fbf; color: #fff; border-color: #6b4fbf; }
+  /* left-docked housekeeping panel: every lesson in number order, with its tags */
+  .lessons-panel { position: absolute; top: 0; left: 0; width: 300px; height: 100%; background: #fff;
+    border-right: 1px solid var(--line); box-shadow: 4px 0 18px rgba(20,32,58,.09); z-index: 6;
+    transform: translateX(-100%); transition: transform .16s ease; overflow: auto; padding: 12px 14px 40px; }
+  .lessons-panel.open { transform: none; }
+  .lp-head { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .5px; margin-bottom: 10px; display: flex; justify-content: space-between; }
+  .lp-item { padding: 8px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; cursor: pointer; }
+  .lp-item:hover { background: #f7f9fd; }
+  .lp-item.app { background: #fdf9ef; }
+  .lp-top { display: flex; align-items: baseline; gap: 7px; }
+  .lp-num { flex: 0 0 auto; background: var(--gold); color: var(--navy); font-size: 10px; font-weight: 700; border-radius: 4px; padding: 0 5px; }
+  .lp-num.none { background: #fbe4e1; color: var(--danger); }
+  .lp-title { font-size: 12.5px; font-weight: 600; line-height: 1.2; }
+  .lp-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; align-items: center; }
+  .lp-tag { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; border-radius: 4px; padding: 1px 5px; }
+  .lp-tag.core { background: #eef2fa; color: var(--navy-2); }
+  .lp-tag.appn { background: transparent; color: #9a6f1e; border: 1px solid var(--gold); }
+  .lp-tag.warn { background: #fcf3d9; color: var(--warn); }
+  .lp-strand { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); }
+  .lp-swatch { width: 9px; height: 9px; border-radius: 3px; flex: 0 0 auto; }
+  .lp-crumb { font-size: 10px; color: var(--muted); margin-top: 4px; }
+  .lp-needs { font-size: 10px; color: var(--muted); margin-top: 4px; }
+  .lp-needs b { color: var(--navy-2); font-weight: 600; }
   /* order-mode: rank badge on each lesson node */
   .node .n-rank { position: absolute; top: -10px; left: -10px; min-width: 21px; height: 21px; padding: 0 4px;
     border-radius: 11px; background: #6b4fbf; color: #fff; font-size: 11px; font-weight: 800;
@@ -169,7 +201,11 @@
 <main>
   <div class="view active" id="map">
     <div class="hint">scroll to zoom · drag to pan · click a node to trace prerequisites</div>
-    <button class="map-toggle" id="orderToggle">① Show order</button>
+    <div class="map-toggles">
+      <button class="map-toggle" id="lessonsToggle">☰ Lessons</button>
+      <button class="map-toggle" id="orderToggle">① Show order</button>
+    </div>
+    <aside class="lessons-panel" id="lessons"></aside>
     <div id="canvas"><svg id="edges"></svg></div>
     <div class="legend" id="legend"></div>
     <div class="empty-map" id="emptyMap" style="display:none">No nodes yet — click <b>&nbsp;✎ Edit&nbsp;</b> then <b>&nbsp;＋ Add node</b>.</div>
@@ -191,8 +227,15 @@
       <label>Lesson number<div class="help">shown on the card (lessons only)</div></label>
       <input type="text" id="ed-number" placeholder="e.g. 3 or 3.2" />
     </div>
-    <label>Parent<div class="help">the concept this lives inside (a lesson's parent is always a concept)</div></label>
-    <select id="ed-parent"></select>
+    <div id="ed-role-wrap">
+      <label>Role<div class="help">core = teaches this concept · application = applies/extends it (lessons only)</div></label>
+      <select id="ed-role">
+        <option value="core">Core — teaches the concept</option>
+        <option value="application">Application — applies / extends it</option>
+      </select>
+    </div>
+    <label>Parent<div class="help">the concept(s) this lives inside — tick 2+ to bridge trees (multi-parent)</div></label>
+    <div class="chk-list" id="ed-parent"></div>
     <label>Strand<div class="help">colour group. Set on a parent-less lesson (or a branch's top concept) to keep it visually tied to its branch</div></label>
     <select id="ed-strand"></select>
     <div id="ed-prereq-wrap">
@@ -228,10 +271,18 @@ function status(m){ $('fileStatus').textContent = m; }
 function nodes(){ return DATA.nodes || []; }
 function byIdMap(){ return new Map(nodes().map(n => [n.id, n])); }
 function isConcept(n){ return n.type === 'concept'; }
-function parentOf(n){ const ids = byIdMap(); return (n.parent && ids.has(n.parent) && n.parent !== n.id) ? n.parent : null; }
-function childrenMap(){
+function isApplication(n){ return !isConcept(n) && n.role === 'application'; }
+// `parent` may be a string (single home) OR an array of ids (a "bridge" node with multiple parents)
+function parentsOf(n){
+  const ids = byIdMap();
+  const raw = Array.isArray(n.parent) ? n.parent : (n.parent != null ? [n.parent] : []);
+  return raw.filter(p => ids.has(p) && p !== n.id);
+}
+function parentOf(n){ const ps = parentsOf(n); return ps.length ? ps[0] : null; }   // first = layout/strand home
+function isBridge(n){ return parentsOf(n).length > 1; }
+function childrenMap(){   // nesting: only SOLE-parent children nest inside a box; bridges render separately
   const m = new Map(nodes().map(n => [n.id, []]));
-  for (const n of nodes()){ const p = parentOf(n); if (p) m.get(p).push(n.id); }
+  for (const n of nodes()){ const ps = parentsOf(n); if (ps.length === 1) m.get(ps[0]).push(n.id); }
   return m;
 }
 function rootOf(id){
@@ -259,16 +310,6 @@ function breadcrumb(n){
   const ids = byIdMap(), parts = []; let cur = parentOf(n), guard = 0;
   while (cur && guard++ < 30){ const p = ids.get(cur); parts.unshift(p.title || p.id); cur = parentOf(p); }
   return parts.join(' › ');
-}
-function parentDepth(){
-  const ids = byIdMap(), memo = new Map(), vis = new Set();
-  function d(id){
-    if (memo.has(id)) return memo.get(id);
-    if (vis.has(id)) return 0;
-    vis.add(id); const p = parentOf(ids.get(id));
-    const val = p ? 1 + d(p) : 0; vis.delete(id); memo.set(id, val); return val;
-  }
-  for (const n of nodes()) d(n.id); return memo;
 }
 function prereqEdges(){
   const ids = byIdMap(), out = [];
@@ -331,9 +372,9 @@ function validate(){
     ids.set(n.id, n);
   }
   for (const n of nodes()){
-    if (n.parent){
-      if (n.parent === n.id) msgs.push({level:'error', msg:`Node "${n.id}" is its own parent`});
-      else if (!ids.has(n.parent)) msgs.push({level:'error', msg:`Node "${n.id}" has unknown parent "${n.parent}"`});
+    for (const pp of (Array.isArray(n.parent) ? n.parent : (n.parent != null ? [n.parent] : []))){
+      if (pp === n.id) msgs.push({level:'error', msg:`Node "${n.id}" is its own parent`});
+      else if (!ids.has(pp)) msgs.push({level:'error', msg:`Node "${n.id}" has unknown parent "${pp}"`});
     }
     for (const p of (n.prereqs||[])){
       if (p === n.id) msgs.push({level:'error', msg:`Node "${n.id}" lists itself as a prerequisite`});
@@ -382,131 +423,143 @@ function setValidation(msgs){
 }
 
 /* ---------- tree layout (top-down) ---------- */
-const NW = 180, XGAP = 210, YGAP = 150;
-/* row depth = strictly below its parent AND below every prerequisite (transitively),
-   so a prereq always sits above the thing that needs it. */
-function nodeDepth(){
-  const ids = byIdMap(), memo = new Map(), vis = new Set();
-  function d(id){
-    if (memo.has(id)) return memo.get(id);
-    if (vis.has(id)) return 0;
-    vis.add(id); const n = ids.get(id); let mx = 0;
-    const par = parentOf(n); if (par) mx = Math.max(mx, d(par)+1);
-    for (const p of (n.prereqs||[])) if (ids.has(p)) mx = Math.max(mx, d(p)+1);
-    vis.delete(id); memo.set(id, mx); return mx;
-  }
-  for (const n of nodes()) d(n.id); return memo;
+/* ---------- map: containment = nesting. The browser lays the nested boxes out (flow/flex);
+   we then measure each card/box and draw the prereq arrows + order path on top. ---------- */
+// tier inside a box: core lessons before applications, then by number
+function cmpNumber(a,b){ const ka=numberKey(a),kb=numberKey(b),L=Math.max(ka.length,kb.length);
+  for(let i=0;i<L;i++){ const x=ka[i]??-Infinity, y=kb[i]??-Infinity; if(x!==y) return x-y; } return 0; }
+function directChildren(pid){
+  const ids=byIdMap();
+  return pid===null ? nodes().filter(n=>!parentOf(n)) : (childrenMap().get(pid)||[]).map(id=>ids.get(id));
 }
-function layout(){
-  const dep = nodeDepth(), ch = childrenMap(), ids = byIdMap();
-  const mean = a => a.reduce((s,v)=>s+v,0)/a.length;
+function lessonChildren(pid){
+  return directChildren(pid).filter(n=>!isConcept(n))
+    .sort((a,b)=> ((isApplication(a)?1:0)-(isApplication(b)?1:0)) || cmpNumber(a,b));
+}
+function conceptChildren(pid){ return directChildren(pid).filter(isConcept); }   // document order
+// direct lessons of a box, grouped into dependency-depth rows using ONLY prereqs among those siblings —
+// so a lesson sits below the box-mates it needs. Rows read top→bottom; the prereq arrows connect them.
+function lessonRows(pid){
+  const lessons=lessonChildren(pid), idset=new Set(lessons.map(l=>l.id)), ids=byIdMap();
+  const memo=new Map(), vis=new Set();
+  const d=id=>{ if(memo.has(id)) return memo.get(id); if(vis.has(id)) return 0; vis.add(id);
+    let mx=0; for(const p of (ids.get(id).prereqs||[])) if(idset.has(p)) mx=Math.max(mx,d(p)+1);
+    vis.delete(id); memo.set(id,mx); return mx; };
+  const rows=new Map();
+  for(const l of lessons){ const k=d(l.id); if(!rows.has(k)) rows.set(k,[]); rows.get(k).push(l); }
+  return [...rows.keys()].sort((a,b)=>a-b).map(k=>rows.get(k));
+}
 
-  // Mutable sibling ordering: parentId -> [childIds]; '' holds the roots (any parent-less node, incl. a
-  // stray free lesson). We start from document order, then reorder each group by its cross-strand pull.
-  const order = new Map([['', nodes().filter(n => !parentOf(n)).map(n => n.id)]]);
-  for (const n of nodes()){ const kids = (ch.get(n.id) || []).slice(); if (kids.length) order.set(n.id, kids); }
-  const origIdx = new Map(nodes().map((n, i) => [n.id, i]));   // stable tie-break: equal-pull siblings keep sequence
-
-  // Place x from the current ordering: leaves take successive slots, a parent is centred over its children.
-  const x = new Map();
-  function place(){
-    x.clear(); let leaf = 0; const seen = new Set();
-    function assign(id){
-      if (seen.has(id)) return; seen.add(id);
-      const kids = (order.get(id) || []).filter(k => !seen.has(k));
-      if (!kids.length){ x.set(id, leaf * XGAP); leaf++; }
-      else { kids.forEach(assign); const cs = kids.map(k => x.get(k)); x.set(id, (Math.min(...cs) + Math.max(...cs)) / 2); }
-    }
-    (order.get('') || []).forEach(assign);
-  }
-
-  // A node's "pull" = mean x of its subtree's prerequisites that live in a DIFFERENT strand (another tree).
-  // Nodes with no cross-strand prereq keep their own x, so pure-containment structure is left intact.
-  function pull(id){
-    const home = strandOf(id), sub = new Set([id, ...descendants(id)]), tgt = [];
-    for (const s of sub) for (const p of (ids.get(s).prereqs || []))
-      if (ids.has(p) && !sub.has(p) && strandOf(ids.get(p)) !== home && x.has(p)) tgt.push(x.get(p));
-    return tgt.length ? mean(tgt) : (x.has(id) ? x.get(id) : 0);
-  }
-
-  // Iterate: place, then slide every sibling group toward its cross-strand pull so a dependent lesson lands
-  // at the edge of its tree nearest the tree it depends on, and prereq-linked trees end up adjacent.
-  place();
-  for (let it = 0; it < 8; it++){
-    for (const kids of order.values())
-      kids.sort((a, b) => (pull(a) - pull(b)) || (origIdx.get(a) - origIdx.get(b)));
-    place();
-  }
-
-  const pos = new Map();
-  for (const n of nodes()) pos.set(n.id, { x: x.get(n.id) || 0, y: dep.get(n.id)*YGAP, depth: dep.get(n.id) });
-  const xs = [...pos.values()].map(p=>p.x), ys = [...pos.values()].map(p=>p.y);
-  const minX = Math.min(...xs), maxX = Math.max(...xs), maxY = Math.max(...ys);
-  const PADX = 40, PADY = 54;
-  for (const p of pos.values()){ p.x = p.x - minX + PADX; p.y = p.y + PADY; }
-  return { pos, totalW: (maxX-minX) + PADX*2 + NW, totalH: maxY + PADY*2 + 70 };
+function cardEl(n){
+  const el=document.createElement('div');
+  el.className='node'+(isApplication(n)?' application':'');
+  el.dataset.id=n.id;
+  const numTag=n.number?`<span class="n-num">${esc(n.number)}</span>`:'';
+  const dot=isApplication(n)?`<span class="n-dot" title="application"></span>`:'';
+  el.innerHTML=`<span class="n-title">${numTag}${esc(n.title||n.id)}</span>${dot}`;
+  el.onclick=ev=>{ ev.stopPropagation(); if(EDIT.on) openForm(n.id); else highlight(n.id); };
+  el.onmouseenter=()=>hoverFocus(n.id);
+  el.onmouseleave=hoverClear;
+  return el;
+}
+// #rrggbb → rgba() so a solid strand color can tint a header band
+function hexToRgba(hex, a){
+  const m=/^#?([0-9a-f]{6})$/i.exec(hex); if(!m) return hex;
+  const n=parseInt(m[1],16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;
+}
+// a concept renders as a box that literally contains its children (its direct lessons, then sub-boxes)
+function boxEl(concept, colors){
+  const box=document.createElement('div');
+  box.className='cbox'; box.dataset.id=concept.id;
+  const c=colors.get(strandOf(concept))||'#888';
+  const head=document.createElement('div'); head.className='cbox-head';
+  head.style.background=hexToRgba(c,0.16);
+  head.innerHTML=`<span class="cbox-mark" style="color:${c}">◇</span>${esc(concept.title||concept.id)}`;
+  head.onclick=ev=>{ ev.stopPropagation(); if(EDIT.on) openForm(concept.id); };
+  box.appendChild(head);
+  const body=document.createElement('div'); body.className='cbox-body';
+  const rows=lessonRows(concept.id);
+  if(rows.length){ const lc=document.createElement('div'); lc.className='cbox-lessons';
+    for(const row of rows){ const rd=document.createElement('div'); rd.className='lesson-row';
+      row.forEach(l=>rd.appendChild(cardEl(l))); lc.appendChild(rd); }
+    body.appendChild(lc); }
+  conceptChildren(concept.id).forEach(c=>body.appendChild(boxEl(c,colors)));
+  box.appendChild(body);
+  return box;
 }
 
 /* ---------- render map ---------- */
 let view = { tx:20, ty:20, scale:1 };
 function renderMap(){
   const canvas = $('canvas'), svg = $('edges');
-  [...canvas.querySelectorAll('.node')].forEach(e=>e.remove());
+  [...canvas.querySelectorAll('.forest')].forEach(e=>e.remove());
   $('map').classList.remove('dimmed');    // highlight state can't survive a rebuild — drop stale dimming
   const has = nodes().length > 0;
   $('emptyMap').style.display = has ? 'none' : 'flex';
   $('legend').style.display = has ? '' : 'none';
-  if (!has){ canvas.style.width='0'; canvas.style.height='0'; svg.innerHTML=''; return; }
+  svg.innerHTML='';
+  if (!has){ canvas.style.width='0'; canvas.style.height='0'; return; }
 
-  const L = layout(), colors = colorMap(), ids = byIdMap();
-  canvas.style.width = L.totalW+'px'; canvas.style.height = L.totalH+'px';
-  svg.setAttribute('width', L.totalW); svg.setAttribute('height', L.totalH);
+  const colors = colorMap();
+  // build the nested DOM: roots in document order (concept → box, parent-less lesson → card)
+  const forest = document.createElement('div'); forest.className='forest';
+  for (const n of nodes()){ if (parentOf(n)) continue; forest.appendChild(isConcept(n)?boxEl(n,colors):cardEl(n)); }
+  canvas.appendChild(forest);
 
-  for (const n of nodes()){
-    const p = L.pos.get(n.id);
-    const el = document.createElement('div');
-    el.className = 'node' + (isConcept(n) ? ' concept' : '');
-    el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.dataset.id=n.id;
-    el.style.borderLeftColor = colors.get(strandOf(n)) || '#888';
-    const nPre = (n.prereqs||[]).length, crumb = breadcrumb(n);
-    const numTag = (!isConcept(n) && n.number) ? `<span class="n-num">${esc(n.number)}</span>` : '';
-    const kind = isConcept(n)
-      ? `<span class="n-kind k-concept">◇ Concept</span>`
-      : `<span class="n-kind k-lesson">▸ Lesson</span>`;
-    el.innerHTML =
-      (crumb ? `<div class="n-crumb">${esc(crumb)}</div>` : '') +
-      kind +
-      `<div class="n-title">${numTag}${esc(n.title||n.id)}</div>` +
-      (nPre ? `<div class="n-sub">needs ${nPre}</div>` : '');
-    el.onclick = ev => { ev.stopPropagation(); if (EDIT.on) openForm(n.id); else highlight(n.id); };
-    canvas.appendChild(el);
+  // size the canvas to the laid-out forest (offset* are untransformed layout sizes)
+  const PAD=52; forest.style.margin=PAD+'px';
+  const W=forest.offsetWidth+PAD*2, Hh=forest.offsetHeight+PAD*2;
+  canvas.style.width=W+'px'; canvas.style.height=Hh+'px';
+  svg.setAttribute('width',W); svg.setAttribute('height',Hh);
+
+  // measure every card/box in canvas-local coords (compensating for the current pan/zoom transform)
+  const cr=canvas.getBoundingClientRect(), s=view.scale||1, pos=new Map();
+  const measure=el=>{ const r=el.getBoundingClientRect(); return {x:(r.left-cr.left)/s,y:(r.top-cr.top)/s,w:r.width/s,h:r.height/s}; };
+  const setPos=el=>{ const m=measure(el); pos.set(el.dataset.id,{...m,cx:m.x+m.w/2,cy:m.y+m.h/2}); };
+  canvas.querySelectorAll('[data-id]').forEach(setPos);
+
+  // --- bridge nodes: multiple parents, so they can't nest. Float between the parents, with a solid
+  //     containment line up to each. This is how a node "belongs to two trees at once." ---
+  const BR_GAP=44;
+  for (const n of nodes().filter(isBridge)){
+    const par=parentsOf(n).map(pid=>pos.get(pid)).filter(Boolean);
+    if (!par.length) continue;
+    const el = isConcept(n) ? boxEl(n,colors) : cardEl(n);
+    el.style.position='absolute'; canvas.appendChild(el);
+    const bw=el.offsetWidth, bh=el.offsetHeight;
+    const left=(par.reduce((a,p)=>a+p.cx,0)/par.length)-bw/2, top=Math.max(...par.map(p=>p.y+p.h))+BR_GAP;
+    el.style.left=left+'px'; el.style.top=top+'px';
+    pos.set(n.id,{x:left,y:top,w:bw,h:bh,cx:left+bw/2,cy:top+bh/2});
+    el.querySelectorAll('[data-id]').forEach(setPos);   // its own nested children, now that it's placed
   }
+  // grow the canvas to fit any bridge placed past the forest
+  let cw=W, chh=Hh;
+  for (const p of pos.values()){ cw=Math.max(cw,p.x+p.w+PAD); chh=Math.max(chh,p.y+p.h+PAD); }
+  canvas.style.width=cw+'px'; canvas.style.height=chh+'px';
+  svg.setAttribute('width',cw); svg.setAttribute('height',chh);
 
-  const H = new Map();
-  canvas.querySelectorAll('.node').forEach(el=>H.set(el.dataset.id, el.offsetHeight));
   svg.innerHTML = `<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#c8a24a"/></marker></defs>`;
-
-  // parent -> child (solid, structure, no arrowhead)
-  for (const n of nodes()){
-    const par = parentOf(n); if (!par) continue;
-    const a = L.pos.get(par), b = L.pos.get(n.id); if (!a || !b) continue;
-    const x1=a.x+NW/2, y1=a.y+(H.get(par)||48), x2=b.x+NW/2, y2=b.y, my=(y1+y2)/2;
-    addPath(svg, `M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`, { stroke:'#8b97b3', width:'1.6', opacity:'0.9' }, par, n.id, 'tree');
+  // containment for bridge nodes (solid grey, no arrowhead) — "contained by each of these parents"
+  for (const n of nodes().filter(isBridge)){
+    const b=pos.get(n.id); if(!b) continue;
+    for (const pid of parentsOf(n)){
+      const p=pos.get(pid); if(!p) continue;
+      addPath(svg, `M${p.cx},${p.y+p.h} L${b.cx},${b.y}`, { stroke:'#8b97b3', width:'1.8', opacity:'0.85' }, pid, n.id, 'contain');
+    }
   }
-  // prerequisite (dashed gold, arrow, ordering) — only the direct edges; the rest is assumed
+  // prerequisite (dashed gold, arrow) — normal nesting shows containment; bridges add solid lines above
   for (const e of reducedPrereqEdges()){
-    const a = L.pos.get(e.from), b = L.pos.get(e.to); if (!a || !b) continue;
-    const x1=a.x+NW/2, y1=a.y+(H.get(e.from)||48)/2, x2=b.x+NW/2, y2=b.y+(H.get(e.to)||48)/2;
-    addPath(svg, `M${x1},${y1} L${x2},${y2}`, { stroke:'#c8a24a', width:'1.6', dash:'5 4', arrow:true, opacity:'0.9' }, e.from, e.to, 'pre');
+    const a = pos.get(e.from), b = pos.get(e.to); if (!a || !b) continue;
+    addPath(svg, `M${a.cx},${a.cy} L${b.cx},${b.cy}`, { stroke:'#c8a24a', width:'1.6', dash:'5 4', arrow:true, opacity:PRE_DIM }, e.from, e.to, 'pre');
   }
-  if (ORDER_ON) drawOrderOverlay(canvas, svg, L, H);
+  if (ORDER_ON) drawOrderOverlay(canvas, svg, pos);
   applyView(); renderLegend();
 }
 /* Order overlay: number every lesson node by its learning-order rank and step a path 1→2→…→N through
    them, dimming the structural/prereq edges so the sequence reads on top. */
-function drawOrderOverlay(canvas, svg, L, H){
-  const seq = linearSequence().filter(n => !isConcept(n));
-  const c = id => ({ x: L.pos.get(id).x + NW/2, y: L.pos.get(id).y + (H.get(id)||48)/2 });
+function drawOrderOverlay(canvas, svg, pos){
+  const seq = lessonOrder().filter(n=>pos.has(n.id));
+  const c = id => ({ x: pos.get(id).cx, y: pos.get(id).cy });
   svg.querySelectorAll('path[data-kind]').forEach(p => p.setAttribute('opacity','0.1'));
   svg.insertAdjacentHTML('afterbegin', `<defs><marker id="aro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6b4fbf"/></marker></defs>`);
   const NS = 'http://www.w3.org/2000/svg';
@@ -539,15 +592,36 @@ function renderLegend(){
     return `<div class="row"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;border-left:5px solid ${colors.get(sid)};background:#fff;border-top:1.5px solid var(--line);border-right:1.5px solid var(--line);border-bottom:1.5px solid var(--line);"></span>${esc(s ? (s.title || s.id) : sid)}</div>`;
   }).join('');
   $('legend').innerHTML =
-    `<div class="row"><span class="n-kind k-lesson">▸ Lesson</span></div>` +
-    `<div class="row"><span class="n-kind k-concept">◇ Concept</span></div>` +
-    `<div class="row"><svg width="24" height="10"><line x1="0" y1="5" x2="24" y2="5" stroke="#8b97b3" stroke-width="1.6"/></svg>contains (structure)</div>` +
+    `<div class="row"><span style="display:inline-block;background:var(--gold);color:var(--navy);font-size:10px;font-weight:700;border-radius:4px;padding:0 5px;">#</span>lesson (number)</div>` +
+    `<div class="row"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--gold);"></span>application</div>` +
+    `<div class="row"><svg width="22" height="15"><rect x="0.75" y="0.75" width="20.5" height="13.5" rx="3" fill="rgba(28,58,99,.06)" stroke="#8b97b3"/><rect x="5" y="4.5" width="12" height="6" rx="1.5" fill="#fff" stroke="#c9d2e2"/></svg>concept = container (nesting)</div>` +
+    `<div class="row"><svg width="24" height="10"><line x1="0" y1="5" x2="24" y2="5" stroke="#8b97b3" stroke-width="1.8"/></svg>bridge — belongs to 2+ parents</div>` +
     `<div class="row"><svg width="24" height="10"><line x1="0" y1="5" x2="20" y2="5" stroke="#c8a24a" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#ar)"/></svg>prerequisite</div>` +
     (strands ? `<div class="row" style="margin-top:4px;font-weight:700;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Strands</div>` + strands : '');
 }
 
+/* Prereq arrows are faint by default so a convergence hub (e.g. Mixed Operations, 7+ prereqs)
+   doesn't read as spaghetti. Hovering a node lights up just that node's arrows; clicking locks a
+   full up/down trace. PRE_DIM is the resting opacity for a prerequisite edge. */
+const PRE_DIM = '0.14';
+let TRACE_LOCK = false;   // true while a click-trace is held, so hover doesn't fight it
+
+/* hover a node: reveal only the prereq arrows touching it (no lock, no node dimming) */
+function hoverFocus(id){
+  if (TRACE_LOCK || EDIT.on || ORDER_ON) return;
+  document.querySelectorAll('#edges path').forEach(p=>{
+    if (p.dataset.kind!=='pre') return;
+    p.setAttribute('opacity', (p.dataset.from===id||p.dataset.to===id) ? '1' : PRE_DIM);
+  });
+}
+function hoverClear(){
+  if (TRACE_LOCK || EDIT.on || ORDER_ON) return;
+  document.querySelectorAll('#edges path').forEach(p=>{ if(p.dataset.kind==='pre') p.setAttribute('opacity', PRE_DIM); });
+}
+
 /* click a node: trace prerequisites up/down (not the parent tree) */
 function highlight(id){
+  TRACE_LOCK = true;
   const up=new Map(), down=new Map();
   for (const e of prereqEdges()){ (down.get(e.from)||down.set(e.from,[]).get(e.from)).push(e.to); (up.get(e.to)||up.set(e.to,[]).get(e.to)).push(e.from); }
   const pre=new Set(), post=new Set();
@@ -563,9 +637,11 @@ function highlight(id){
   document.querySelectorAll('#edges path').forEach(p=>p.setAttribute('opacity', p.dataset.kind==='pre' && active.has(p.dataset.from) && active.has(p.dataset.to) ? '1' : '0.08'));
 }
 function clearHighlight(){
+  TRACE_LOCK = false;
   $('map').classList.remove('dimmed');
   document.querySelectorAll('.node').forEach(el=>el.classList.remove('hl-self','hl-pre','hl-post'));
-  document.querySelectorAll('#edges path').forEach(p=>p.setAttribute('opacity','0.9'));
+  // containment edges rest at full strength; prereq edges rest faint (hover/click reveals them)
+  document.querySelectorAll('#edges path').forEach(p=>p.setAttribute('opacity', p.dataset.kind==='pre' ? PRE_DIM : '0.9'));
 }
 
 /* pan + zoom */
@@ -579,32 +655,32 @@ function applyView(){ $('canvas').style.transform=`translate(${view.tx}px,${view
   map.addEventListener('wheel',e=>{ e.preventDefault(); const r=map.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top,f=e.deltaY<0?1.1:1/1.1,ns=Math.min(2.2,Math.max(.25,view.scale*f)); view.tx=mx-(mx-view.tx)*(ns/view.scale); view.ty=my-(my-view.ty)*(ns/view.scale); view.scale=ns; applyView(); },{passive:false});
 })();
 
-/* ---------- order: topo over (parent-before-child) + (prereq-before-node) ---------- */
-function linearSequence(){
-  const ids=byIdMap(), indeg=new Map([...ids.keys()].map(k=>[k,0])), adj=new Map([...ids.keys()].map(k=>[k,[]]));
-  const add=(a,b)=>{ if(ids.has(a)&&ids.has(b)&&a!==b){ adj.get(a).push(b); indeg.set(b,indeg.get(b)+1); } };
-  for(const n of nodes()){ const p=parentOf(n); if(p) add(p,n.id); for(const q of (n.prereqs||[])) add(q,n.id); }
-  const dep=parentDepth(), authIdx=new Map(nodes().map((n,i)=>[n.id,i]));
-  const rank=id=> dep.get(id)*10000 + authIdx.get(id);
-  const ready=[...indeg].filter(([,c])=>c===0).map(([k])=>k);
-  const out=[];
-  while(ready.length){ ready.sort((a,b)=>rank(a)-rank(b)); const u=ready.shift(); out.push(u); for(const v of adj.get(u)){ indeg.set(v,indeg.get(v)-1); if(indeg.get(v)===0) ready.push(v); } }
-  for(const n of nodes()) if(!out.includes(n.id)) out.push(n.id);
-  return out.map(id=>ids.get(id));
+/* ---------- order: lessons only, sequenced by their hand-typed number ---------- */
+// "3.2" -> [3,2] for natural numeric sort (so #11 sorts after #2). Missing/blank sorts last.
+function numberKey(n){
+  const s=String(n.number??'').trim();
+  if(!s) return [Infinity];
+  const parts=s.split('.').map(p=>parseFloat(p));
+  return parts.some(isNaN) ? [Infinity] : parts;
+}
+function lessonOrder(){
+  return nodes().filter(n=>!isConcept(n)).sort((a,b)=>{
+    const ka=numberKey(a), kb=numberKey(b), L=Math.max(ka.length,kb.length);
+    for(let i=0;i<L;i++){ const x=ka[i]??-Infinity, y=kb[i]??-Infinity; if(x!==y) return x-y; }
+    return 0;
+  });
 }
 function renderOrder(){
-  const seq=linearSequence(), ids=byIdMap(); let num=0;
-  $('seq').innerHTML = seq.map(n=>{
-    const concept=isConcept(n), marker=concept?'◇':(++num);
+  const seq=lessonOrder(), ids=byIdMap();
+  $('seq').innerHTML = seq.map((n,i)=>{
     const needs=(n.prereqs||[]).map(p=>ids.has(p)?ids.get(p).title:p);
     const crumb=breadcrumb(n);
-    const numChip=(!concept && n.number)?`<span class="chip">#${esc(n.number)}</span>`:'';
-    return `<div class="seq-item${concept?' concept':''}"><div class="seq-num">${marker}</div><div>
-      <div class="seq-title">${esc(n.title||n.id)}${concept?'<span class="chip">concept</span>':''}${numChip}</div>
+    return `<div class="seq-item"><div class="seq-num">${esc(n.number||(i+1))}</div><div>
+      <div class="seq-title">${esc(n.title||n.id)}</div>
       ${crumb?`<div class="seq-crumb">${esc(crumb)}</div>`:''}
       ${needs.length?`<div class="seq-needs"><span class="k">needs:</span> ${needs.map(esc).join(', ')}</div>`:''}
     </div></div>`;
-  }).join('') || '<p style="color:var(--muted);text-align:center">No nodes yet.</p>';
+  }).join('') || '<p style="color:var(--muted);text-align:center">No lessons yet.</p>';
 }
 
 /* ---------- main render ---------- */
@@ -614,7 +690,33 @@ function render(){
   const nLesson = nodes().filter(n=>!isConcept(n)).length, nConcept = nodes().filter(isConcept).length;
   $('counts').innerHTML = `<span><b>${nLesson}</b> lessons</span><span><b>${nConcept}</b> concepts</span>`;
   setValidation(validate());
-  renderMap(); renderOrder();
+  renderMap(); renderOrder(); renderLessonsPanel();
+}
+
+/* housekeeping panel: every lesson in #-order with its tags (role · strand · container · prereqs),
+   flagging any with no number or no parent. Click a row to trace it (or edit it in Edit mode). */
+function renderLessonsPanel(){
+  const ids=byIdMap(), colors=colorMap(), seq=lessonOrder();
+  const rows=seq.map(n=>{
+    const app=isApplication(n);
+    const strand=strandOf(n), sc=colors.get(strand)||'#888', sName=(ids.get(strand)&&ids.get(strand).title)||strand;
+    const crumb=breadcrumb(n);
+    const needs=(n.prereqs||[]).map(p=>ids.has(p)?ids.get(p).title:p);
+    const numChip=n.number?`<span class="lp-num">#${esc(n.number)}</span>`:`<span class="lp-num none">no #</span>`;
+    const roleChip=app?`<span class="lp-tag appn">application</span>`:`<span class="lp-tag core">core</span>`;
+    const orphan=!parentOf(n)?`<span class="lp-tag warn">orphan</span>`:'';
+    return `<div class="lp-item${app?' app':''}" data-id="${esc(n.id)}">
+      <div class="lp-top">${numChip}<span class="lp-title">${esc(n.title||n.id)}</span></div>
+      <div class="lp-tags">${roleChip}${orphan}<span class="lp-strand"><span class="lp-swatch" style="background:${sc}"></span>${esc(sName)}</span></div>
+      ${crumb?`<div class="lp-crumb">${esc(crumb)}</div>`:''}
+      ${needs.length?`<div class="lp-needs"><b>needs:</b> ${needs.map(esc).join(', ')}</div>`:''}
+    </div>`;
+  }).join('');
+  $('lessons').innerHTML=`<div class="lp-head"><span>Lessons · in order</span><span>${seq.length}</span></div>`
+    + (rows || '<p style="color:var(--muted);font-size:12px">No lessons yet.</p>');
+  $('lessons').querySelectorAll('.lp-item').forEach(el=>{
+    el.onclick=()=>{ const id=el.dataset.id; if(EDIT.on) openForm(id); else highlight(id); };
+  });
 }
 
 /* ---------- editing ---------- */
@@ -632,6 +734,7 @@ $('ed-type').onchange=toggleByType;
 function toggleByType(){
   const concept = $('ed-type').value==='concept';
   $('ed-number-wrap').style.display = concept ? 'none' : '';   // number: lessons only
+  $('ed-role-wrap').style.display = concept ? 'none' : '';      // role: lessons only
   $('ed-prereq-wrap').style.display = concept ? 'none' : '';    // prereqs: lessons only
 }
 function slugify(s){ return String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
@@ -646,15 +749,16 @@ function openForm(id){
   $('ed-id').value = n?n.id:''; $('ed-id').disabled=!!n;
   $('ed-title').value = n?(n.title||''):'';
   $('ed-number').value = n && n.number ? n.number : '';
+  $('ed-role').value = n && n.role === 'application' ? 'application' : 'core';
   toggleByType();
   // parent options: CONCEPTS only (a lesson's parent is a concept; concepts nest under concepts).
   // exclude self + descendants so a concept can't be parented under its own subtree.
   const banned = id ? new Set([id, ...descendants(id)]) : new Set();
-  const opts = ['<option value="">— none (top level) —</option>'].concat(
-    nodes().filter(x=>isConcept(x) && !banned.has(x.id)).map(x=>`<option value="${esc(x.id)}">${esc(breadcrumb(x)?breadcrumb(x)+' › ':'')}${esc(x.title||x.id)}</option>`)
-  );
-  $('ed-parent').innerHTML = opts.join('');
-  $('ed-parent').value = n && n.parent ? n.parent : '';
+  const curParents = new Set(n ? parentsOf(n) : []);
+  const pconcepts = nodes().filter(x=>isConcept(x) && !banned.has(x.id));
+  $('ed-parent').innerHTML = pconcepts.length ? pconcepts.map(x=>
+    `<label><input type="checkbox" value="${esc(x.id)}" ${curParents.has(x.id)?'checked':''}/> ${esc(breadcrumb(x)?breadcrumb(x)+' › ':'')}${esc(x.title||x.id)}</label>`
+  ).join('') : '<span style="font-size:12px;color:var(--muted)">no concepts yet — this is a top-level node</span>';
   // strand options: any concept can serve as a strand label (incl. self — that's how a branch's top
   // concept declares itself a strand root, e.g. Fractions as its own colour).
   const strandOpts = ['<option value="">— inherit / auto —</option>'].concat(
@@ -683,14 +787,15 @@ $('ed-save').onclick=()=>{
   const editing=EDIT.editingId;
   if(!editing && nodes().some(n=>n.id===id)) return alert(`ID "${id}" already exists`);
   const isConceptType=$('ed-type').value==='concept';
-  const parent=$('ed-parent').value;
+  const parents=[...$('ed-parent').querySelectorAll('input:checked')].map(c=>c.value);
   const num=$('ed-number').value.trim();
   const prereqs=isConceptType ? [] : [...$('ed-prereq').querySelectorAll('input:checked')].map(c=>c.value);
   const strand=$('ed-strand').value;
   const node={ id, title };
   if(isConceptType) node.type='concept';
   if(!isConceptType && num) node.number=num;
-  if(parent) node.parent=parent;
+  if(!isConceptType && $('ed-role').value==='application') node.role='application';
+  if(parents.length===1) node.parent=parents[0]; else if(parents.length>1) node.parent=parents;
   if(strand) node.strand=strand;
   node.prereqs=prereqs;
   DATA.nodes = DATA.nodes || [];
@@ -760,6 +865,12 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   t.classList.add('active'); $(t.dataset.view).classList.add('active');
 });
+
+/* lessons housekeeping panel toggle (map view) */
+$('lessonsToggle').onclick=()=>{
+  const open=$('lessons').classList.toggle('open');
+  $('lessonsToggle').classList.toggle('active',open);
+};
 
 /* order overlay toggle (map view) */
 $('orderToggle').onclick=()=>{

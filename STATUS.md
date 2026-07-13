@@ -9,10 +9,21 @@ product)**. Spec `spec/00`–`13` drafted, ADR-001 accepted.
 
 ## Current task
 
-Begin **TASK-CONTENT-001** (M1: MDX pipeline + Learning Path — render `content/**` MDX+KaTeX;
-catalog → course → theme → lesson, SSR/SSG, SEO + sitemap). Refs: REQ-CONTENT-001..004,
-NFR-PERF-001..003, ADR-001; AT-CONTENT-001/002/003. **Blockers to watch:** ADR-002
-(auth/consent) before M2; D2 (pack tiers) before TASK-BILLING-001. Neither blocks M1.
+**M1 in progress.** Done: **TASK-CONTENT-001** (MDX pipeline + Learning Path), **TASK-PRACTICE-001**
+(questions + answer checking, anonymous). Next up: **TASK-CONTENT-002** (author the full Geometry
+slice). **Blockers to watch:** ADR-002 (auth/consent) before M2; D2 (pack tiers) before
+TASK-BILLING-001. Neither blocks M1.
+
+**Open follow-ups (do not lose):**
+1. **NFR-PERF-002 Core Web Vitals lab run** — pages are static + KaTeX-rendered server-side (no math
+   CLS, next/font, minimal JS) so they meet CWV structurally, but a Lighthouse run on a deployed
+   preview is the honest confirmation; not done in this environment. Run at first Vercel preview.
+2. **Apply migration `0002_questions.sql` + `seed.sql` to the remote Supabase projects.** They were
+   verified against a **local** stack only. The linked CLI points at the *prod* project ref
+   (`vufizavpkjpybsknvyno`) and I don't have the dev project's DB password, so I did **not** push DDL
+   remotely. Until applied, `getLessonQuestions` returns `[]` on remote (pages still build/render —
+   graceful) and no questions show. Apply via `supabase db push` (verify the target ref first) or the
+   dashboard SQL editor, then re-run the seed.
 
 ## Completed
 
@@ -34,7 +45,28 @@ NFR-PERF-001..003, ADR-001; AT-CONTENT-001/002/003. **Blockers to watch:** ADR-0
 
 ## In progress
 
-- M1 content pipeline (TASK-CONTENT-001) — not yet started.
+- **TASK-PRACTICE-001 (questions + answer checking, anonymous) — done (2026-07-11).** Added
+  migration `0002_questions.sql` (`questions` table keyed by `lesson_slug`; per-type shape checks;
+  world-readable rows but **column-level grants** hide `answer`/`tolerance`/`explanation` from
+  anon/authenticated — the answer secret is read only server-side via service role) and
+  `supabase/seed.sql` (5 questions across the 2 Geometry lessons, all three types). Added
+  `src/lib/practice/*`: pure `checkSubmission` (mcq exact-match / numeric tolerance / free reveal;
+  throws on non-numeric), `getLessonQuestions` (cookieless anon client, presentational columns
+  only), and the `checkAnswer` server action (service-role read → check → `{ok,...}` result; no
+  attempt recorded — that's PROGRESS-001). Added an interactive `PracticeQuestions` client component
+  under the lesson page. Verified: 10 practice tests (pure logic + security-shape + slug-integrity);
+  against a **local** Supabase stack, anon is denied the `answer` column (HTTP 401) while service
+  role reads it, and the served lesson HTML shows question prompts/choices with **no answer or
+  explanation leaked**. See open follow-up #2 re: applying the migration to remote.
+- **TASK-CONTENT-001 (MDX pipeline + Learning Path) — pipeline done (2026-07-10).** Added
+  `src/lib/content/*` (catalog build from in-repo MDX, ordered Course→Theme→Lesson, slug-integrity
+  validation; MDX+KaTeX server render), `src/app/(content)/courses/**` routes (catalog / course /
+  lesson, all SSG), global 404 with links back into the path, `sitemap.ts` + `robots.ts`, and
+  per-page SEO metadata (title/description/canonical, `metadataBase`). Seeded a real 2-lesson
+  Geometry slice to prove the pipeline (CONTENT-002 authors the full slice). AT-CONTENT-001/002/003
+  verified in served HTML; 10 unit/integration tests pass; `next build` clean (content pages
+  prerendered). Content/theme metadata convention recorded as an ADR-001 follow-up. Remaining:
+  NFR-PERF-002 Lighthouse lab run (see Current task).
 
 ## Blockers
 
@@ -48,13 +80,18 @@ NFR-PERF-001..003, ADR-001; AT-CONTENT-001/002/003. **Blockers to watch:** ADR-0
 
 ## Next task
 
-M1: `TASK-CONTENT-001` (MDX pipeline + Learning Path) → `TASK-CONTENT-002` (author the first
-Geometry slice) + `TASK-PRACTICE-001` (questions + answer checking). Ship M1 to the public first.
-Follow the dependency order in `spec/12_IMPLEMENTATION_PLAN.md`.
+M1: **`TASK-CONTENT-002`** (author the full "Math up to Geometry" slice — more themes/lessons +
+their questions) is the remaining M1 build task. Then apply the questions migration to remote
+(follow-up #2) and run the CWV lab (#1) before shipping M1 to the public. Follow the dependency
+order in `spec/12_IMPLEMENTATION_PLAN.md`.
 
 ## Build / test status
 
-- Build: **passing** (`next build`, Next 16, TS strict, no error-ignoring). Landing serves 200.
-- Tests: none yet (v1 tests removed with v1 code; v2 tests land per task starting M1).
-- Last meaningful verification: 2026-07-10 — M0 scaffold: build clean, prod server 200,
-  Supabase `auth/v1/settings` reachable.
+- Build: **passing** (`next build`, Next 16, TS strict, no error-ignoring). Content pages
+  prerendered (○ catalog, ● course + lessons); degrades gracefully when the questions table is
+  absent on the target DB. Lint clean.
+- Tests: **20 passing** across 3 files (`content.test.tsx` ×10; `practice/check.test.ts` ×7;
+  `practice/integrity.test.ts` ×3 — answer-secrecy grants + slug integrity). Run with `npm test`.
+- Last meaningful verification: 2026-07-11 — PRACTICE-001 against a local Supabase stack: migrations
+  0001+0002 applied + seed loaded; anon **denied** the `answer` column (HTTP 401), service role
+  reads it; built lesson HTML shows question prompts/choices with no answer/explanation leaked.

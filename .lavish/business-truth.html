@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v2 — Business Truth before Requirements</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-900:#0f1a2e; --navy-800:#162340; --navy-700:#1e3a5f; --navy-600:#265185;
+    --navy-500:#2d5f9a; --navy-300:#7ba3d4; --navy-100:#d6e3f4; --navy-50:#eef3fa;
+    --gold-700:#b08914; --gold-500:#D4A017; --gold-400:#ddb03f; --gold-300:#e6c56a; --gold-50:#fef7e8;
+    --slate:#1e293b; --slate-500:#64748b; --line:#e2e8f0;
+    --ok:#16a34a; --ok-bg:#f0fdf4; --warn:#f59e0b; --warn-bg:#fffbeb; --red:#dc2626;
+    --shadow:0 1px 2px rgba(15,26,46,.06),0 8px 24px rgba(15,26,46,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--slate);background:var(--navy-50);line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  a{color:var(--navy-600)}
+  h1,h2,h3{margin:0;line-height:1.15;color:var(--navy-900)}
+  .serif{font-family:Newsreader,Georgia,serif}
+  /* header */
+  header{background:linear-gradient(160deg,var(--navy-900),var(--navy-800));color:#fff;padding:44px 0 40px}
+  header .kicker{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-400);font-weight:700}
+  header h1{color:#fff;font-size:clamp(28px,5vw,44px);font-weight:800;margin-top:12px;letter-spacing:-.02em}
+  header h1 b{color:var(--gold-400);font-weight:800}
+  header p{color:var(--navy-100);font-size:16px;max-width:64ch;margin:16px 0 0}
+  .callout{margin-top:22px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-left:3px solid var(--gold-500);border-radius:10px;padding:14px 16px;color:#eaf1fb;font-size:14.5px}
+  .callout b{color:#fff}
+  /* section */
+  section{padding:38px 0}
+  .sec-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  .sec-num{font-size:13px;font-weight:800;color:#fff;background:var(--navy-700);border-radius:6px;padding:3px 9px;letter-spacing:.02em}
+  .sec-head h2{font-size:clamp(20px,3.4vw,26px);font-weight:800;letter-spacing:-.01em}
+  .sec-sub{color:var(--slate-500);font-size:15px;margin:8px 0 24px;max-width:72ch}
+  /* cards */
+  .grid{display:grid;grid-template-columns:1fr;gap:18px}
+  .q{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  .q-top{padding:18px 20px 4px}
+  .q-tag{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold-700)}
+  .q-title{font-size:17.5px;font-weight:700;margin:7px 0 4px;color:var(--navy-900)}
+  .q-why{font-size:13.5px;color:var(--slate-500);margin:0 0 6px}
+  .assume{margin:12px 0 4px;background:var(--gold-50);border:1px solid #f0ddb0;border-radius:9px;padding:9px 12px;font-size:13.5px}
+  .assume b{color:var(--gold-700);font-weight:700}
+  .q-body{padding:6px 20px 20px}
+  fieldset{border:0;margin:0;padding:0}
+  .opts{display:grid;gap:8px;margin:8px 0 12px}
+  label.opt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:11px 13px;cursor:pointer;font-size:14.5px;transition:.12s;background:#fff}
+  label.opt:hover{border-color:var(--navy-300);background:var(--navy-50)}
+  label.opt input{margin-top:2px;accent-color:var(--navy-600);width:16px;height:16px;flex:none}
+  label.opt .ot{font-weight:600;color:var(--navy-900)}
+  label.opt .od{color:var(--slate-500);font-size:13px;display:block;margin-top:1px}
+  label.opt.guess{border-color:var(--gold-400);background:var(--gold-50)}
+  label.opt .pill{font-size:10.5px;font-weight:700;color:var(--gold-700);border:1px solid var(--gold-400);border-radius:20px;padding:1px 7px;margin-left:6px;vertical-align:middle;white-space:nowrap}
+  textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;font-size:14px;resize:vertical;min-height:52px;color:var(--slate);background:#fdfdfe}
+  textarea:focus{outline:2px solid var(--navy-300);outline-offset:1px;border-color:var(--navy-300)}
+  .q-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}
+  button.queue{background:var(--navy-900);color:#fff;border:0;border-radius:9px;padding:10px 16px;font:inherit;font-weight:600;font-size:14px;cursor:pointer}
+  button.queue:hover{background:var(--navy-700)}
+  .qstatus{font-size:13px;color:var(--ok);font-weight:600}
+  /* PRD assertion blocks */
+  .assert{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px 20px}
+  .assert h3{font-size:16px;margin-bottom:8px;color:var(--navy-900)}
+  .assert ul{margin:6px 0 0;padding-left:18px;font-size:14px}
+  .assert li{margin:4px 0}
+  .assert .quote{font-style:italic;color:var(--slate);border-left:3px solid var(--navy-100);padding-left:12px;margin:6px 0 12px;font-size:14.5px}
+  /* decisions table */
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);background:#fff}
+  table{border-collapse:collapse;width:100%;min-width:520px;font-size:13.8px}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--navy-900);color:#fff;font-weight:600;font-size:12.5px;letter-spacing:.02em}
+  tr:last-child td{border-bottom:0}
+  td.k{font-weight:600;color:var(--navy-800);white-space:nowrap}
+  td .val{color:var(--slate)}
+  .chk{display:flex;gap:9px;align-items:flex-start;font-size:14px;padding:8px 0}
+  .chk input{margin-top:3px;width:16px;height:16px;accent-color:var(--red);flex:none}
+  /* how-to strip */
+  .howto{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:8px}
+  .howto .step{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;box-shadow:var(--shadow)}
+  .howto .n{font-size:12px;font-weight:800;color:#fff;background:var(--gold-500);border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center}
+  .howto h4{margin:8px 0 4px;font-size:14px;color:var(--navy-900)}
+  .howto p{margin:0;font-size:13px;color:var(--slate-500)}
+  footer{background:var(--navy-900);color:var(--navy-100);padding:30px 0 44px;margin-top:20px}
+  footer .send{background:rgba(212,160,23,.12);border:1px solid var(--gold-500);border-radius:12px;padding:16px 18px;color:#fff;font-size:15px}
+  footer .send b{color:var(--gold-400)}
+  .fyi{background:#fff;border:1px dashed var(--navy-300);border-radius:12px;padding:14px 18px;font-size:14px;color:var(--slate)}
+  .fyi b{color:var(--navy-800)}
+  @media(max-width:680px){.howto{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="kicker">Provable Learning v2 · pre-requirements</div>
+    <h1>The <b>business-truth</b> conversation, before we harden requirements</h1>
+    <p>You're right — we jumped to structural forks (accounts, credits, lectures) before establishing what you actually want this system to <em>be</em> and <em>do for you</em>. A PRD's purpose, problems, and value are supposed to come from that talk. I wrote them from guesses. Let's fix that now.</p>
+    <div class="callout"><b>How this page works:</b> Section 1 is the real conversation — foundational questions, each with my <span style="color:var(--gold-300)">working assumption</span> so you can just confirm or redirect. Section 2 shows the PRD claims I asserted without asking, for you to ratify or correct. Section 3 is the 10 structural decisions you already made — reopen any that now feel wrong. Answer inline, then press <b>Send to Agent</b>.</div>
+  </div>
+</header>
+
+<!-- SECTION 1 -->
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Business truth — what you actually want</h2></div>
+    <p class="sec-sub">Eight questions. Pick the option that fits (the gold-outlined one is my current guess — override freely) and add your own words. These answers become the <em>Purpose / Problems / Value / Success</em> of the PRD, and they change scope.</p>
+    <div class="grid" id="truth"></div>
+  </div>
+</section>
+
+<!-- SECTION 2 -->
+<section style="background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>PRD claims I made without asking</h2></div>
+    <p class="sec-sub">These are the exact words currently in <code>spec/01_PRD.md</code>. I inferred them — you should own them. Ratify or correct each.</p>
+    <div class="grid" id="assert"></div>
+  </div>
+</section>
+
+<!-- SECTION 3 -->
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span><h2>The 10 structural decisions you already locked</h2></div>
+    <p class="sec-sub">From the earlier Q&amp;A. If the business-truth answers above change any of these, check the ones to reopen and say why.</p>
+    <div class="tblwrap" style="margin-bottom:16px">
+      <table>
+        <thead><tr><th>#</th><th>Decision</th><th>Locked value</th></tr></thead>
+        <tbody id="decisions"></tbody>
+      </table>
+    </div>
+    <div class="q"><div class="q-body" style="padding-top:18px">
+      <form onsubmit="qaMulti(event,'reopen','Reopen decisions')">
+        <div class="q-title" style="font-size:15px;margin-bottom:6px">Reopen any of these?</div>
+        <div id="reopenChecks" class="opts"></div>
+        <textarea name="note" placeholder="Why reopen — what changed? (optional)"></textarea>
+        <div class="q-foot"><button class="queue" type="submit">Queue reopen list</button><span class="qstatus"></span></div>
+      </form>
+    </div></div>
+  </div>
+</section>
+
+<!-- SECTION 4 -->
+<section style="background:#fff;border-top:1px solid var(--line)">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Parked — not blocking the PRD</h2></div>
+    <p class="sec-sub">Tracked as open items; resolved later at the stage that needs them. Flag if any should move earlier.</p>
+    <div class="fyi" style="margin-bottom:10px"><b>OQ1 · Credit-pack tiers</b> — base 4 credits / $300 set; 8 / 12 / 16 prices + discount curve TBD before Stripe products (billing stage).</div>
+    <div class="fyi" style="margin-bottom:10px"><b>OQ2 · COPPA / consent mechanics</b> — direction = parent-consent gate; exact flow decided in the auth ADR before any child-account code.</div>
+    <div class="fyi"><b>OQ3 · Domain cutover</b> — apex domain reserved for v2; repoint DNS off the v1 demo when the launch build is ready.</div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="send"><b>When you're done:</b> press <b>Send to Agent</b> (or send from the browser chrome). I'll rewrite <code>spec/01_PRD.md</code> from your business truths, adjust any reopened decisions, then move to Stage 2 — Requirements.</div>
+    <div class="howto" style="margin-top:18px">
+      <div class="step"><span class="n">1</span><h4>Answer inline</h4><p>Pick options + add notes. Each "Queue" button stages that answer.</p></div>
+      <div class="step"><span class="n">2</span><h4>Annotate anything</h4><p>Select any text or element to leave a freeform comment — not just the controls.</p></div>
+      <div class="step"><span class="n">3</span><h4>Send</h4><p>One press ships everything queued back to me.</p></div>
+    </div>
+  </div>
+</footer>
+
+<script>
+function opt(v,t,d,guess){return `<label class="opt${guess?' guess':''}"><input type="radio" name="choice" value="${v}"><span><span class="ot">${t}${guess?' <span class="pill">my guess</span>':''}</span><span class="od">${d}</span></span></label>`}
+function card(key,tag,title,why,assume,opts){
+  return `<div class="q"><div class="q-top"><div class="q-tag">${tag}</div><div class="q-title">${title}</div><p class="q-why">${why}</p><div class="assume"><b>My working assumption:</b> ${assume}</div></div>
+  <div class="q-body"><form onsubmit="qa(event,'${key}','${title.replace(/'/g,"\\'")}')"><fieldset><div class="opts">${opts}</div></fieldset>
+  <textarea name="note" placeholder="In your own words — the real answer, or nuance my options miss"></textarea>
+  <div class="q-foot"><button class="queue" type="submit">Queue answer</button><span class="qstatus"></span></div></form></div></div>`;
+}
+const TRUTH=[
+ card('why','motivation','Why are you building this at all — the primary goal for <em>you</em>?',
+   'The PRD’s whole point-of-view flows from this. It decides whether content or tutoring is the hero.',
+   'Real tutoring income is the engine; free content is the on-ramp to it.',
+   opt('income','Real tutoring income','The 1:1 sessions are the business; everything else feeds them.',true)+
+   opt('audience','Content brand / audience','Grow a following first; monetize (tutoring/other) later.')+
+   opt('portfolio','Portfolio / craft','Prove you can build & run a real product end-to-end.')+
+   opt('mission','Teaching mission','Help learners learn math; money is secondary.')),
+ card('money','money reality','Where is the revenue you actually care about?',
+   'Determines if pricing/booking must be airtight at launch, or can lag behind content.',
+   'Per-session credit spend from a modest number of committed students.',
+   opt('credits','1:1 tutoring credits','A few committed students buying packs = the income that matters.',true)+
+   opt('volume','Volume of small purchases','Many light buyers from a broad audience.')+
+   opt('reach','Not about money yet','Reach & proof first; revenue later.')+
+   opt('future','Future AI Pro / other','Today’s money is minor; the bet is a later tier.')),
+ card('audience','go-to-market','Where do learners come from at launch?',
+   'The “free content as SEO funnel” bet only holds for cold traffic. If it’s your existing students, the funnel logic is weaker.',
+   'A mix: students/network you already have, plus organic search growing over time.',
+   opt('network','Students I already have','My current/past students & personal network.')+
+   opt('seo','Cold SEO / organic search','Strangers finding lessons via Google over time.')+
+   opt('mix','Both — network now, SEO later','Seed with people I know; grow via search.',true)+
+   opt('social','Social / word of mouth / ads','Referrals or paid promotion drive signups.')),
+ card('time','capacity','Realistically, where does your week go?',
+   'You are solo (tutor + admin + author + builder). This hard-bounds launch scope.',
+   'Right now mostly building; tutoring delivery grows as students arrive.',
+   opt('tutoring','Mostly tutoring delivery','Sessions already eat most of my hours.')+
+   opt('authoring','Mostly authoring content','Writing lessons is the big time sink.')+
+   opt('building','Mostly building the platform','Heads-down on the app for now.',true)+
+   opt('split','Split / unsure','No clear dominant bucket yet.')),
+ card('content','#1 launch risk','Can you actually produce a full “Math up to Geometry” course?',
+   'M1 (the free site) IS the content. This is the single biggest launch risk — more than any code.',
+   'You can write it, but it’s real, sustained effort — scope the first course tightly.',
+   opt('ready','Material ready to adapt','I have notes/slides/problems I can convert fast.')+
+   opt('effort','Can write it, takes real time','From scratch; weeks of authoring for one course.',true)+
+   opt('help','Need help / keep it minimal','Want a small starter set, not a full course, at first.')+
+   opt('unsure','Unsure how big it should be','Need to define “how much is enough to launch”.')),
+ card('ambition','trajectory','What’s the trajectory — how big do you want this?',
+   'Decides how much to future-proof now (e.g. modeling “tutor” as a real actor) vs building strictly for one person.',
+   'Start lean & solo, but keep the door open to grow (more subjects / tutors) later.',
+   opt('lean','Solo, small, sustainable','Keep it lean forever; optimize for one operator.')+
+   opt('seed','Seed of something bigger','Lean now, but architected to grow (tutors/subjects).',true)+
+   opt('live','Just get it live','Decide trajectory once it exists and works.')),
+ card('wedge','differentiation','Why would a learner choose this over free Khan Academy / YouTube?',
+   'This is the “product value” I asserted. You should own the wedge in one sentence.',
+   'Free content earns trust; the real differentiator is affordable 1:1 human help attached to it.',
+   opt('human','The 1:1 human help','Free content + a real person you can book = the wedge.',true)+
+   opt('quality','Clearer explanations','My teaching/explanations are simply better/clearer.')+
+   opt('path','Curated structured path','A guided sequence, not a scattered video pile.')+
+   opt('trust','Personal brand / trust','Learners come because they know & trust me.')),
+ card('win','definition of done','Six months out, one outcome that makes this worth it?',
+   'Anchors the PRD success criteria to what <em>you</em> value — not generic metrics.',
+   'It’s live and correct, the first course is up, and a handful of students are paying for sessions.',
+   opt('paying','First paying students','A handful of real students booking & paying.',true)+
+   opt('revenue','A revenue number','$X/month from tutoring credits.')+
+   opt('course','Course fully live','One polished course completely shipped.')+
+   opt('audience','An audience','N visitors / signups / subscribers.')+
+   opt('exists','Live, correct, I use it','It simply works end-to-end and I run on it.')),
+];
+document.getElementById('truth').innerHTML=TRUTH.join('');
+
+// Section 2 — PRD assertions
+const ASSERT=[
+ {t:'Product purpose (as written)',q:'“A free, open math-learning website that doubles as the funnel for paid, credit-based 1:1 tutoring.”',pts:['Is “funnel for tutoring” the right framing, or is content the product and tutoring a side-offer?']},
+ {t:'User problems P1–P3',q:'P1 learners want free quality math w/o paywall · P2 parents want help w/o a subscription · P3 you need content to convert to paid tutoring.',pts:['Are these the real problems, in this priority?','Anything you’d add or cut?']},
+ {t:'Product value',q:'Free content builds trust/SEO · credits beat subscriptions on commitment · parent + adult accounts widen the market.',pts:['Is “widen the market” actually a goal, or is a narrow, high-intent audience fine?']},
+ {t:'Success = ship-quality gate',q:'S1–S8: content renders, answers check, progress persists, purchase credits exactly once, booking never double-books, reminders fire, authz holds. No growth targets.',pts:['Correct that launch success = correctness, with zero growth numbers?']},
+];
+document.getElementById('assert').innerHTML=ASSERT.map((a,i)=>`
+ <div class="assert"><h3>${a.t}</h3><div class="quote">${a.q}</div>
+ <ul>${a.pts.map(p=>`<li>${p}</li>`).join('')}</ul>
+ <form onsubmit="qa(event,'assert${i}','${a.t.replace(/'/g,"\\'")}')" style="margin-top:12px">
+   <div class="opts" style="grid-template-columns:repeat(2,minmax(0,1fr));display:grid;gap:8px">
+     ${opt('ratify','✓ Ratify as-is','Keep these words in the PRD.')}
+     ${opt('change','✕ Change it','See my note — rewrite this.')}
+   </div>
+   <textarea name="note" placeholder="If changing: what should it say instead?"></textarea>
+   <div class="q-foot"><button class="queue" type="submit">Queue</button><span class="qstatus"></span></div>
+ </form></div>`).join('');
+
+// Section 3 — decisions
+const DEC=[
+ ['1','Launch scope','Free content + credit packs + 1:1 booking (no lectures)'],
+ ['2','Accounts','Parent-managed children AND standalone adult self-learners'],
+ ['3','Credits & booking','Parent owns the wallet, parent books for a chosen child'],
+ ['4','Child access','Children have their own logins'],
+ ['5','Tutoring supply','Solo — you are both tutor and admin'],
+ ['6','AI Tutor Pro','Out of scope (future, separate PRD)'],
+ ['7','Group lectures','Named future capability, not designed now'],
+ ['8','Success lens','Ship-quality / correctness gate'],
+ ['9','Course roadmap','Geometry (launch) → Pre-Calc → Calculus'],
+ ['10','Minors','Parent-consent gate on child accounts'],
+];
+document.getElementById('decisions').innerHTML=DEC.map(d=>`<tr><td class="k">${d[0]}</td><td class="k">${d[1]}</td><td class="val">${d[2]}</td></tr>`).join('');
+document.getElementById('reopenChecks').innerHTML=DEC.map(d=>`<label class="chk"><input type="checkbox" name="reopen" value="${d[1]}"><span><b>${d[1]}</b> — <span style="color:var(--slate-500)">${d[2]}</span></span></label>`).join('');
+
+// queue handlers
+function qa(e,key,label){
+  e.preventDefault();
+  const f=e.currentTarget, fd=new FormData(f);
+  const choice=fd.get('choice')||'', note=(fd.get('note')||'').trim();
+  if(!choice && !note){f.querySelector('.qstatus').textContent='Pick an option or write a note first';f.querySelector('.qstatus').style.color='var(--warn)';return;}
+  const summary=label+' → '+(choice||'(no option)')+(note?'  | note: '+note:'');
+  window.lavish.queuePrompt('BUSINESS TRUTH — '+summary,{tag:'answer',text:summary,element:f,data:{question:key,choice,note},queueKey:key});
+  const s=f.querySelector('.qstatus');s.textContent='Queued ✓';s.style.color='var(--ok)';
+}
+function qaMulti(e,key,label){
+  e.preventDefault();
+  const f=e.currentTarget, fd=new FormData(f);
+  const picks=fd.getAll('reopen'), note=(fd.get('note')||'').trim();
+  const summary=picks.length?('reopen: '+picks.join(', ')):'reopen: none';
+  window.lavish.queuePrompt('DECISIONS — '+summary+(note?' | note: '+note:''),{tag:'reopen',text:label+' → '+summary,element:f,data:{question:key,picks,note},queueKey:key});
+  const s=f.querySelector('.qstatus');s.textContent=picks.length?('Queued — reopening '+picks.length):'Queued — keep all';s.style.color='var(--ok)';
+}
+</script>
+</body>
+</html>

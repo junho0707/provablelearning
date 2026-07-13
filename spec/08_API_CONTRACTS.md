@@ -23,11 +23,14 @@ backed by an RPC (NFR-SEC-002). Validation is Zod at the server boundary.
 ## Practice
 
 - **`checkAnswer` (SA)** — purpose: check a submitted answer + record attempt if logged in.
-  Auth `public`. Request `{ questionId, submitted }`. Response `{ isCorrect: boolean|null,
-  explanation }` (`null` for `free` → treated as reveal). Validation: submitted shape matches
-  question type; numeric parsed. Errors: 404 unknown question, 422 malformed. Idempotent per
-  submission (re-submitting records another attempt by design). *(REQ-PRACTICE-001/003,
-  REQ-PROGRESS-001, FLOW-PRACTICE-001)*
+  Auth `public`. Request `{ questionId, submitted }`. Returns a discriminated result:
+  `{ ok: true, isCorrect: boolean|null, explanation }` (`null` for `free` → reveal) or
+  `{ ok: false, code: 'not_found'|'malformed', message }` — the SA equivalent of the 404/422 in the
+  error model, so the client renders states inline. The answer secret is read server-side only via
+  the service-role key (never sent to the client — AT-PRACTICE-005). Validation: Zod on the input;
+  numeric parsed (non-numeric → `malformed`). *(REQ-PRACTICE-001/003, REQ-PROGRESS-001,
+  FLOW-PRACTICE-001)* **M1 scope: anonymous — no attempt is recorded; attempt recording is added by
+  TASK-PROGRESS-001 (M2) once accounts exist.**
 
 ## Progress
 

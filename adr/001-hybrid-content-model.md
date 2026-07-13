@@ -45,3 +45,23 @@ Split content by nature:
   content-integrity check is warranted); adding a CMS later is a follow-on decision.
 - **Follow-ups:** define the MDX frontmatter schema and a slug-integrity check at the content
   design stage (09/10); revisit a CMS only if a non-technical author joins.
+
+> **Superseded by [ADR-002](002-roadmap-driven-content-structure.md) (2026-07-12).** The
+> folder-based `content/<course>/<theme>/<lesson>.mdx` layout and `_meta.json` conventions below are
+> replaced by a roadmap-driven structure: `roadmap/roadmap.json` is the single source of truth and
+> lesson prose is flat `content/<node-id>.mdx`. The core decision above (MDX prose in-repo, questions
+> in the DB, joined by the lesson slug) is unchanged.
+
+## Content-tree conventions (resolved during TASK-CONTENT-001)
+
+The decision above fixed *lesson* frontmatter but left Course/Theme display metadata and ordering
+unspecified. Resolved as follows (does not change product behavior; recorded for consistency):
+
+- **Layout:** `content/<course>/<theme>/<lesson>.mdx`. The **directory name is the slug** for a
+  course/theme; the **lesson slug is its frontmatter `slug`** and MUST equal its filename.
+- **Course/Theme metadata:** a `_meta.json` (`title`, `order`, optional `summary`) in each course
+  and theme directory. Lesson frontmatter is `title`, `slug`, `order`, optional `summary`.
+- **Ordering (REQ-CONTENT-002):** deterministic by `order` then slug at every level.
+- **Slug uniqueness:** lesson slugs are the global DB join key and must be unique across the whole
+  tree; the catalog build throws on a duplicate slug or a slug/filename mismatch (an early form of
+  the slug-integrity check; the DB-side orphan check lands with TASK-PRACTICE-001).

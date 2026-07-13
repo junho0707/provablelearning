@@ -14,7 +14,7 @@
     {
       "id": "fractions-definition",
       "title": "Fractions - Definition",
-      "number": "1",
+      "number": "6",
       "parent": "fractions",
       "prereqs": []
     },
@@ -35,29 +35,29 @@
     {
       "id": "fractions-arithmetic-addition-and-subtraction-same-denominators",
       "title": "Add_Sub: Same Denominators",
-      "number": "2",
+      "number": "7",
       "parent": "fractions-arithmetic-addition-and-subtraction",
-      "prereqs": [
-        "fractions-definition"
-      ]
+      "prereqs": []
     },
     {
       "id": "elementary-math-definitions",
       "title": "Elementary Math Definitions",
       "type": "concept",
+      "parent": "numbers",
       "prereqs": []
     },
     {
       "id": "factors-and-multiples",
       "title": "Factors and Multiples",
-      "number": "3",
+      "number": "8",
       "parent": "elementary-math-definitions",
       "prereqs": []
     },
     {
       "id": "factors-and-greatest-common-factors-gcf",
       "title": "Factors and Greatest Common Factors (GCF)",
-      "number": "4",
+      "number": "9",
+      "role": "application",
       "parent": "elementary-math-definitions",
       "prereqs": [
         "factors-and-multiples"
@@ -66,7 +66,8 @@
     {
       "id": "multiples-and-least-common-multiples-lcm",
       "title": "Multiples and Least Common Multiples (LCM)",
-      "number": "5",
+      "number": "10",
+      "role": "application",
       "parent": "elementary-math-definitions",
       "prereqs": [
         "factors-and-multiples"
@@ -75,32 +76,31 @@
     {
       "id": "simplifying-fractions",
       "title": "Simplifying Fractions",
-      "number": "6",
+      "number": "11",
+      "role": "application",
       "parent": "fractions-arithmetic",
       "prereqs": [
-        "fractions-definition",
         "factors-and-greatest-common-factors-gcf"
       ]
     },
     {
       "id": "making-denominators-of-fractions-the-same",
       "title": "Making Denominators of Fractions the Same",
-      "number": "7",
+      "number": "12",
+      "role": "application",
       "parent": "fractions-arithmetic",
       "prereqs": [
-        "fractions-definition",
         "multiples-and-least-common-multiples-lcm"
       ]
     },
     {
       "id": "different-denominators",
       "title": "Add_Sub: Different Denominators",
-      "number": "8",
+      "number": "13",
+      "role": "application",
       "parent": "fractions-arithmetic-addition-and-subtraction",
       "prereqs": [
         "fractions-arithmetic-addition-and-subtraction-same-denominators",
-        "factors-and-greatest-common-factors-gcf",
-        "multiples-and-least-common-multiples-lcm",
         "simplifying-fractions",
         "making-denominators-of-fractions-the-same"
       ]
@@ -108,14 +108,14 @@
     {
       "id": "multiplication-lesson",
       "title": "Multiplication",
-      "number": "9",
+      "number": "14",
       "parent": "multiplication-and-division",
       "prereqs": []
     },
     {
       "id": "division-lesson",
       "title": "Division",
-      "number": "10",
+      "number": "15",
       "parent": "multiplication-and-division",
       "prereqs": []
     },
@@ -138,12 +138,13 @@
       "id": "rationals",
       "title": "Rationals",
       "type": "concept",
+      "parent": "numbers",
       "prereqs": []
     },
     {
       "id": "decimals-definition",
       "title": "Decimals - Definition",
-      "number": "11",
+      "number": "16",
       "parent": "decimals",
       "prereqs": []
     },
@@ -164,14 +165,14 @@
     {
       "id": "addition",
       "title": "Addition",
-      "number": "12",
+      "number": "17",
       "parent": "decimals-addition-and-subtraction",
       "prereqs": []
     },
     {
       "id": "subtraction",
       "title": "Subtraction",
-      "number": "13",
+      "number": "18",
       "parent": "decimals-addition-and-subtraction",
       "prereqs": []
     },
@@ -185,16 +186,110 @@
     {
       "id": "multiplication",
       "title": "Multiplication",
-      "number": "14",
+      "number": "19",
       "parent": "decimals-multiplication-and-division",
       "prereqs": []
     },
     {
       "id": "division",
       "title": "Division",
-      "number": "15",
+      "number": "20",
       "parent": "decimals-multiplication-and-division",
       "prereqs": []
+    },
+    {
+      "id": "mixed-operations",
+      "title": "Mixed Operations",
+      "number": "21",
+      "role": "application",
+      "parent": "ratiional-artihmetic",
+      "prereqs": [
+        "fractions-arithmetic-addition-and-subtraction-same-denominators",
+        "different-denominators",
+        "multiplication-lesson",
+        "division-lesson",
+        "addition",
+        "subtraction",
+        "multiplication",
+        "division"
+      ]
+    },
+    {
+      "id": "ratiional-artihmetic",
+      "title": "Rational Artihmetic",
+      "type": "concept",
+      "parent": "rationals",
+      "prereqs": []
+    },
+    {
+      "id": "math",
+      "title": "Math",
+      "type": "concept",
+      "prereqs": []
+    },
+    {
+      "id": "numbers",
+      "title": "Numbers",
+      "type": "concept",
+      "parent": "math",
+      "prereqs": []
+    },
+    {
+      "id": "natural-numbers",
+      "title": "Natural Numbers",
+      "type": "concept",
+      "parent": "numbers",
+      "prereqs": []
+    },
+    {
+      "id": "natural-numbers-arithmetic",
+      "title": "Natural Numbers Arithmetic",
+      "type": "concept",
+      "parent": "natural-numbers",
+      "prereqs": []
+    },
+    {
+      "id": "math-definition",
+      "title": "Math - Definition",
+      "number": "1",
+      "parent": "math",
+      "prereqs": []
+    },
+    {
+      "id": "numbers-definition",
+      "title": "Numbers - Definition",
+      "number": "2",
+      "parent": "numbers",
+      "prereqs": [
+        "math-definition"
+      ]
+    },
+    {
+      "id": "natural-numbers-definition",
+      "title": "Natural Numbers - Definition",
+      "number": "3",
+      "parent": "natural-numbers",
+      "prereqs": [
+        "numbers-definition"
+      ]
+    },
+    {
+      "id": "natural-numbers-arithmetic-addition-and-subtraction",
+      "title": "Addition & Subtraction",
+      "number": "4",
+      "parent": "natural-numbers-arithmetic",
+      "prereqs": [
+        "natural-numbers-definition"
+      ]
+    },
+    {
+      "id": "natural-numbers-arithmetic-multiplication-and-division",
+      "title": "Multiplication & Division",
+      "number": "5",
+      "parent": "natural-numbers-arithmetic",
+      "prereqs": [
+        "natural-numbers-arithmetic-addition-and-subtraction"
+      ]
     }
   ]
 }

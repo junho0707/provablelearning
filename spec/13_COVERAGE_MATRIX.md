@@ -11,8 +11,9 @@ fills in as tests are written; `Status` ∈ `spec` (specified, not built), `in-p
 | REQ-AUTH-004 | FLOW-AUTH-003 | ARCH accounts | TASK-AUTH-001 | — | — | spec |
 | REQ-AUTH-005 | FLOW-ADMIN-* | ARCH trust | TASK-AUTH-001 | AT-SEC-002 | — | spec |
 | REQ-ACCT-001..007 | FLOW-ACCT-001/002 | DATA profiles | TASK-ACCT-001 (ADR-002) | AT-ACCT-002/003/004 | — | spec |
-| REQ-CONTENT-001..005 | FLOW-CONTENT-001 | ADR-001, DATA slug | TASK-CONTENT-001/002 | AT-CONTENT-001/002 | — | spec |
-| REQ-PRACTICE-001/002/003 | FLOW-PRACTICE-001 | DATA questions | TASK-PRACTICE-001 | AT-PRACTICE-001..005 | — | spec |
+| REQ-CONTENT-001..004 | FLOW-CONTENT-001 | ADR-001, DATA slug | TASK-CONTENT-001 | AT-CONTENT-001/002/003 | `content.test.tsx` (catalog/render/sitemap/meta) + served-HTML check | in-progress (pipeline done; content slice = CONTENT-002) |
+| REQ-CONTENT-005 | FLOW-CONTENT-001 | ADR-001 (no schema for new course) | TASK-CONTENT-001/002 | — | catalog build (fs-driven, no schema) | in-progress |
+| REQ-PRACTICE-001/002/003 | FLOW-PRACTICE-001 | DATA questions; `0002_questions.sql` (col grants) | TASK-PRACTICE-001 | AT-PRACTICE-001..005 | `check.test.ts` (7) + `integrity.test.ts` (3) + local-DB/served-HTML smoke | done (anonymous; attempt-recording = PROGRESS-001) |
 | REQ-PROGRESS-001..004 | FLOW-PRACTICE-001 | DATA attempts/progress | TASK-PROGRESS-001 | AT-PROGRESS-001/002 | — | spec |
 | REQ-CREDIT-001..005 | FLOW-BILLING/BOOK | DATA ledger; RPC | TASK-CREDIT-001 | AT-SEC-003, AT-BILLING-001 | — | spec |
 | REQ-BILLING-001..004 | FLOW-BILLING-001 | ARCH billing; INV-7 | TASK-BILLING-001 | AT-BILLING-001..004 | — | spec |
@@ -22,7 +23,9 @@ fills in as tests are written; `Status` ∈ `spec` (specified, not built), `in-p
 | REQ-BOOK-005 | FLOW-BOOK-002 | RPC cancel_booking | TASK-BOOK-003 | AT-BOOK-005 | — | spec |
 | REQ-BOOK-006 | FLOW-BOOK-001 | ARCH Google | TASK-BOOK-002 | AT-BOOK-006 | — | spec |
 | REQ-NOTIFY-001/002 | FLOW-NOTIFY-001 | ARCH cron/notify | TASK-NOTIFY-001 | AT-NOTIFY-001/002 | — | spec |
-| NFR-PERF-001/002/003 | FLOW-CONTENT-001 | ARCH deploy | TASK-CONTENT-001 | AT-CONTENT-001/003 | — | spec |
+| NFR-PERF-001 | FLOW-CONTENT-001 | ARCH deploy (SSR/SSG) | TASK-CONTENT-001 | AT-CONTENT-001 | served-HTML: prose + KaTeX in initial HTML, pages prerendered | done |
+| NFR-PERF-003 | FLOW-CONTENT-001 | ARCH deploy | TASK-CONTENT-001 | AT-CONTENT-003 | `content.test.tsx` (sitemap + per-lesson title/desc/canonical) + robots/sitemap routes | done |
+| NFR-PERF-002 (CWV) | FLOW-CONTENT-001 | ARCH deploy | TASK-CONTENT-001 | — | structurally met (static, KaTeX SSR → no math CLS, next/font); Lighthouse lab run pending on preview | in-progress |
 | NFR-SEC-001 | (all) | DATA RLS table | TASK-ACCT-001 + | AT-SEC-001, AT-PROGRESS-002, AT-PRACTICE-005 | — | spec |
 | NFR-SEC-002 | FLOW-BILLING/BOOK | RPC boundary | TASK-CREDIT-001/BOOK-001 | AT-SEC-003 | — | spec |
 | NFR-SEC-003 | FLOW-ACCT-001 | ADR-002 (pending) | TASK-ACCT-000 | AT-ACCT-004 | — | spec (blocked) |
