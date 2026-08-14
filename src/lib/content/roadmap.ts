@@ -89,9 +89,10 @@ function orderKey(id: string, r: Indexed, seen = new Set<string>()): number {
  */
 export function buildTree(hasContent: (id: string) => boolean = () => false): TreeNode[] {
   const r = index();
-  const toNode = (id: string): TreeNode => {
+  const toNode = (id: string, plannedAbove: boolean): TreeNode => {
     const n = r.byId.get(id)!;
     const lesson = isLesson(n);
+    const planned = plannedAbove || n.status === "planned";
     const children = [...(r.childrenOf.get(id) ?? [])].sort((a, b) => orderKey(a, r) - orderKey(b, r));
     return {
       id,
@@ -100,10 +101,12 @@ export function buildTree(hasContent: (id: string) => boolean = () => false): Tr
       role: n.role ?? "core",
       number: nodeNumber(n),
       hasContent: lesson ? hasContent(id) : false,
-      children: children.map(toNode),
+      planned,
+      prereqs: n.prereqs ?? [],
+      children: children.map((c) => toNode(c, planned)),
     };
   };
-  return [...r.roots].sort((a, b) => orderKey(a, r) - orderKey(b, r)).map(toNode);
+  return [...r.roots].sort((a, b) => orderKey(a, r) - orderKey(b, r)).map((id) => toNode(id, false));
 }
 
 /** Every lesson node, deduped and sorted by `number` — the linear Learning Path. */

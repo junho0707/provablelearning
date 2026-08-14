@@ -7,6 +7,24 @@ Read this first when starting or resuming work. See `AGENTS.md` for the operatin
 **Phase:** Implementation — **M0 scaffold COMPLETE**. Starting **M1 (content — the free
 product)**. Spec `spec/00`–`13` drafted, ADR-001 accepted.
 
+## v3 pivot (2026-08-14) — READ FIRST
+
+The product model changed. **`spec/14_GROUND_TRUTH_INTERVIEW.md` is the ground truth**; `spec/01_PRD.md`
+is stale until rewritten against it. Headlines:
+
+- Content is **paid** (one-time purchase per course), not free. Public = the **roadmap** + **3–5
+  sample lessons** only. That retires CON6's "free content is the funnel".
+- Three products: course purchase · tutoring credits (**60-min** sessions, was 45) · **Math
+  Diagnosis** (separate SKU: assessment → 1hr session → PDF report + study guide).
+- Accounts: one login per buyer, **learner profiles** under it (no child credentials → no consent
+  gate at launch).
+- Credits never expire; 24h free cancel; Google Meet per booking; **email only** from the system,
+  SMS sent manually off an **admin reminder-queue page**.
+- Build order: **roadmap visual → landing → auth/profiles → course purchase → credits/booking →
+  diagnosis**.
+
+`docs/` archived to `docs/archive/v1-sat/`.
+
 ## Current task
 
 **M1 in progress.** Done: **TASK-CONTENT-001** (MDX pipeline + Learning Path), **TASK-PRACTICE-001**

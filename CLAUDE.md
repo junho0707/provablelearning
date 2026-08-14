@@ -2,27 +2,23 @@
 
 ## Documentation
 
-The doc system is layered (L0 → L4). **Read [docs/README.md](docs/README.md) first** — it has the layer model, build order, locked decisions, and open questions.
+**Read [spec/14_GROUND_TRUTH_INTERVIEW.md](spec/14_GROUND_TRUTH_INTERVIEW.md) first** — it is the
+current ground truth (decided 2026-08-14): what is sold, the access model, accounts, tutoring ops,
+the diagnosis program, and the build order. `spec/01_PRD.md` predates it and is being rewritten
+against it; where they disagree, spec/14 wins.
 
-Current files:
+`docs/` is **archived** under `docs/archive/v1-sat/` — it describes the frozen v1 SAT model
+(enrollment, waitlists, journeys) and does not describe this system. The layered doc tree will be
+rebuilt from spec/14.
 
-- `docs/00-business.md` — what we sell + 9 capabilities (plain English, no tech)
-- `docs/01-context.md` — actors, external services, journey catalog, glossary
-- `docs/02-invariants.md` — entity lifecycles + numbered invariants (`I-1`, `I-2`, …)
-- `docs/journeys/*.md` — one file per user-intent arc (13 total; `enroll.md` is the only one fleshed out so far)
-- `docs/components/*.md` — one file per code module / RPC / cron / webhook / page-group
+Update rule:
 
-Update rule (full version in `docs/README.md`):
+- Change to what the system sells, the access model, or pricing → update `spec/14` AND write an ADR
+- New / changed RPC, cron, webhook, page route → update `spec/08_API_CONTRACTS.md` / `spec/10_BACKEND.md`
+- Curriculum structure change → `roadmap/roadmap.json` (single source of truth, ADR-002)
 
-- New / changed RPC, cron, webhook, page route → update or add `components/*.md`
-- Behavior change in a flow → update the journey file's scenario list
-- New constraint, transition, or trigger → update `02-invariants.md`; bump invariant numbers if needed
-- New external service or actor → update `01-context.md`
-- New capability or change to what the system sells → update `00-business.md` AND write an ADR
-
-If a change touches multiple docs, update them in the same commit.
-
-No update needed for bug fixes, new functions inside an existing module, or UI polish that doesn't change behavior.
+If a change touches multiple docs, update them in the same commit. No update needed for bug fixes,
+new functions inside an existing module, or UI polish that doesn't change behavior.
 
 ## Coding Guidelines
 

@@ -2,6 +2,29 @@
 
 Meaningful completed changes only (not a raw command log).
 
+## 2026-08-14 — v3 ground truth + the public roadmap map
+
+- **Ground truth re-decided** (`spec/14_GROUND_TRUTH_INTERVIEW.md`). Content becomes a **one-time
+  paid purchase per course**; public = the roadmap plus 3–5 sample lessons. Three products (course ·
+  credits · **Math Diagnosis** SKU). Sessions **60 min**. One buyer login with **learner profiles**
+  (no child credentials, so no consent gate at launch). Credits never expire; 24h free cancel;
+  Meet link per booking; email-only notifications with a manual **admin SMS reminder queue**.
+  Supersedes the free-content premise and the 45-minute credit unit in `spec/01_PRD.md`.
+- **`docs/` archived** to `docs/archive/v1-sat/` (it described the frozen v1 SAT model). `CLAUDE.md`
+  now points at spec/14.
+- **`/roadmap` — the public skill-tree map.** Build-time layout (`src/lib/content/layout.ts`, pure)
+  turns the curriculum into positioned nodes plus two visually distinct edge kinds: solid
+  **containment** and dashed gold **prerequisites**. Regions are laid out as **clusters packed into
+  rows**, and any region too wide to read is split into its sub-concepts — which took the map from a
+  8652×980 strip (ratio 8.8) to 3320×2082 (ratio 1.6) and keeps it screen-shaped as the curriculum
+  grows. Client component pans, zooms, and on select dims everything outside the node's transitive
+  prerequisite chain. Phones get the same data as a `<details>` outline (`outline.tsx`), since a tree
+  is unreadable at that width.
+- **`status: "planned"`** added to the roadmap schema and inherited by descendants; Algebra,
+  Geometry, Pre-Calculus, and Calculus are seeded as locked regions so the full arc is visible.
+- Verified: 30 tests pass (9 new layout tests — overlap, region packing, containment, orphan
+  prereqs), lint clean, `next build` clean with `/roadmap` prerendered static.
+
 ## 2026-07-11 — M1: practice questions (TASK-PRACTICE-001)
 
 - **Questions schema + answer secrecy.** Migration `0002_questions.sql`: `questions` table keyed to

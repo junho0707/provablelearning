@@ -290,6 +290,164 @@
       "prereqs": [
         "natural-numbers-arithmetic-addition-and-subtraction"
       ]
+    },
+    {
+      "id": "algebra",
+      "title": "Algebra",
+      "type": "concept",
+      "status": "planned",
+      "parent": "math",
+      "prereqs": []
+    },
+    {
+      "id": "algebra-expressions-equations",
+      "title": "Expressions & Equations",
+      "type": "concept",
+      "parent": "algebra",
+      "prereqs": []
+    },
+    {
+      "id": "algebra-linear-functions",
+      "title": "Linear Functions",
+      "type": "concept",
+      "parent": "algebra",
+      "prereqs": []
+    },
+    {
+      "id": "algebra-systems",
+      "title": "Systems",
+      "type": "concept",
+      "parent": "algebra",
+      "prereqs": []
+    },
+    {
+      "id": "algebra-quadratics",
+      "title": "Quadratics",
+      "type": "concept",
+      "parent": "algebra",
+      "prereqs": []
+    },
+    {
+      "id": "algebra-polynomials",
+      "title": "Polynomials",
+      "type": "concept",
+      "parent": "algebra",
+      "prereqs": []
+    },
+    {
+      "id": "geometry",
+      "title": "Geometry",
+      "type": "concept",
+      "status": "planned",
+      "parent": "math",
+      "prereqs": []
+    },
+    {
+      "id": "geometry-angles-lines",
+      "title": "Angles & Lines",
+      "type": "concept",
+      "parent": "geometry",
+      "prereqs": []
+    },
+    {
+      "id": "geometry-triangles",
+      "title": "Triangles",
+      "type": "concept",
+      "parent": "geometry",
+      "prereqs": []
+    },
+    {
+      "id": "geometry-circles",
+      "title": "Circles",
+      "type": "concept",
+      "parent": "geometry",
+      "prereqs": []
+    },
+    {
+      "id": "geometry-area-volume",
+      "title": "Area & Volume",
+      "type": "concept",
+      "parent": "geometry",
+      "prereqs": []
+    },
+    {
+      "id": "geometry-coordinate-geometry",
+      "title": "Coordinate Geometry",
+      "type": "concept",
+      "parent": "geometry",
+      "prereqs": []
+    },
+    {
+      "id": "precalculus",
+      "title": "Pre-Calculus",
+      "type": "concept",
+      "status": "planned",
+      "parent": "math",
+      "prereqs": []
+    },
+    {
+      "id": "precalculus-functions",
+      "title": "Functions",
+      "type": "concept",
+      "parent": "precalculus",
+      "prereqs": []
+    },
+    {
+      "id": "precalculus-trigonometry",
+      "title": "Trigonometry",
+      "type": "concept",
+      "parent": "precalculus",
+      "prereqs": []
+    },
+    {
+      "id": "precalculus-exponentials-logs",
+      "title": "Exponentials & Logs",
+      "type": "concept",
+      "parent": "precalculus",
+      "prereqs": []
+    },
+    {
+      "id": "precalculus-sequences-series",
+      "title": "Sequences & Series",
+      "type": "concept",
+      "parent": "precalculus",
+      "prereqs": []
+    },
+    {
+      "id": "calculus",
+      "title": "Calculus",
+      "type": "concept",
+      "status": "planned",
+      "parent": "math",
+      "prereqs": []
+    },
+    {
+      "id": "calculus-limits",
+      "title": "Limits",
+      "type": "concept",
+      "parent": "calculus",
+      "prereqs": []
+    },
+    {
+      "id": "calculus-derivatives",
+      "title": "Derivatives",
+      "type": "concept",
+      "parent": "calculus",
+      "prereqs": []
+    },
+    {
+      "id": "calculus-integrals",
+      "title": "Integrals",
+      "type": "concept",
+      "parent": "calculus",
+      "prereqs": []
+    },
+    {
+      "id": "calculus-applications",
+      "title": "Applications",
+      "type": "concept",
+      "parent": "calculus",
+      "prereqs": []
     }
   ]
 }

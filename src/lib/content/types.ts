@@ -16,6 +16,8 @@ export const roadmapNodeSchema = z.object({
   number: z.union([z.string(), z.number()]).optional(),
   role: z.enum(["core", "application"]).optional(),
   strand: z.string().optional(),
+  /** `planned` marks curriculum that is mapped but not yet built; it renders locked and is inherited by descendants. */
+  status: z.enum(["available", "planned"]).optional(),
   /** Container id, or an array for a *bridge* node that belongs to two branches. Absent for a root. */
   parent: z.union([z.string(), z.array(z.string())]).optional(),
   prereqs: z.array(z.string()).optional(),
@@ -41,6 +43,10 @@ export type TreeNode = {
   number: number | null;
   /** Lessons only: true once the MDX file holds real prose (not a scaffolded stub). */
   hasContent: boolean;
+  /** Mapped but not yet built — rendered locked. Inherited from the nearest `status: "planned"` ancestor. */
+  planned: boolean;
+  /** Direct prerequisite node ids (transitive ones are implied, never listed). */
+  prereqs: string[];
   children: TreeNode[];
 };
 
