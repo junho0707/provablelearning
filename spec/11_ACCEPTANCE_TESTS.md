@@ -1,103 +1,134 @@
 # 11 — Acceptance Tests
 
-Status: **DRAFT** · Observable Given/When/Then tests that prove requirements and flows. Each
-references the requirement(s) and flow(s) it verifies and the PRD success gate it backs. These
-are defined **before** the corresponding implementation task is considered ready (AGENTS.md).
-Automated-test mapping is tracked in `13_COVERAGE_MATRIX.md`.
+Status: **REWRITTEN 2026-08-14** against `03_REQUIREMENTS.md` + `05_FLOWS.md` + ADR-003/004/005.
 
-Categories covered: happy path, authorization, validation, failure, boundary, concurrency,
-idempotency.
+Each `AT-*` is observable behavior — a thing that either happens or doesn't. Tests marked **[live]**
+need a real Supabase/Stripe/Google stack; the rest are unit or integration tests.
+
+> **Withdrawn by ADR-004:** every paywall test. The replacement, `AT-CONTENT-005`, asserts the
+> *opposite* — that nothing is gated.
 
 ---
 
-## Content & SEO
+## Content & roadmap
 
-- **AT-CONTENT-001** (happy, S1) — *Given* a published lesson, *when* a Visitor with no account
-  opens its URL, *then* the explanation, examples, and math notation render, server-side (present
-  in initial HTML). Ref REQ-CONTENT-003/004, NFR-PERF-001, FLOW-CONTENT-001.
-- **AT-CONTENT-002** (boundary) — *Given* an unknown lesson slug, *when* opened, *then* a 404
-  with links back into the Learning Path. Ref REQ-CONTENT-002.
-- **AT-CONTENT-003** (SEO) — *Given* any content page, *when* fetched, *then* it exposes title/
-  description/canonical metadata and appears in the sitemap. Ref NFR-PERF-003.
+- **AT-CONTENT-001** — An anonymous request for an authored lesson returns the full prose and
+  rendered math. *(S1)*
+- **AT-CONTENT-002** — A lesson node with no authored file renders "coming soon" and returns **200,
+  not 404**. *(REQ-CONTENT-003)*
+- **AT-CONTENT-003** — Every lesson page is prerendered at build and appears in `sitemap.xml`.
+  *(NFR-PERF-001/003)*
+- **AT-CONTENT-004** — Served lesson HTML contains question prompts and choices and **no answer,
+  tolerance, or explanation**. *(NFR-SEC-003)* ✅ *passing*
+- **AT-CONTENT-005** — **No content route requires an account.** An anonymous client receives 200 and
+  full content for **every** lesson in the catalog — a regression guard against a paywall creeping
+  back in. *(ADR-004, CON6)*
+- **AT-ROADMAP-001** — `/roadmap` renders the full arc; unbuilt regions are marked locked and
+  inherit to descendants. *(REQ-ROADMAP-002)* ✅ *passing*
+- **AT-ROADMAP-002** — Selecting a node highlights its **transitive prerequisite chain**.
+  *(REQ-ROADMAP-003)* ✅ *passing*
+- **AT-ROADMAP-003** — No two nodes overlap in the computed layout. *(REQ-ROADMAP-001)* ✅ *passing*
+- **AT-ROADMAP-004** — Course-level nodes are enumerable for the "current class" picker.
+  *(REQ-ROADMAP-005)*
 
 ## Practice & progress
 
-- **AT-PRACTICE-001** (happy, S2) — *Given* an MCQ, *when* the correct choice is submitted,
-  *then* it is marked correct with explanation; *when* a wrong choice, marked incorrect. Ref
-  REQ-PRACTICE-003.
-- **AT-PRACTICE-002** (boundary, S2) — *Given* a numeric question with tolerance, *when* a value
-  within tolerance is submitted, *then* correct; just outside, incorrect. Ref REQ-PRACTICE-003.
-- **AT-PRACTICE-003** (validation) — *Given* a numeric question, *when* non-numeric input is
-  submitted, *then* a validation error and no attempt recorded. Ref REQ-PRACTICE-003.
-- **AT-PRACTICE-004** (free-response) — *Given* a free-response question, *when* the learner
-  reveals, *then* the worked solution shows and no correct/incorrect is stored. Ref
-  REQ-PRACTICE-001 (D1).
-- **AT-PRACTICE-005** (security) — *Given* an auto-checkable question served to a Visitor, *when*
-  the page/DOM is inspected, *then* the correct answer is not exposed client-side. Ref
-  NFR-SEC-001.
-- **AT-PROGRESS-001** (happy, S3) — *Given* a logged-in Student who attempted questions and
-  completed a lesson, *when* they log out and back in, *then* attempts and progress reload. Ref
-  REQ-PROGRESS-001/002/003.
-- **AT-PROGRESS-002** (authz, S8) — *Given* a Parent, *when* they view a linked dependent's
-  progress, *then* it is visible; *when* they request a non-linked student's progress, *then*
-  denied. Ref REQ-PROGRESS-004, NFR-SEC-001.
+- **AT-PRACTICE-001** — MCQ checks by exact match; numeric within tolerance; free-response reveals
+  without grading. *(REQ-PRACTICE-001)* ✅ *passing*
+- **AT-PRACTICE-002** — Non-numeric input to a numeric question raises a clear malformed-submission
+  error, not a false "incorrect". *(REQ-PRACTICE-003)* ✅ *passing*
+- **AT-PRACTICE-003 [live]** — The `anon` role is **denied** the `answer` column while the service
+  role reads it. *(NFR-SEC-003)* ✅ *passing locally*
+- **AT-PRACTICE-004** — An anonymous visitor can submit an answer and get feedback; **nothing is
+  recorded**. *(REQ-PRACTICE-004)*
+- **AT-PROGRESS-001** — A signed-in attempt records against the **active profile**; switching
+  profiles switches the view. *(REQ-PROGRESS-001/003)*
+- **AT-PROGRESS-002** — A lesson flips to complete **only after every question is answered
+  correctly** — one wrong answer leaves it incomplete. *(REQ-PROGRESS-002)*
 
-## Accounts *(final assertions pending ADR-002)*
+## Accounts
 
-- **AT-ACCT-001** (happy, S4) — *Given* a Visitor, *when* they self-register, *then* an
-  `independent_student` with full learner access is created. Ref REQ-ACCT-002.
-- **AT-ACCT-002** (happy, S4) — *Given* a Parent, *when* they create a dependent and grant
-  consent, *then* the dependent can log in and study. Ref REQ-ACCT-003/004.
-- **AT-ACCT-003** (failure) — *Given* a dependent already linked to Parent A, *when* Parent B
-  tries to link the same account, *then* it is rejected. Ref REQ-ACCT-007.
-- **AT-ACCT-004** (boundary) — *Given* a dependent in `pending` consent, *when* they log in,
-  *then* only the pre-consent state is available. Ref REQ-ACCT-004.
+- **AT-ACCT-001** — Sign-in works via Google OAuth and via magic link; **no password path exists**.
+  *(REQ-AUTH-001)*
+- **AT-ACCT-002** — The same email via both methods resolves to **one** account. *(REQ-AUTH-002)*
+- **AT-ACCT-003** — A buyer creates/edits/switches/deletes learner profiles. *(REQ-ACCT-001)*
+- **AT-ACCT-004** — A buyer who is their own learner (independent student) completes every flow —
+  purchase, assessment, booking. *(REQ-ACCT-003)*
+- **AT-SEC-001** — Account B cannot read account A's profiles, ledger, bookings, or progress.
+  *(NFR-SEC-001)*
+- **AT-SEC-002** — A non-admin is denied every admin surface and action. *(REQ-ADMIN-\*)*
+- **AT-SEC-003** — A direct client write to `credit_ledger` or `bookings` is **denied**; only the
+  RPCs succeed. *(NFR-SEC-002)*
 
-## Billing (S5)
+## First Session
 
-- **AT-BILLING-001** (happy, S5) — *Given* a Payer, *when* a credit-pack checkout completes and
-  the webhook fires, *then* exactly the pack's credits are added (one `purchase` row). Ref
-  REQ-BILLING-002, FLOW-BILLING-001.
-- **AT-BILLING-002** (idempotency, S5) — *Given* a completed purchase, *when* Stripe redelivers
-  the same event, *then* the balance does not change (no double-credit). Ref REQ-BILLING-002,
-  INV-7, NFR-REL-001.
-- **AT-BILLING-003** (failure) — *Given* an abandoned/declined checkout, *when* no completion
-  event arrives, *then* no credits and no ledger row. Ref FLOW-BILLING-001.
-- **AT-BILLING-004** (security) — *Given* a webhook POST with an invalid signature, *when*
-  received, *then* it is rejected and no credit occurs. Ref NFR-SEC-004.
+- **AT-FIRST-001** — A second First Session purchase by the same account is **refused**. *(S8,
+  REQ-FIRST-001)*
+- **AT-FIRST-002** — Each goal routes correctly: `strengths` → assessment, `test_prep` → practice
+  test, **`class_help` → booking with no assessment step**. *(REQ-FIRST-003)*
+- **AT-FIRST-003** — *Probe-and-descend, strong student:* a learner correct on every foundational
+  probe answers **~3** foundational questions, not the whole closure. *(REQ-FIRST-004)*
+- **AT-FIRST-004** — *Probe-and-descend, injected gap:* a learner failing a Grade-4 fractions probe
+  triggers **descent into that node's prerequisites**, and the result names the floor.
+  *(REQ-FIRST-004)*
+- **AT-FIRST-005** — The **≈25-question cap** is never exceeded, even on a deep closure.
+  *(REQ-FIRST-004)*
+- **AT-FIRST-006** — A written plan is producible from **session notes alone** in the no-assessment
+  mode. *(REQ-FIRST-007)*
 
-## Booking (S6)
+> AT-FIRST-003/004/005 run as **pure-logic tests over a fixture prerequisite graph** — no database
+> needed for the traversal itself.
 
-- **AT-BOOK-001** (happy, S6) — *Given* a Payer with balance ≥ 1 and an open slot, *when* they
-  book, *then* the slot becomes booked, exactly 1 credit is spent, a Session with a Meet link is
-  created, and a confirmation is sent. Ref REQ-BOOK-002, REQ-CREDIT-003, REQ-NOTIFY-002.
-- **AT-BOOK-002** (concurrency, S6) — *Given* two Payers booking the same slot simultaneously,
-  *when* both submit, *then* exactly one succeeds and the other gets 409 with no credit spent.
-  Ref REQ-BOOK-003, NFR-REL-002, INV-3/4.
-- **AT-BOOK-003** (failure, S6) — *Given* a Payer with 0 credits, *when* they attempt to book,
-  *then* 402 and no reservation. Ref REQ-CREDIT-003.
-- **AT-BOOK-004** (authz) — *Given* a Parent, *when* they book with an attendee who is not their
-  dependent, *then* 403. Ref REQ-BOOK-004, INV-6.
-- **AT-BOOK-005** (boundary, D4) — *Given* a booked Session >24h away, *when* cancelled, *then*
-  the credit is refunded and the slot reopens; *given* one <24h away, *when* cancelled, *then*
-  the credit is forfeit and the slot reopens. Ref REQ-BOOK-005.
-- **AT-BOOK-006** (resilience) — *Given* booking succeeds but the Calendar/Meet call fails,
-  *when* it errors, *then* the Session and spend still persist (booking not lost). Ref
-  FLOW-BOOK-001 failure boundary.
+## Money
 
-## Notifications (S7)
+- **AT-BILLING-001 [live]** — A completed checkout credits the wallet **exactly once**, in exactly
+  the right amount. *(S6)*
+- **AT-BILLING-002 [live]** — **Webhook redelivery of the same event is a no-op.** *(NFR-REL-001)*
+- **AT-BILLING-003** — An unsigned or wrongly-signed webhook call is rejected. *(NFR-SEC-004)*
+- **AT-CREDIT-001** — Balance equals Σ ledger deltas after an arbitrary sequence of purchases,
+  spends, and refunds. *(REQ-CREDIT-002)*
+- **AT-CREDIT-002** — A spend that would drive the balance negative **fails**, and writes nothing.
+  *(REQ-CREDIT-004)*
 
-- **AT-NOTIFY-001** (happy, S7) — *Given* a Session ~24h and ~1h away, *when* the reminder cron
-  runs, *then* the attendee (and Parent, for a dependent) receive email reminders. Ref
-  REQ-NOTIFY-001.
-- **AT-NOTIFY-002** (idempotency) — *Given* reminders already sent, *when* the cron runs again,
-  *then* no duplicate reminder. Ref REQ-NOTIFY-001, FLOW-NOTIFY-001.
+## Booking
 
-## Authorization (S8, cross-cutting)
+- **AT-BOOK-001** — Booking spends **exactly one credit** and reserves the slot. *(S7)*
+- **AT-BOOK-002 [live]** — **Concurrency:** two simultaneous bookings of one slot yield **exactly
+  one** booking and **exactly one** credit spent. *(NFR-REL-002)*
+- **AT-BOOK-003** — Slots inside **24h**, or beyond **4 weeks**, are not bookable. *(REQ-BOOK-002)*
+- **AT-BOOK-004** — Cancel at **24h+** returns the credit; cancel inside 24h burns it. Tested **at
+  the boundary**. *(REQ-BOOK-003)*
+- **AT-BOOK-005** — Reschedule at 24h+ moves the slot and leaves the balance **unchanged** — no
+  refund/respend pair appears in the ledger. *(REQ-BOOK-004)*
+- **AT-BOOK-006 [live]** — **An injected Google Calendar failure leaves a valid booking** with a null
+  `meet_url`, which appears on the admin queue. The booking is **not** rolled back. *(S10,
+  NFR-REL-003)*
+- **AT-BOOK-007** — A slot booked from a non-local time zone lands at the correct **absolute
+  instant**, including across a DST boundary. *(spec/14 §12)*
+- **AT-BOOK-008** — A no-show burns the credit; an **approved** credit-return request writes
+  **exactly one** ledger row and is audited. *(REQ-BOOK-005)*
+- **AT-NOTIFY-001** — Confirmation and 24h/1h reminders send; **cron reruns produce no duplicates**.
+  *(REQ-NOTIFY-001)*
 
-- **AT-SEC-001** (authz, S8) — *Given* Student A, *when* they request Student B's attempts/
-  credits/bookings, *then* denied by RLS. Ref NFR-SEC-001.
-- **AT-SEC-002** (authz) — *Given* a non-admin, *when* they call an admin contract (refund,
-  availability, user list), *then* denied. Ref NFR-SEC-001, REQ-AUTH-005.
-- **AT-SEC-003** (invariant) — *Given* any attempt to write `credit_ledger`/`bookings` directly
-  (not via RPC), *when* issued as a normal user, *then* denied. Ref NFR-SEC-002.
+## Admin & ops
+
+- **AT-ADMIN-001** — The availability template plus exceptions produces the expected slots, **across
+  a DST boundary**. *(REQ-ADMIN-001)*
+- **AT-ADMIN-002** — The SMS queue lists upcoming sessions ordered by urgency with time remaining;
+  sent-marking persists. *(REQ-ADMIN-004)*
+- **AT-ADMIN-003** — Every admin ledger adjustment and credit-return decision writes an
+  `audit_log` row. *(NFR-OPS-002)*
+- **AT-OPS-001** — Launch checklist verified: remote migrations applied, live Stripe products match
+  the pricing config, Resend DNS verified, ToS/Privacy/refund pages published, analytics enabled,
+  apex DNS cut over. *(NFR-OPS-003)*
+- **AT-OPS-002** — The pricing config matches `spec/14` §11 exactly — a silent price drift **fails
+  CI**. *(TASK-CONFIG-001)*
+
+---
+
+## Status
+
+**Passing today (30 tests):** AT-CONTENT-004, AT-ROADMAP-001/002/003, AT-PRACTICE-001/002, and
+AT-PRACTICE-003 against a local stack.
+
+**Everything else is unwritten** — those features are unbuilt.

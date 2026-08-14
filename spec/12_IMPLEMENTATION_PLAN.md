@@ -29,12 +29,14 @@ holds; `13_COVERAGE_MATRIX.md` and `STATUS.md` updated.
 ## M2 — Paper: close out the pivot — **IN PROGRESS**
 
 - **TASK-SPEC-001 — ADR-003 + pricing/ops in spec/14.** Done 2026-08-14.
-- **TASK-SPEC-002 — Rewrite `01_PRD.md`** against spec/14. Supersede: 45-min unit (C4),
+- **TASK-SPEC-002 — Rewrite `01_PRD.md`** against spec/14. **Done 2026-08-14.** Original scope: Supersede: 45-min unit (C4),
   Parent/Dependent shapes (C3, §2), OQ1. **Note CON6 (free content is the funnel) is restored by
   ADR-004** — the PRD's free-content premise is correct again; what changed is that the funnel now
   leads to the First Session and credits, not a course sale. DoD: no statement in the PRD contradicts
   spec/14.
-- **TASK-SPEC-003 — Ripple the rewrite.** Update `03_REQUIREMENTS` (new REQ ids for profiles,
+- **TASK-SPEC-003 — Ripple the rewrite. Done 2026-08-14** — rewrote `02_GLOSSARY`, `03_REQUIREMENTS`,
+  `04_ACTORS`, `05_FLOWS`, `07_DATA_MODEL`, `11_ACCEPTANCE_TESTS`, `13_COVERAGE_MATRIX`. Original
+  scope: update `03_REQUIREMENTS` (new REQ ids for profiles,
   progress, First Session), `04_ACTORS` (Buyer / Learner Profile / Admin-Tutor), `05_FLOWS`
   (purchase, booking, First Session), `07_DATA_MODEL`, `11_ACCEPTANCE_TESTS`, `13_COVERAGE_MATRIX`. Deps:
   SPEC-002. DoD: coverage matrix has no dangling refs.

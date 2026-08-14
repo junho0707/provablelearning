@@ -1,43 +1,82 @@
 # 13 — Coverage Matrix
 
-Status: **DRAFT** · Audit artifact. Traces requirement → flow → design → task → acceptance test →
-automated test → status. It does **not** define requirements; it reflects them. `Automated test`
-fills in as tests are written; `Status` ∈ `spec` (specified, not built), `in-progress`, `done`.
+Status: **REWRITTEN 2026-08-14** against ADR-003/004/005. Every capability traced from PRD →
+requirement → flow → acceptance test → implementation task, with current build status.
 
-| Requirement | Flow | Design | Task | Acceptance test | Automated test | Status |
-|---|---|---|---|---|---|---|
-| CON1 (stack), ARCH §9 | — | ARCH §9 (fresh app, ported tokens/clients) | TASK-PROJECT-001/002 | — | build + Supabase connectivity | done |
-| REQ-AUTH-001/002/003 | FLOW-AUTH-001/002 | ARCH accounts | TASK-AUTH-001 | AT-ACCT-001 | — | spec |
-| REQ-AUTH-004 | FLOW-AUTH-003 | ARCH accounts | TASK-AUTH-001 | — | — | spec |
-| REQ-AUTH-005 | FLOW-ADMIN-* | ARCH trust | TASK-AUTH-001 | AT-SEC-002 | — | spec |
-| REQ-ACCT-001..007 | FLOW-ACCT-001/002 | DATA profiles | TASK-ACCT-001 (ADR-002) | AT-ACCT-002/003/004 | — | spec |
-| REQ-CONTENT-001..004 | FLOW-CONTENT-001 | ADR-001, DATA slug | TASK-CONTENT-001 | AT-CONTENT-001/002/003 | `content.test.tsx` (catalog/render/sitemap/meta) + served-HTML check | in-progress (pipeline done; content slice = CONTENT-002) |
-| REQ-CONTENT-005 | FLOW-CONTENT-001 | ADR-001 (no schema for new course) | TASK-CONTENT-001/002 | — | catalog build (fs-driven, no schema) | in-progress |
-| REQ-PRACTICE-001/002/003 | FLOW-PRACTICE-001 | DATA questions; `0002_questions.sql` (col grants) | TASK-PRACTICE-001 | AT-PRACTICE-001..005 | `check.test.ts` (7) + `integrity.test.ts` (3) + local-DB/served-HTML smoke | done (anonymous; attempt-recording = PROGRESS-001) |
-| REQ-PROGRESS-001..004 | FLOW-PRACTICE-001 | DATA attempts/progress | TASK-PROGRESS-001 | AT-PROGRESS-001/002 | — | spec |
-| REQ-CREDIT-001..005 | FLOW-BILLING/BOOK | DATA ledger; RPC | TASK-CREDIT-001 | AT-SEC-003, AT-BILLING-001 | — | spec |
-| REQ-BILLING-001..004 | FLOW-BILLING-001 | ARCH billing; INV-7 | TASK-BILLING-001 | AT-BILLING-001..004 | — | spec |
-| REQ-BILLING-005 | FLOW-ADMIN-002 | RPC refund_credit | TASK-ADMIN-001 | AT-SEC-002 | — | spec |
-| REQ-BOOK-001 | FLOW-ADMIN-001 | DATA slots | TASK-BOOK-001 | — | — | spec |
-| REQ-BOOK-002/003/004 | FLOW-BOOK-001 | RPC book_session; INV-3/4/6 | TASK-BOOK-001 | AT-BOOK-001/002/003/004 | — | spec |
-| REQ-BOOK-005 | FLOW-BOOK-002 | RPC cancel_booking | TASK-BOOK-003 | AT-BOOK-005 | — | spec |
-| REQ-BOOK-006 | FLOW-BOOK-001 | ARCH Google | TASK-BOOK-002 | AT-BOOK-006 | — | spec |
-| REQ-NOTIFY-001/002 | FLOW-NOTIFY-001 | ARCH cron/notify | TASK-NOTIFY-001 | AT-NOTIFY-001/002 | — | spec |
-| NFR-PERF-001 | FLOW-CONTENT-001 | ARCH deploy (SSR/SSG) | TASK-CONTENT-001 | AT-CONTENT-001 | served-HTML: prose + KaTeX in initial HTML, pages prerendered | done |
-| NFR-PERF-003 | FLOW-CONTENT-001 | ARCH deploy | TASK-CONTENT-001 | AT-CONTENT-003 | `content.test.tsx` (sitemap + per-lesson title/desc/canonical) + robots/sitemap routes | done |
-| NFR-PERF-002 (CWV) | FLOW-CONTENT-001 | ARCH deploy | TASK-CONTENT-001 | — | structurally met (static, KaTeX SSR → no math CLS, next/font); Lighthouse lab run pending on preview | in-progress |
-| NFR-SEC-001 | (all) | DATA RLS table | TASK-ACCT-001 + | AT-SEC-001, AT-PROGRESS-002, AT-PRACTICE-005 | — | spec |
-| NFR-SEC-002 | FLOW-BILLING/BOOK | RPC boundary | TASK-CREDIT-001/BOOK-001 | AT-SEC-003 | — | spec |
-| NFR-SEC-003 | FLOW-ACCT-001 | ADR-002 (pending) | TASK-ACCT-000 | AT-ACCT-004 | — | spec (blocked) |
-| NFR-SEC-004 | FLOW-BILLING-001 | ARCH webhook | TASK-BILLING-001 | AT-BILLING-004 | — | spec |
-| NFR-REL-001 | FLOW-BILLING-001 | INV-7 | TASK-BILLING-001 | AT-BILLING-002 | — | spec |
-| NFR-REL-002 | FLOW-BOOK-001 | INV-3; FOR UPDATE | TASK-BOOK-001 | AT-BOOK-002 | — | spec |
-| NFR-OPS-001/002/003 | FLOW-ADMIN-002 | ARCH observability | TASK-OPS-001 | — | — | spec |
+Legend: ✅ built & verified · 🟡 partly built · ⬜ not started
 
-## Gaps / blockers tracked
+---
 
-- **ADR-002 (auth/consent)** blocks NFR-SEC-003 + all M2 tasks — must be authored before M2.
-- **D2 (credit-pack tiers)** blocks seeding `credit_packs` in TASK-BILLING-001.
-- **Automated-test column** is empty until M1 begins; fill per task as tests land.
-- 09_FRONTEND / 10_BACKEND are intentionally light (see those files); component/service detail is
-  carried in each task's implementation notes rather than a separate heavy design doc.
+## Capability coverage
+
+| PRD | Requirements | Flows | Acceptance | Task | Status |
+|---|---|---|---|---|---|
+| **C1** Free open content | REQ-CONTENT-001..004 | F1 | AT-CONTENT-001..005 | CONTENT-001 | ✅ *(AT-CONTENT-005 unwritten)* |
+| **C2** Roadmap | REQ-ROADMAP-001..006 | F2 | AT-ROADMAP-001..004 | ROADMAP-001, **ROADMAP-002** | 🟡 *(course nodes pending)* |
+| **C3** Practice & progress | REQ-PRACTICE-001..004, REQ-PROGRESS-001..003 | F1, F4 | AT-PRACTICE-001..004, AT-PROGRESS-001..002 | PRACTICE-001, **PROGRESS-001** | 🟡 *(practice ✅, progress ⬜)* |
+| **C4** Accounts | REQ-AUTH-001..002, REQ-ACCT-001..004 | F3 | AT-ACCT-001..004, AT-SEC-001 | AUTH-001, ACCT-001 | ⬜ |
+| **C5** First Session | REQ-FIRST-001..007 | F5, F6 | AT-FIRST-001..006 | FIRST-001..004 | ⬜ |
+| **C6** Credits & booking | REQ-CREDIT-001..004, REQ-BILLING-001..003, REQ-BOOK-001..006, REQ-NOTIFY-001..002 | F7, F8, F9, F10 | AT-BILLING-*, AT-CREDIT-*, AT-BOOK-*, AT-NOTIFY-001 | CONFIG-001, CREDIT-001, BILLING-001/002, AVAIL-001, BOOK-001..005, NOTIFY-001 | ⬜ |
+| **C7** Admin ops | REQ-ADMIN-001..006 | F11, F12, F13 | AT-ADMIN-001..003, AT-SEC-002 | ADMIN-001, ADMIN-002 | ⬜ |
+
+## Success-criteria coverage
+
+| | Criterion | Acceptance | Status |
+|---|---|---|---|
+| S1 | Lessons render, no account | AT-CONTENT-001 | ✅ |
+| S2 | Roadmap renders full arc, mobile | AT-ROADMAP-001..003 | ✅ |
+| S3 | Answer checking accurate | AT-PRACTICE-001/002 | ✅ |
+| S4 | Progress persists per profile | AT-PROGRESS-001/002 | ⬜ |
+| S5 | Accounts + cross-account denial | AT-ACCT-001..003, AT-SEC-001 | ⬜ |
+| S6 | Purchase credits exactly once | AT-BILLING-001/002 | ⬜ |
+| S7 | Atomic booking, no double-book | AT-BOOK-001/002, AT-BOOK-004/005 | ⬜ |
+| S8 | Second First Session refused | AT-FIRST-001 | ⬜ |
+| S9 | Notifications, no duplicates | AT-NOTIFY-001 | ⬜ |
+| S10 | Booking survives Google failure | AT-BOOK-006 | ⬜ |
+| S11 | Authz holds; answers never leak | AT-SEC-001..003, AT-CONTENT-004 | 🟡 *(answer secrecy ✅)* |
+
+## Constraint coverage
+
+| Constraint | Where enforced | Status |
+|---|---|---|
+| CON1 reuse v1 patterns | BOOK-001, CREDIT-001 (ported RPCs) | ⬜ |
+| CON2 writes in RPCs | NFR-SEC-002 · AT-SEC-003 | ⬜ |
+| CON3 consent deferred | No child credentials; `accounts` ≠ `learner_profiles` | ✅ *by design* |
+| CON4 one-time payments | No subscription code path exists | ✅ *by absence* |
+| CON5 solo operator | No tutor entity in `07_DATA_MODEL` | ✅ *by absence* |
+| CON6 organic search | NFR-PERF-001/003 · **AT-CONTENT-005** | 🟡 *(guard test unwritten)* |
+| CON7 US only | Pricing config USD | ⬜ |
+
+## Invariants
+
+| | Invariant | Enforced by |
+|---|---|---|
+| INV-ACTOR-1 | Owner identity ≠ learner identity | Separate tables (`07`) |
+| INV-MONEY-1 | Balance never negative | Row lock inside spend RPC |
+| INV-MONEY-2 | ≤1 First Session per account | Partial unique index + pre-checkout check |
+| INV-MONEY-3 | Webhook redelivery is a no-op | `stripe_events` insert-first |
+| INV-BOOK-1 | ≤1 live booking per slot | Row lock inside `book_session` |
+| INV-BOOK-2 | `meet_url` nullable by design | Calendar call **after** commit |
+
+---
+
+## Gaps and known holes
+
+**Deliberate absences** *(not gaps — do not "fix")*: no entitlements table, no paywall, no
+`sample` flag (ADR-004); no tutor entity (ADR-003); no self-serve refunds; no SMS integration.
+
+**Real gaps to close:**
+
+1. **AT-CONTENT-005 is unwritten** — the regression guard that no content route requires an account.
+   Worth writing early, since it is the one test protecting ADR-004 from erosion.
+2. **NFR-PERF-002** — CWV lab run still not done; needs a deployed preview.
+3. **Remote migrations** — `0002_questions.sql` + `seed.sql` verified **locally only**. Until
+   applied remotely, `getLessonQuestions` returns `[]` (pages still render — graceful).
+4. **Analytics cannot report the conversion rate** the model rests on (spec/14 §17). Accepted;
+   PostHog is the upgrade path.
+5. **The near-empty map** — ~20 lessons against a K–12 arc. Mitigation is framing, not scope.
+
+## Doc tree
+
+`docs/` currently holds **only** the v1 archive (`docs/archive/v1-sat/`). Rebuilding the layered
+tree from spec/14 is **TASK-SPEC-004**, the last open paper task.

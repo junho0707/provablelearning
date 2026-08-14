@@ -56,14 +56,35 @@ acquisition channel.
 - **Number to instrument first after launch:** diagnosis → credit-pack conversion. Revenue has no
   second leg if it's weak.
 
+## The $49 SKU is "First Session" (2026-08-14) — ADR-005
+
+Renamed from "Math Diagnosis" — that word presumed something was wrong and repelled the
+getting-ahead and test-prep buyers, who are half the market.
+
+- **$49, one per customer, enforced.** Framed as the session you buy *before* a pack, which is what
+  explains $49 vs the $75 single credit.
+- **Buyer states a goal at purchase**, and the goal selects the mode:
+  `strengths` → roadmap-derived assessment · `test_prep` → hand-authored practice test ·
+  **`class_help` → no assessment at all** (a pre-test tells you nothing you don't already know).
+- **Probe-and-descend** for strengths mode: probe once per node in the prereq closure, skip solid
+  subtrees, descend on failure, ~25-question cap. Reuses the transitive-prereq traversal already in
+  `src/lib/content/layout.ts`.
+- **Copy rule:** strengths and next steps, **never deficits**. No "diagnosis"/"behind"/"struggling".
+- Also decided: K–12 full arc · US only · 24h notice, 4-week horizon · free reschedule at 24h+ that
+  leaves the ledger untouched · no-show at 15 min with a credit-return request the operator approves
+  · profiles hold name/grade/current class · completion = all questions correct · entity + Stripe
+  already exist · Vercel Analytics.
+
 ## Current task
 
-**M2 (close out the pivot) in progress.** Done: ADR-003 + spec/14 §11–13, `spec/12` rewritten,
-roadmap map committed (`9447849`). Next: **TASK-SPEC-002** — rewrite `spec/01_PRD.md` against
-spec/14, then ripple into 03/04/05/07/11/13 and rebuild the `docs/` tree.
+**M2 (close out the pivot) — paper work COMPLETE.** Rewritten against spec/14 + ADR-003/004/005:
+`01_PRD`, `02_GLOSSARY`, `03_REQUIREMENTS`, `04_ACTORS`, `05_FLOWS`, `07_DATA_MODEL`,
+`11_ACCEPTANCE_TESTS`, `12_IMPLEMENTATION_PLAN`, `13_COVERAGE_MATRIX`.
 
-**No open blockers.** (The old "ADR-002 blocks M2" note was stale — spec/14 §4 removes child
-credentials, so the consent gate is deferred, not pending.)
+Remaining paper task: **TASK-SPEC-004** — rebuild the layered `docs/` tree (currently only the v1
+archive). Then **build starts at M3**: CONFIG-001 → LAND-001, AUTH-001 → ACCT-001, ROADMAP-002.
+
+**No open blockers.**
 
 **Open follow-ups (do not lose):**
 1. **NFR-PERF-002 Core Web Vitals lab run** — pages are static + KaTeX-rendered server-side (no math
@@ -131,10 +152,13 @@ credentials, so the consent gate is deferred, not pending.)
 
 ## Next task
 
-**`TASK-SPEC-002`** — rewrite `spec/01_PRD.md` against `spec/14`, then `TASK-SPEC-003` (ripple into
-03/04/05/07/11/13) and `TASK-SPEC-004` (rebuild `docs/`). Build work resumes at M3
-(CONFIG-001 → LAND-001, AUTH-001 → ACCT-001). Follow the dependency order in
+**`TASK-SPEC-004`** — rebuild the layered `docs/` tree from spec/14. Then build at M3:
+**CONFIG-001** (pricing config + drift test) → **LAND-001** (landing, approved hero copy);
+**AUTH-001** → **ACCT-001**; **ROADMAP-002** (course-level nodes). Follow the dependency order in
 `spec/12_IMPLEMENTATION_PLAN.md`.
+
+**Write `AT-CONTENT-005` early** — the guard asserting no content route requires an account. It is
+the one test protecting ADR-004 from erosion.
 
 ## Build / test status
 

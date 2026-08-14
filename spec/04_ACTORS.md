@@ -1,113 +1,101 @@
 # 04 — Actors
 
-Status: **DRAFT** · Every person or external system that interacts with v2. Terms are defined in
-`02_GLOSSARY.md`; permissions trace to requirements in `03_REQUIREMENTS.md`. Flows (`05_FLOWS.md`)
-reference these actors by name.
+Status: **REWRITTEN 2026-08-14** against `14_GROUND_TRUTH_INTERVIEW.md` + ADR-003/004/005.
 
-## Human actors
+> **Superseded:** the v1/pre-pivot Parent / Dependent Student / Independent Student triad, which
+> assumed **every learner had a login**. They do not. A learner is a **profile**, not an account.
 
-### Visitor (anonymous)
+## The identity model in one line
 
-- **Description:** an unauthenticated person on the site.
-- **Goals:** read math content, try practice questions, decide whether to sign up or buy.
-- **Permissions:** read all Courses/Themes/Lessons; attempt any Question and see correctness +
-  explanation. *(REQ-CONTENT-004, REQ-PRACTICE-002)*
-- **Restrictions:** no saved Progress/Attempts; cannot buy credits, book, or see any account
-  data. *(REQ-PROGRESS-001, NFR-SEC-001)*
-- **States:** stateless (may convert to any account type via signup).
-- **Flows:** browse content, attempt question, sign up.
+**One login per buyer. Learner profiles beneath it, with no credentials of their own.**
 
-### Independent Student
+This is the single most important structural fact in the system, because it is why there is **no
+minors'-consent gate at launch** (CON3): no child ever holds credentials.
 
-- **Description:** a self-paying student (own account; no Parent above them). *(REQ-ACCT-002)*
-- **Goals:** learn along the Learning Path, save progress, buy credits, book 1:1 help for
-  themselves.
-- **Permissions:** everything a Visitor can do **plus** saved Progress/Attempts; owns a credit
-  wallet; buys Credit Packs; books/cancels their own Sessions; is their own Session attendee.
-  *(REQ-PROGRESS-001..003, REQ-CREDIT-004, REQ-BILLING-001, REQ-BOOK-002/004/005)*
-- **Restrictions:** sees only their own data; cannot manage other accounts or access admin.
-  *(NFR-SEC-001)*
-- **States:** `registered` → (`has_credits` ↔ `zero_credits`) → optionally `has_upcoming_session`.
-- **Flows:** sign up, study & save progress, buy credits, book 1:1, cancel 1:1, attend session.
+**Invariant (INV-ACTOR-1):** *owner identity and learner identity are separate records.* A buyer is
+never stored as "the learner", even when they are the same person. This keeps a future
+profile→login upgrade **additive** rather than a migration.
 
-### Dependent Student
+---
 
-- **Description:** a student whose account is linked to and paid for by a **Parent**; has their
-  own login. Typically a minor. *(REQ-ACCT-004, REQ-ACCT-007, CON3)*
-- **Goals:** learn along the Learning Path and save progress; attend sessions the Parent booked.
-- **Permissions (post-consent):** study with saved Progress/Attempts; view their own upcoming
-  Sessions. *(REQ-PROGRESS-001..003)*
-- **Restrictions:** does **not** own credits, cannot buy or book, cannot see the Parent's wallet
-  or other dependents' data; before the parent-consent gate is satisfied, limited to a defined
-  pre-consent state. *(REQ-CREDIT-004, REQ-ACCT-004, NFR-SEC-001, NFR-SEC-003)*
-- **States:** `pending_consent` → `active` (consent recorded) → optionally `has_upcoming_session`.
-- **Flows:** accept/complete link to Parent, study & save progress, attend session.
+## A1 — Visitor (anonymous)
 
-### Parent
+Anyone, no account.
 
-- **Description:** an account that pays for and manages one or more Dependent Students.
-  *(REQ-ACCT-003)*
-- **Goals:** get structured help for their child(ren); buy credits and book 1:1 sessions for a
-  chosen dependent; oversee progress.
-- **Permissions:** create/link Dependent Students and record consent; view each linked
-  dependent's Progress; owns the credit wallet; buys Credit Packs; books/cancels Sessions,
-  selecting a dependent as attendee. *(REQ-ACCT-003/004/005, REQ-PROGRESS-004, REQ-CREDIT-004,
-  REQ-BILLING-001, REQ-BOOK-002/004/005)*
-- **Restrictions:** does not study (no personal Progress); sees only their own dependents' data,
-  not other families'. *(NFR-SEC-001)*
-- **States:** `registered` → `has_dependents` → (`has_credits` ↔ `zero_credits`) →
-  optionally `has_upcoming_session`.
-- **Flows:** sign up, add/link dependent (+consent), buy credits, book 1:1 for a dependent,
-  cancel 1:1, view dependent progress.
+| | |
+|---|---|
+| **Can** | Read **every** authored lesson, in full. Attempt every practice question and receive correct/incorrect feedback. Browse the whole roadmap. See prices and the First Session offer. |
+| **Cannot** | Save progress. Buy anything. Book anything. See any answer key. |
+| **Notes** | The default and most common actor. **Nothing about content is hidden from a Visitor** (ADR-004) — this is what makes the catalog indexable. |
 
-### Admin-Tutor (the operator — you, solo)
+## A2 — Buyer (account owner)
 
-- **Description:** the single operator; both content author/admin and the tutor who delivers all
-  sessions. *(REQ-AUTH-005, CON5)*
-- **Goals:** publish content and questions, offer availability, deliver sessions, keep the money
-  ledger correct, run the business solo.
-- **Permissions:** author Courses/Themes/Lessons/Questions; publish Availability; view all
-  bookings on a calendar; issue credit refunds/adjustments (ledger `refund`); view all users and
-  their data; access audit logs. *(REQ-CONTENT-*, REQ-PRACTICE-*, REQ-BOOK-001/006,
-  REQ-BILLING-005, NFR-SEC-001, NFR-OPS-002)*
-- **Restrictions:** the admin role is seed-provisioned only (no public path); still bound by the
-  audit-logging requirement for money/booking actions. *(REQ-AUTH-005, NFR-OPS-002)*
-- **States:** always active (single operator).
-- **Flows:** author content/questions, publish availability, deliver session, issue refund,
-  manage users.
+The one authenticated human per account. Usually a parent; sometimes the student.
 
-## External systems
+| | |
+|---|---|
+| **Identity** | Supabase auth via **Google OAuth or email magic link**. No password (ADR-003). |
+| **Owns** | The credit wallet · all learner profiles under the account · all bookings · all purchases. |
+| **Can** | Everything a Visitor can. Create/edit/switch/delete learner profiles. Buy the First Session (**once**) and credit packs. Book, cancel, and reschedule sessions. Submit a **no-show credit-return request**. View saved progress for any of their profiles. |
+| **Cannot** | See or touch another account's data (RLS). Grant themselves credits. Book without a credit. Buy a second First Session. |
 
-### Supabase (Auth + Postgres + RLS + RPC)
+**A2a — Independent student.** The case where the buyer *is* the learner. Not a separate actor: the
+buyer simply has one learner profile representing themselves. Supported deliberately (spec/14 §14),
+so no flow may assume the buyer and learner are different people.
 
-- Identity/session provider and the system of record. Enforces RLS (NFR-SEC-001) and hosts the
-  `SECURITY DEFINER` RPCs for credit spend and slot reservation (NFR-SEC-002).
+## A3 — Learner profile
 
-### Stripe
+**Not an account. Has no credentials and cannot log in.**
 
-- One-time Credit Pack checkout + webhook. The webhook is the trusted trigger that credits the
-  ledger (idempotent, signature-verified). *(REQ-BILLING-001/002, NFR-SEC-004, NFR-REL-001)*
+| | |
+|---|---|
+| **Holds** | `name`, `grade`, `current math class` (a roadmap course node). Nothing more — nothing is collected that isn't used (spec/14 §16). |
+| **Used for** | Targeting the strengths & weaknesses assessment · the roadmap's "you are here" · attributing saved progress · naming who a session is for. |
+| **Lifecycle** | Created, edited, and deleted by its buyer. Deleting one removes its progress. |
 
-### Google (OAuth + Calendar/Meet)
+`grade` and `current math class` are **functional inputs**, not demographics: they select assessment
+questions and position the learner on the map.
 
-- OAuth login/identity linking (REQ-AUTH-002); Calendar event + Meet link creation per booked
-  Session (REQ-BOOK-006).
+## A4 — Admin-Tutor (the operator, solo)
 
-### Email provider
+One person. Both the tutor and the administrator — there is no separation of these roles, and **no
+tutor entity exists in the schema** (ADR-003).
 
-- Transactional email: password reset, booking confirmation, session reminders (24h + 1h).
-  *(REQ-AUTH-004, REQ-NOTIFY-001/002)*
+| | |
+|---|---|
+| **Can** | Author content (`content/*.mdx` + `roadmap.json`, in-repo). Set the recurring availability template and exceptions. See all bookings. CRUD practice questions. **Adjust the credit ledger** (pairs with manual Stripe refunds). Approve/deny no-show credit-return requests. Work the **manual SMS reminder queue**. Deliver every session. |
+| **Cannot** | *(No product-level restriction — this actor is the owner. Constraint is operational: every money-touching action is **audited**.)* |
+| **Notes** | Adding a second tutor is a **known future schema migration**, accepted knowingly (ADR-003). |
 
-## Actor → capability matrix
+## A5 — System (scheduled / webhook)
 
-| Capability | Visitor | Indep. Student | Dep. Student | Parent | Admin-Tutor |
-|---|:---:|:---:|:---:|:---:|:---:|
-| Read content / attempt questions | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Save progress & attempts | — | ✅ | ✅ | — | ✅ |
-| Own a credit wallet | — | ✅ | — | ✅ | — |
-| Buy credit packs | — | ✅ | — | ✅ | — |
-| Book / cancel a 1:1 | — | ✅ (self) | — | ✅ (for a dependent) | — |
-| Be a session attendee | — | ✅ | ✅ | — | — (delivers) |
-| View a dependent's progress | — | — | — | ✅ | ✅ (all) |
-| Author content & availability | — | — | — | — | ✅ |
-| Issue refunds / see all data | — | — | — | — | ✅ |
+Not a person; named so contracts can refer to it.
+
+| | |
+|---|---|
+| **Does** | Handle the **Stripe webhook** (idempotent via `stripe_events`). Send **Resend** email — confirmations, reminders, receipts. Run the **reminder cron** at 24h and 1h with idempotent sent-flags. Create the **Google Calendar event + Meet link after the booking commits**. |
+| **Constraint** | Every system write is idempotent. A Google Calendar failure **must not** roll back a booking — the session stands and the missing link surfaces on the admin queue (S10). |
+
+---
+
+## Actor × capability matrix
+
+| Capability | Visitor | Buyer | Admin-Tutor |
+|---|:--:|:--:|:--:|
+| Read any lesson / attempt questions | ✅ | ✅ | ✅ |
+| Browse the roadmap | ✅ | ✅ | ✅ |
+| See question answer keys | ❌ | ❌ | ✅ |
+| Save progress | ❌ | ✅ | ✅ |
+| Manage learner profiles | ❌ | ✅ | ✅ |
+| Buy First Session (once) | ❌ | ✅ | — |
+| Buy credit packs | ❌ | ✅ | — |
+| Book / cancel / reschedule | ❌ | ✅ | ✅ |
+| Request a no-show credit back | ❌ | ✅ | — |
+| Approve credit-return requests | ❌ | ❌ | ✅ |
+| Set availability | ❌ | ❌ | ✅ |
+| Adjust the credit ledger | ❌ | ❌ | ✅ |
+
+## Downstream
+
+Drives `05_FLOWS.md` (who initiates each flow), `07_DATA_MODEL.md` (`accounts`,
+`learner_profiles`, RLS), and the `AT-SEC-*` acceptance tests.

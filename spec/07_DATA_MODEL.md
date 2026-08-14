@@ -1,125 +1,224 @@
 # 07 — Data Model
 
-Status: **DRAFT** · Supabase/Postgres entities for v2's dynamic state. Lesson prose is **not** in
-the DB — it lives as in-repo MDX (ADR-001); the DB references content by `lesson_slug`. Field
-lists are indicative, not final DDL (that arrives with migrations at implementation). Every
-persisted business rule here traces to a requirement.
+Status: **REWRITTEN 2026-08-14** against `14_GROUND_TRUTH_INTERVIEW.md` + ADR-003/004/005.
 
-## Entities
+> **Removed by ADR-004:** the `entitlements` table and every paywall-related column. Content is
+> free; nothing gates a lesson.
+> **Removed by ADR-003:** any tutor entity. The operator is solo; availability has no tutor
+> dimension.
 
-### `profiles` (extends `auth.users`)
-- `id` (PK, = auth user id), `role` (`independent_student`|`parent`|`dependent_student`|`admin`),
-  `email`, `display_name`, `parent_id` (FK→profiles, nullable — set only for dependents),
-  `consent_status` (`pending`|`granted` — dependents only), `consent_at`, `created_at`.
-- **Rules:** exactly one role (REQ-ACCT-001); role immutable after creation
-  (REQ-ACCT-006, trigger); `parent_id` set ⇔ role = `dependent_student` (REQ-ACCT-007); a
-  dependent is usable only when `consent_status = granted` (REQ-ACCT-004, CON3).
+## Conventions
 
-### `questions`
-- `id` (PK), `lesson_slug` (content join key), `position` (int), `type`
-  (`mcq`|`numeric`|`free`), `prompt`, `choices` (jsonb, mcq), `answer`, `tolerance` (numeric,
-  numeric type), `explanation`.
-- **Rules:** ordered within a lesson by `position`; `free` questions carry no auto-checkable
-  answer (self-checked, REQ-PRACTICE-001); world-readable (NFR-SEC-001).
+- Postgres via Supabase. All tables `public` unless noted.
+- **All timestamps `timestamptz`, stored UTC.** Rendering in the visitor's zone is a display
+  concern only (spec/14 §12).
+- **Money in integer cents.** Never floats.
+- RLS on by default; correctness-critical writes go through `SECURITY DEFINER` RPCs (CON2), never
+  direct client writes.
+
+---
+
+## Identity
+
+### `accounts`
+The buyer. One row per login.
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | = `auth.users.id` |
+| `email` | text | from Supabase auth |
+| `is_admin` | bool | default false; the single operator |
+| `created_at` | timestamptz | |
+
+### `learner_profiles`
+A learner under a buyer. **No credentials — this is not a login** (ADR-003, INV-ACTOR-1).
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `account_id` | uuid FK → `accounts` | owner |
+| `name` | text | |
+| `grade` | text | K–12 |
+| `current_course_node` | text | a **course-level** roadmap node id (ADR-005); selects assessment questions |
+| `created_at` | timestamptz | |
+
+**RLS:** a buyer reads/writes only rows where `account_id = auth.uid()`.
+
+> Keeping `accounts` and `learner_profiles` distinct — even when the buyer is the learner — is what
+> makes a future profile→login upgrade additive (CON3).
+
+---
+
+## Content & progress
+
+### `questions` *(exists — migration `0002`)*
+Keyed to in-repo lessons by `lesson_slug` = roadmap node id (ADR-001/002). Rows are world-readable,
+but **column-level grants withhold `answer` / `tolerance` / `explanation`** from `anon` and
+`authenticated`; only the service role reads them. **Unchanged by this rewrite.**
 
 ### `question_attempts`
-- `id` (PK), `user_id` (FK→profiles), `question_id` (FK→questions), `submitted`,
-  `is_correct` (nullable — null for `free`), `attempted_at`.
-- **Rules:** logged-in only (REQ-PROGRESS-001); owner reads own, parent reads dependents'
-  (NFR-SEC-001).
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `profile_id` | uuid FK → `learner_profiles` | |
+| `question_id` | uuid FK → `questions` | |
+| `is_correct` | bool | |
+| `submitted_at` | timestamptz | |
+
+Written **only when signed in**. Anonymous practice records nothing — that is what keeps lesson
+pages static (ADR-004).
 
 ### `lesson_progress`
-- `id` (PK), `user_id` (FK→profiles), `lesson_slug`, `status` (`in_progress`|`completed`),
-  `completed_at`.
-- **Rules:** unique on `(user_id, lesson_slug)` (REQ-PROGRESS-002); same read authz as attempts.
-
-### `credit_packs` (config)
-- `id` (PK), `credits` (int), `price_cents` (int), `stripe_price_id`, `active` (bool).
-- **Rules:** the purchasable tiers; base = 4 credits / $300; full tier set = D2/OQ1
-  (REQ-BILLING-003).
-
-### `credit_ledger` (append-only)
-- `id` (PK), `payer_id` (FK→profiles), `delta` (int, + for purchase/refund, − for spend),
-  `reason` (`purchase`|`spend`|`refund`), `ref` (jsonb/text — Stripe event, booking id, admin
-  note), `created_at`.
-- **Rules:** balance(payer) = Σ `delta` (REQ-CREDIT-001); append-only, never updated/deleted —
-  corrections are new rows (REQ-CREDIT-005); `payer_id` role ∈ {`parent`,`independent_student`}
-  (REQ-CREDIT-004); balance never < 0 (enforced by the spend RPC, REQ-CREDIT-003).
-
-### `availability_slots`
-- `id` (PK), `start_at`, `end_at`, `status` (`open`|`booked`|`closed`), `created_by` (admin).
-- **Rules:** 45-min slots (REQ-CREDIT-002); a slot is `booked` by at most one active Session
-  (REQ-BOOK-003); open slots world-readable, mutated by admin only.
-
-### `bookings` (a booked Session)
-- `id` (PK), `slot_id` (FK→availability_slots), `payer_id` (FK→profiles),
-  `attendee_id` (FK→profiles), `status` (`booked`|`cancelled`|`completed`),
-  `ledger_spend_ref` (FK→credit_ledger), `calendar_event_id`, `meet_url`,
-  `reminded_24h` (bool), `reminded_1h` (bool), `created_at`, `cancelled_at`.
-- **Rules:** created atomically with the `spend` row inside the booking RPC (REQ-BOOK-002);
-  if payer is a parent, `attendee_id` ∈ that parent's dependents; if independent,
-  `attendee_id = payer_id` (REQ-BOOK-004); reminder flags drive idempotent reminders
-  (REQ-NOTIFY-001).
-
-### `stripe_events` (webhook idempotency)
-- `id` (PK, = Stripe event id), `type`, `processed_at`.
-- **Rules:** unique event id makes redelivery a no-op → exactly-once credit (REQ-BILLING-002,
-  NFR-REL-001).
-
-### `admin_logs` (audit)
-- `id` (PK), `actor_id` (FK→profiles), `action`, `target`, `meta` (jsonb), `created_at`.
-- **Rules:** money/booking/admin actions are logged (NFR-OPS-002).
-
-## Relationships
-
-```
-profiles ─┐ (parent_id self-FK)                availability_slots 1──1 bookings (active)
-          ├─< question_attempts >── questions   profiles(payer) 1──< bookings
-          ├─< lesson_progress                   profiles(attendee) 1──< bookings
-          ├─< credit_ledger (payer)             credit_ledger 1──1 bookings (spend ref)
-          └─< bookings (payer / attendee)       credit_packs (config, no FK from ledger)
-questions.lesson_slug ─┐
-lesson_progress.lesson_slug ─┴─ (soft) ─ content/*.mdx frontmatter.slug   ← ADR-001 join
-```
-
-## Ownership & RLS (NFR-SEC-001)
-
-| Entity | Read | Write |
+| column | type | notes |
 |---|---|---|
-| `questions`, content | world | admin |
-| `availability_slots` (open) | world | admin |
-| `question_attempts`, `lesson_progress` | owner + owning parent + admin | owner (via app) |
-| `credit_ledger` | owner payer + admin | **RPC/webhook/admin only** |
-| `bookings` | payer + attendee + owning parent + admin | **RPC/admin only** |
-| `profiles` | self + own parent + admin | self (limited) + admin |
-| `admin_logs`, `stripe_events` | admin/system | system only |
+| `profile_id` | uuid FK | |
+| `lesson_slug` | text | roadmap node id |
+| `completed_at` | timestamptz | null until complete |
 
-## Key invariants (persisted)
+**A lesson is complete only when every one of its practice questions has been answered correctly**
+(spec/14 §16). PK `(profile_id, lesson_slug)`.
 
-- **INV-1** balance(payer) = Σ `credit_ledger.delta`, and is never negative. *(REQ-CREDIT-001/003)*
-- **INV-2** `credit_ledger` is append-only. *(REQ-CREDIT-005)*
-- **INV-3** a slot has at most one active (`booked`) booking. *(REQ-BOOK-003)*
-- **INV-4** every `booked` booking has exactly one matching `spend` ledger row. *(REQ-BOOK-002)*
-- **INV-5** dependent usable ⇔ `consent_status = granted` and `parent_id` set. *(REQ-ACCT-004)*
-- **INV-6** attendee is the payer (independent) or one of the payer's dependents (parent).
-  *(REQ-BOOK-004)*
-- **INV-7** one Stripe event credits at most once. *(REQ-BILLING-002)*
+---
 
-## Transaction boundaries (`SECURITY DEFINER` RPCs — NFR-SEC-002)
+## Money
 
-- **`book_session(slot_id, attendee_id)`** — one tx: `SELECT … FOR UPDATE` the slot; verify
-  `open` + balance ≥ 1 + attendee validity; insert `spend`(−1); set slot `booked`; insert
-  booking. All-or-nothing. *(REQ-BOOK-002, INV-1/3/4/6)*
-- **`process_purchase(stripe_event)`** — insert `stripe_events` (unique) then `purchase` ledger
-  row; if the event exists, no-op. *(REQ-BILLING-002, INV-7)*
-- **`cancel_booking(booking_id)`** — one tx: set booking `cancelled`, reopen slot; if ≥24h before
-  start, insert `refund`(+1). Idempotent. *(REQ-BOOK-005, INV-1/2)*
-- **`refund_credit(payer_id, amount, note)`** — admin: insert `refund` row + audit log.
-  *(REQ-BILLING-005)*
+### `credit_ledger`
+Append-only. **Balance = Σ`delta`** — never a stored counter.
 
-## Migration & content-integrity notes
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `account_id` | uuid FK | wallet owner |
+| `delta` | int | +N purchase/refund, −1 spend |
+| `reason` | text | `purchase` · `booking_spend` · `cancel_refund` · `noshow_return` · `admin_adjust` |
+| `booking_id` | uuid FK nullable | |
+| `created_at` | timestamptz | |
 
-- Ships as ordered Supabase migrations at implementation (fresh schema — not a v1 migration).
-- **Slug integrity (ADR-001 follow-up):** every `questions.lesson_slug` / `lesson_progress
-  .lesson_slug` must correspond to an existing MDX lesson slug; a build/CI check should flag
-  orphans, since the content tree lives outside the DB.
+**INV-MONEY-1:** balance may never go negative. Enforced inside the spend RPC under row lock, not by
+application code. **Credits never expire** — no expiry column exists, deliberately.
+
+### `purchases`
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `account_id` | uuid FK | |
+| `sku` | text | `first_session` · `credits_1` · `credits_2` · `credits_4` · `credits_8` |
+| `amount_cents` | int | |
+| `goal` | text nullable | **First Session only**: `strengths` · `test_prep` · `class_help` (ADR-005) |
+| `stripe_session_id` | text unique | |
+| `created_at` | timestamptz | |
+
+**INV-MONEY-2 (one per customer):** at most one `sku = 'first_session'` row per `account_id`.
+Enforced by a **partial unique index** plus a pre-checkout check (ADR-005) — the index is what makes
+it true under concurrency.
+
+### `stripe_events`
+| column | type | notes |
+|---|---|---|
+| `event_id` | text PK | Stripe's id |
+| `processed_at` | timestamptz | |
+
+**INV-MONEY-3:** webhook redelivery is a no-op. Insert-first on this table is the idempotency guard.
+
+---
+
+## Booking
+
+### `availability_rules` / `availability_exceptions`
+A **recurring weekly template plus exceptions** (spec/14 §12) — not a Google Calendar read.
+
+`availability_rules`: `weekday` (0–6), `start_time`, `end_time`, `active`.
+`availability_exceptions`: `date`, `kind` (`blackout` | `extra`), optional time range.
+
+Bookable slots are **derived** from rules minus blackouts plus extras, materialized in UTC.
+
+### `bookings`
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `account_id` | uuid FK | who pays |
+| `profile_id` | uuid FK | who attends |
+| `starts_at` | timestamptz | UTC; **60 minutes**, universally |
+| `status` | text | `booked` · `cancelled` · `completed` · `no_show` |
+| `purchase_id` | uuid FK nullable | set when this is the First Session |
+| `meet_url` | text nullable | **nullable on purpose** — see below |
+| `calendar_event_id` | text nullable | |
+| `created_at` | timestamptz | |
+
+**INV-BOOK-1:** a slot holds at most one non-cancelled booking. Enforced by row lock inside
+`book_session`, in the same transaction as the credit spend (CON2).
+
+**INV-BOOK-2:** `meet_url` is nullable **by design**. The Calendar event is created *after* the
+booking transaction commits, so a Google outage yields a valid booking with a missing link — never a
+lost booking (S10). Null links surface on the admin queue for repair.
+
+**Policy (spec/14 §15):** 24h minimum notice · 4-week horizon · free cancel or **reschedule** at
+24h+ (reschedule moves the slot and **does not touch the ledger**) · 15 minutes late = no-show,
+credit burns.
+
+### `credit_return_requests`
+The no-show appeal (spec/14 §15) — a request/approve flow, not a silent admin fix.
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `booking_id` | uuid FK | |
+| `account_id` | uuid FK | requester |
+| `reason` | text | |
+| `status` | text | `pending` · `approved` · `denied` |
+| `resolved_at` | timestamptz nullable | |
+
+Approving writes **exactly one** `credit_ledger` row (`reason = 'noshow_return'`) and is audited.
+
+---
+
+## Assessment (First Session)
+
+### `assessments`
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `purchase_id` | uuid FK | |
+| `profile_id` | uuid FK | |
+| `mode` | text | `strengths` · `test_prep` — **never `class_help`**, which has no assessment (ADR-005) |
+| `completed_at` | timestamptz nullable | |
+
+### `assessment_items`
+One row per asked question, recording the probe-and-descend walk.
+
+| column | type | notes |
+|---|---|---|
+| `assessment_id` | uuid FK | |
+| `question_id` | uuid FK | |
+| `node_id` | text | roadmap node probed |
+| `is_correct` | bool | |
+| `depth` | int | how far the descent went below the current course |
+
+`depth` is what makes the written plan possible: it locates the floor, which is the whole point of
+descending.
+
+---
+
+## Audit
+
+### `audit_log`
+Every money- or booking-touching action: `actor_id`, `action`, `target`, `payload` jsonb, `at`.
+Required for all admin adjustments and credit-return approvals (NFR-OPS).
+
+---
+
+## Entity map
+
+```
+accounts ─┬─< learner_profiles ─┬─< question_attempts
+          │                     ├─< lesson_progress
+          │                     └─< assessments ──< assessment_items
+          ├─< purchases  (≤1 first_session per account)
+          ├─< credit_ledger  (balance = Σ delta)
+          └─< bookings ──< credit_return_requests
+
+availability_rules + availability_exceptions ──► derived slots ──► bookings
+questions ──(lesson_slug = roadmap node id)──► content/*.mdx + roadmap.json
+```
+
+**No `entitlements` table. No `tutors` table.** Both absences are deliberate (ADR-004, ADR-003).
