@@ -25,12 +25,29 @@ is stale until rewritten against it. Headlines:
 
 `docs/` archived to `docs/archive/v1-sat/`.
 
+## Pricing + ops decided (2026-08-14) — ADR-003
+
+The second interview pass closed every open decision. See `spec/14` §11–§13 and `adr/003`.
+
+- **Prices:** course **$19.99** (one SKU) · diagnosis **$49** (tripwire) · credits
+  **1/$75 · 2/$120 · 4/$200 · 8/$350**. Closes D2/OQ1.
+- **Consequence:** content and diagnosis are both tripwires — **credit packs are the whole revenue
+  line**, so credits+booking is the critical path and the paywall is lead capture.
+- **Solo tutor** (no tutor entity) · recurring weekly availability + exceptions · **UTC stored,
+  browser-TZ displayed** · Meet link per booking via Calendar API **after commit** · **Resend**
+  email · **Google OAuth + magic link**, no passwords · no self-serve refunds (manual Stripe +
+  admin ledger adjustment) · samples via `sample: true` frontmatter · **apex domain** cutover
+  (closes OQ3).
+- **v1 ships the paywall over an empty shelf** — course content is authored *after* launch.
+
 ## Current task
 
-**M1 in progress.** Done: **TASK-CONTENT-001** (MDX pipeline + Learning Path), **TASK-PRACTICE-001**
-(questions + answer checking, anonymous). Next up: **TASK-CONTENT-002** (author the full Geometry
-slice). **Blockers to watch:** ADR-002 (auth/consent) before M2; D2 (pack tiers) before
-TASK-BILLING-001. Neither blocks M1.
+**M2 (close out the pivot) in progress.** Done: ADR-003 + spec/14 §11–13, `spec/12` rewritten,
+roadmap map committed (`9447849`). Next: **TASK-SPEC-002** — rewrite `spec/01_PRD.md` against
+spec/14, then ripple into 03/04/05/07/11/13 and rebuild the `docs/` tree.
+
+**No open blockers.** (The old "ADR-002 blocks M2" note was stale — spec/14 §4 removes child
+credentials, so the consent gate is deferred, not pending.)
 
 **Open follow-ups (do not lose):**
 1. **NFR-PERF-002 Core Web Vitals lab run** — pages are static + KaTeX-rendered server-side (no math
@@ -88,20 +105,20 @@ TASK-BILLING-001. Neither blocks M1.
 
 ## Blockers
 
-- None for M1. ADR-002 blocks M2; D2 blocks BILLING-001 seed.
+- **None.** D2 and OQ3 closed by ADR-003.
 
 ## Unresolved decisions
 
-- **Credit-pack tiers** (OQ1 / D2) — 4/$300 base set; 8/12/16 prices + discount curve TBD before billing.
-- **COPPA/consent mechanics** (CON3/OQ2) — direction = parent-consent gate; exact flow → auth ADR.
-- **Domain cutover** (OQ3) — repoint apex DNS from v1 demo to v2 when launch build is ready.
+- **COPPA/consent mechanics** (CON3/OQ2) — **deferred, not resolved.** Learner profiles carry no
+  credentials, so no consent gate is needed at launch. Returns only if profiles ever become real
+  logins — keep owner identity separate from learner identity so that upgrade stays additive.
 
 ## Next task
 
-M1: **`TASK-CONTENT-002`** (author the full "Math up to Geometry" slice — more themes/lessons +
-their questions) is the remaining M1 build task. Then apply the questions migration to remote
-(follow-up #2) and run the CWV lab (#1) before shipping M1 to the public. Follow the dependency
-order in `spec/12_IMPLEMENTATION_PLAN.md`.
+**`TASK-SPEC-002`** — rewrite `spec/01_PRD.md` against `spec/14`, then `TASK-SPEC-003` (ripple into
+03/04/05/07/11/13) and `TASK-SPEC-004` (rebuild `docs/`). Build work resumes at M3
+(CONFIG-001 → LAND-001, AUTH-001 → ACCT-001). Follow the dependency order in
+`spec/12_IMPLEMENTATION_PLAN.md`.
 
 ## Build / test status
 

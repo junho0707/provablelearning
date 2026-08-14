@@ -2,6 +2,26 @@
 
 Meaningful completed changes only (not a raw command log).
 
+## 2026-08-14 — pricing + operations decided (ADR-003)
+
+- **Every open decision closed.** Course **$19.99** (one SKU for the whole course) · Math Diagnosis
+  **$49** (deliberate tripwire) · credits **1/$75 · 2/$120 · 4/$200 · 8/$350**. Closes **D2/OQ1**.
+  Recorded in `spec/14` §11 and `adr/003-v3-product-model.md`.
+- **Consequence made explicit:** with content and diagnosis both priced as tripwires, **credit packs
+  carry essentially all revenue** — so credits+booking is the critical path and the paywall is lead
+  capture, not a revenue line.
+- **Operations decided:** solo tutor (no tutor entity) · recurring weekly availability + exceptions ·
+  slots stored **UTC**, shown in browser TZ · Meet link per booking via Calendar API, created
+  **after** the booking commits so a Google outage can't lose a booking · **Resend** transactional
+  email · **Google OAuth + magic link**, no passwords · no self-serve refunds (manual Stripe paired
+  with an admin ledger adjustment) · samples via `sample: true` frontmatter · **apex domain** cutover
+  (closes **OQ3**).
+- **v1 ships the paywall over an empty shelf** — course content is authored *after* launch, making
+  authoring pure content work with no code change.
+- **`spec/12_IMPLEMENTATION_PLAN.md` rewritten** against all of the above: M2 (close out the pivot)
+  → M3 accounts → M4 money → M5 booking → M6 admin+diagnosis → M7 launch. No open blockers.
+  CON3/OQ2 (consent) is deferred, not resolved.
+
 ## 2026-08-14 — v3 ground truth + the public roadmap map
 
 - **Ground truth re-decided** (`spec/14_GROUND_TRUTH_INTERVIEW.md`). Content becomes a **one-time

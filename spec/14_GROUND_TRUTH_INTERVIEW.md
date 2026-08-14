@@ -1,7 +1,8 @@
 # 14 — Ground Truth (v3 pivot) — DECIDED
 
-Status: **DECIDED 2026-08-14** via interview. This supersedes conflicting parts of `01_PRD.md`
-(which must be rewritten against this) and triggers **ADR-003**. Nothing here is open.
+Status: **DECIDED 2026-08-14** via interview; **pricing + operations resolved 2026-08-14** in a
+second pass (§11–§12), recorded as **ADR-003**. This supersedes conflicting parts of `01_PRD.md`
+(which must be rewritten against this). Nothing here is open.
 
 ---
 
@@ -15,8 +16,8 @@ Three products:
 | P2 | **Tutoring credits** | One-time credit-pack purchase | 1 credit = one **60-minute** 1:1 session, any reason (class quiz/test prep, SAT/ACT math, general learning) |
 | P3 | **Math Diagnosis** | **Separate SKU**, own price | Online placement assessment → one 60-min live session → **PDF report + PDF study guide** |
 
-No subscriptions anywhere (CON4 holds). Credit-pack tiers are **config-driven placeholders**
-(4/$300 base) until real prices are set before Stripe products are created.
+No subscriptions anywhere (CON4 holds). **Prices are now decided — see §11.** They remain
+config-driven in code, but they are no longer placeholders.
 
 ## 2. Access model
 
@@ -104,3 +105,76 @@ No separate authoring; they stay in sync with the content automatically.
   moves to `docs/archive/v1-sat/`; the layered doc tree is rebuilt against this document.
 - **Superseded in `01_PRD.md`:** free-content premise (§1, §4, C1), 45-min credit unit (C4),
   Parent/Dependent account shapes (C3, §2), CON6 acquisition, OQ1 framing.
+
+---
+
+## 11. Pricing — DECIDED (closes D2 / OQ1)
+
+All prices USD, one-time, no subscriptions.
+
+| SKU | Price | Notes |
+|---|---|---|
+| **Course** — "Math up to Geometry" | **$19.99** | **One SKU for the whole course.** Not split per region. |
+| **Math Diagnosis** | **$49** | Deliberate **tripwire** — near-breakeven, priced to acquire buyers. |
+| **Credits — 1** | **$75** | $75.00 / session |
+| **Credits — 2** | **$120** | $60.00 / session |
+| **Credits — 4** | **$200** | $50.00 / session |
+| **Credits — 8** | **$350** | $43.75 / session |
+
+**Consequence to hold onto:** at $19.99 and $49, content and diagnosis are *both* tripwires.
+**Essentially all revenue is credit packs.** The paywall is therefore a lead-capture and
+qualification mechanism, not a revenue line — and the credits/booking system is the most
+commercially important thing in the build. Design effort should be allocated accordingly.
+
+Prices live in one config module and are used to create the Stripe products; they are never
+duplicated in page copy.
+
+## 12. Operations — DECIDED
+
+**Tutor supply.** **Solo (the owner) at launch.** No tutor entity, no tutor logins, no per-tutor
+availability — availability is one calendar. If a second tutor is ever added this becomes a
+schema change; that is an accepted, deferred cost.
+
+**Availability.** A **recurring weekly template plus exceptions** (one-off blackouts and extra
+slots). Not Google-Calendar-derived — the calendar is written to, never read from, so a Google
+outage cannot break the booking path.
+
+**Time.** Slots stored in **UTC**, displayed in the **visitor's browser time zone**. DST is
+handled by storing absolute instants.
+
+**Meet links.** **Auto-generated per booking via the Google Calendar API** (event + unique Meet
+link, both parties invited). Created **after** the booking transaction commits, so a Google
+failure leaves a valid booking with a missing link rather than losing the booking (see
+AT-BOOK-006). Missing links surface on the admin queue for manual repair.
+
+**Email.** **Resend** for all transactional mail (booking confirmation, reminders, receipts).
+Requires domain DNS verification in the launch checklist. Supabase's built-in mailer stays
+responsible only for auth magic links.
+
+**Auth.** **Google OAuth + email magic link.** No passwords — therefore no reset flow, no password
+storage, no breach surface. One login per buyer; learner profiles beneath it (§4).
+
+**Refunds.** **No self-serve refunds.** A short published policy; refunds issued case-by-case by
+hand in the Stripe dashboard. Because credits are a ledger, a manual refund needs a matching
+**admin credit-adjustment action** so the wallet and Stripe don't drift — that action is in scope,
+the customer-facing refund flow is not.
+
+**Sample lessons.** Not hardcoded. A **`sample: true` flag in lesson frontmatter** promotes any
+lesson to the public SEO surface, so the sample set changes without a code change.
+
+**Domain.** Launch on the **apex**, cut over from the v1 SAT demo (closes OQ3). The DNS repoint is
+a launch-checklist item, not a build task.
+
+## 13. Launch scope (v1)
+
+**In:** roadmap map · landing page · auth + learner profiles · Stripe checkout · credits + booking
++ cancellation · Google Calendar/Meet · Resend email · admin reminder queue + admin surfaces ·
+**the course-purchase and paywall skeleton**.
+
+**Deferred:** authoring the course content itself. The paywall ships **fully built over a
+near-empty shelf** — lessons are authored *after* the site is live, and doing so is then pure
+content work requiring no code change. The public surface at launch is the roadmap plus the
+flagged sample lessons.
+
+**Critical path:** credits + booking. It gates the diagnosis flow (which contains a 60-min
+session) and carries essentially all revenue.
