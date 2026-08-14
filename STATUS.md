@@ -2,28 +2,30 @@
 
 Read this first when starting or resuming work. See `AGENTS.md` for the operating procedure.
 
-**Project:** Provable Learning v2 — free math courses + credit-based 1:1 tutoring.
+**Project:** Provable Learning v2 — **free** K–12 math content + credit-based 1:1 tutoring.
 **Branch:** `main` (fresh v2 app; v1 SAT platform frozen on `v1-sat`).
-**Phase:** Implementation — **M0 scaffold COMPLETE**. Starting **M1 (content — the free
-product)**. Spec `spec/00`–`13` drafted, ADR-001 accepted.
+**Phase:** M2 paper work complete; **build resumes at M3**. Ground truth settled, specs rewritten,
+ADR-001..005 accepted.
 
-## v3 pivot (2026-08-14) — READ FIRST
+## READ FIRST — the model as of 2026-08-14
 
-The product model changed. **`spec/14_GROUND_TRUTH_INTERVIEW.md` is the ground truth**; `spec/01_PRD.md`
-is stale until rewritten against it. Headlines:
+**`spec/14_GROUND_TRUTH_INTERVIEW.md` is the ground truth**, as amended by **ADR-003/004/005**. The
+whole spec set (`01`–`13`) has been rewritten against it and is current.
 
-- Content is **paid** (one-time purchase per course), not free. Public = the **roadmap** + **3–5
-  sample lessons** only. That retires CON6's "free content is the funnel".
-- Three products: course purchase · tutoring credits (**60-min** sessions, was 45) · **Math
-  Diagnosis** (separate SKU: assessment → 1hr session → PDF report + study guide).
-- Accounts: one login per buyer, **learner profiles** under it (no child credentials → no consent
-  gate at launch).
-- Credits never expire; 24h free cancel; Google Meet per booking; **email only** from the system,
-  SMS sent manually off an **admin reminder-queue page**.
-- Build order: **roadmap visual → landing → auth/profiles → course purchase → credits/booking →
-  diagnosis**.
+- **Content is FREE and public** — every lesson, no account, statically rendered. There is **no
+  paywall and no course SKU** (ADR-004). Free content *is* the funnel (CON6).
+- **Two products:** the **$49 First Session** (one per customer — ADR-005) and **credit packs**
+  (1/$75 · 2/$120 · 4/$200 · 8/$350, 60-min sessions, never expire).
+- **Credit packs carry essentially all revenue.** Credits + booking is the critical path.
+- **Accounts:** one buyer login (Google OAuth / magic link, no passwords) with **learner profiles**
+  beneath it — no child credentials, so **no consent gate**.
+- **Solo tutor**, no tutor entity. 24h notice, 4-week horizon, free cancel/reschedule at 24h+, Meet
+  link per booking created **after commit**, Resend email only, SMS a **manual worklist**.
+- **Build order:** landing + accounts → money → progress + booking → admin + First Session → launch
+  → author content (which gates nothing).
 
-`docs/` archived to `docs/archive/v1-sat/`.
+The three sections below record how the model got here; the details above supersede them where they
+differ. `docs/` archived to `docs/archive/v1-sat/`.
 
 ## Pricing + ops decided (2026-08-14) — ADR-003
 
