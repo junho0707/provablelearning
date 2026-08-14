@@ -3,14 +3,19 @@
 Provable Learning **v2** is built spec-first. `/spec` is the source of truth; code is
 downstream. Read this before doing any work.
 
+**Ground truth is `spec/14_GROUND_TRUTH_INTERVIEW.md`, as amended by ADR-003/004/005.** The rest of
+`spec/` was rewritten against it on 2026-08-14 and is current.
+
 ## Start of every work session
 
 1. Read this file.
-2. Read `STATUS.md` — it holds the current position, blockers, and next task.
-3. Read the current task in `spec/12_IMPLEMENTATION_PLAN.md`.
-4. Read every `REQ-*`, `FLOW-*`, contract, `AT-*`, and design section that task references.
-5. Inspect the existing code before proposing changes.
-6. Identify inconsistencies or missing information **before** implementing.
+2. Read `HANDOFF.md` — decision history, deliberate absences, and traps. Read it before touching
+   anything; several things that look like gaps are decisions.
+3. Read `STATUS.md` — it holds the current position, blockers, and next task.
+4. Read the current task in `spec/12_IMPLEMENTATION_PLAN.md`.
+5. Read every `REQ-*`, `FLOW-*`, contract, `AT-*`, and design section that task references.
+6. Inspect the existing code before proposing changes.
+7. Identify inconsistencies or missing information **before** implementing.
 
 ## While implementing
 
