@@ -2,6 +2,26 @@
 
 Meaningful completed changes only (not a raw command log).
 
+## 2026-08-14 — content is free; the paywall is cut (ADR-004)
+
+- **The $19.99 course SKU is withdrawn.** All course content is free and public; two products remain
+  (tutoring credits, $49 Math Diagnosis). Amends ADR-003 hours after it was accepted, before
+  anything was built against it.
+- **Why:** a paid course creates a **delivery obligation** — selling "Math up to Geometry" with most
+  of the arc unauthored is under-delivery, which silently reinstated the constraint the empty-shelf
+  plan existed to escape. And gating capped the indexable surface at 3–5 sample lessons while cold
+  organic search *is* the acquisition channel. At $19.99 the forgone revenue is immaterial next to
+  credit packs.
+- **Lead capture moves to "sign in to save your progress"** (`TASK-PROGRESS-001`) — captures the
+  email without hiding anything from crawlers.
+- **Cut from scope:** entitlements table, gating, buy prompts, the course Stripe product, and the
+  `sample: true` flag. Lesson pages stay **fully static**, preserving the SSG/KaTeX/CWV design.
+- **CON6 is effectively restored** (free content is the funnel) — but with the whole catalog
+  indexable rather than a handful of samples, and the roadmap skill tree as the differentiator.
+- Authoring now **gates nothing**: a partial free catalog is honest, and every lesson added is new
+  SEO surface. Trade-offs recorded in `adr/004-free-content.md`, including the one-way-door risk of
+  charging later and the reliance on diagnosis → credit-pack conversion.
+
 ## 2026-08-14 — pricing + operations decided (ADR-003)
 
 - **Every open decision closed.** Course **$19.99** (one SKU for the whole course) · Math Diagnosis

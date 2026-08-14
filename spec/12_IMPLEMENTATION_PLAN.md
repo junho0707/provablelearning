@@ -1,6 +1,6 @@
 # 12 — Implementation Plan
 
-Status: **REWRITTEN 2026-08-14** against `spec/14_GROUND_TRUTH_INTERVIEW.md` + ADR-003. Small,
+Status: **REWRITTEN 2026-08-14** against `spec/14_GROUND_TRUTH_INTERVIEW.md` + ADR-003 + ADR-004. Small,
 ordered tasks. Each cites what it satisfies, its dependencies, expected files, and a definition of
 done (DoD). A task is **ready** only when everything it references exists; **done** per AGENTS.md
 (impl + tests passing + acceptance behavior + contracts + coverage matrix + STATUS).
@@ -8,9 +8,9 @@ done (DoD). A task is **ready** only when everything it references exists; **don
 Global DoD addendum for every task: relevant unit/integration tests pass; referenced `AT-*` behavior
 holds; `13_COVERAGE_MATRIX.md` and `STATUS.md` updated.
 
-> **Read first:** the launch scope is in spec/14 §13. v1 ships the **paywall over an empty shelf** —
-> course content is authored *after* launch. The **critical path is credits + booking** (spec/14
-> §11): it gates diagnosis and carries essentially all revenue.
+> **Read first:** the launch scope is in spec/14 §13. **Course content is free** (ADR-004) — there
+> is no paywall, lesson pages stay fully static, and authoring gates nothing. The **critical path is
+> credits + booking** (spec/14 §11): it gates diagnosis and carries essentially all revenue.
 
 ---
 
@@ -29,23 +29,27 @@ holds; `13_COVERAGE_MATRIX.md` and `STATUS.md` updated.
 ## M2 — Paper: close out the pivot — **IN PROGRESS**
 
 - **TASK-SPEC-001 — ADR-003 + pricing/ops in spec/14.** Done 2026-08-14.
-- **TASK-SPEC-002 — Rewrite `01_PRD.md`** against spec/14. Supersede: free-content premise (§1, §4,
-  C1), 45-min unit (C4), Parent/Dependent shapes (C3, §2), CON6, OQ1. DoD: no statement in the PRD
-  contradicts spec/14.
-- **TASK-SPEC-003 — Ripple the rewrite.** Update `03_REQUIREMENTS` (new REQ ids for entitlements,
-  profiles, diagnosis), `04_ACTORS` (Buyer / Learner Profile / Admin-Tutor), `05_FLOWS` (purchase,
-  paywall, booking, diagnosis), `07_DATA_MODEL`, `11_ACCEPTANCE_TESTS`, `13_COVERAGE_MATRIX`. Deps:
+- **TASK-SPEC-002 — Rewrite `01_PRD.md`** against spec/14. Supersede: 45-min unit (C4),
+  Parent/Dependent shapes (C3, §2), OQ1. **Note CON6 (free content is the funnel) is restored by
+  ADR-004** — the PRD's free-content premise is correct again; what changed is that the funnel now
+  leads to diagnosis and credits, not a course sale. DoD: no statement in the PRD contradicts
+  spec/14.
+- **TASK-SPEC-003 — Ripple the rewrite.** Update `03_REQUIREMENTS` (new REQ ids for profiles,
+  progress, diagnosis), `04_ACTORS` (Buyer / Learner Profile / Admin-Tutor), `05_FLOWS` (purchase,
+  booking, diagnosis), `07_DATA_MODEL`, `11_ACCEPTANCE_TESTS`, `13_COVERAGE_MATRIX`. Deps:
   SPEC-002. DoD: coverage matrix has no dangling refs.
 - **TASK-SPEC-004 — Rebuild the layered doc tree** from spec/14 (`docs/` currently holds only the
   v1 archive). Deps: SPEC-003.
 
 ## M3 — Landing + accounts
 
-- **TASK-LAND-001 — Landing page.** Hero + three offers; **primary CTA "Book a Math Diagnosis"**,
+- **TASK-LAND-001 — Landing page.** Hero + two paid offers (diagnosis, credits) alongside the free
+  content; **primary CTA "Book a Math Diagnosis"**,
   secondary "explore the roadmap". Prices read from the pricing config, never retyped in copy. Deps:
   ROADMAP-001, CONFIG-001. Files: `src/app/page.tsx`. DoD: both CTAs land correctly; prices match
   config; Lighthouse clean.
-- **TASK-CONFIG-001 — Pricing config module.** Single source for the six prices (spec/14 §11) +
+- **TASK-CONFIG-001 — Pricing config module.** Single source for the five prices — four credit
+  packs + diagnosis (spec/14 §11, as amended by ADR-004) — plus
   Stripe price-id mapping. Deps: none. Files: `src/lib/pricing.ts`. DoD: one test asserts config
   matches spec/14 §11 exactly, so a silent price drift fails CI.
 - **TASK-AUTH-001 — Google OAuth + magic link.** No passwords, no reset flow. Deps: PROJECT-002.
@@ -63,19 +67,24 @@ holds; `13_COVERAGE_MATRIX.md` and `STATUS.md` updated.
   `credit_packs` seeded from CONFIG-001, and a `SECURITY DEFINER` spend path enforcing a
   non-negative balance. **Credits never expire.** Deps: ACCT-001, CONFIG-001. DoD: balance correct;
   direct client writes denied; negative balance impossible under concurrent spend.
-- **TASK-BILLING-001 — Stripe checkout + idempotent webhook.** `createCheckout` for all three SKU
-  families; `/api/webhooks/stripe` with signature verification, `process_purchase`, and a
+- **TASK-BILLING-001 — Stripe checkout + idempotent webhook.** `createCheckout` for both SKU
+  families (credit packs, diagnosis); `/api/webhooks/stripe` with signature verification, `process_purchase`, and a
   `stripe_events` table so redelivery is a no-op. Deps: CREDIT-001. DoD: purchase credits the
-  ledger / grants entitlement exactly once under redelivery.
+  ledger exactly once under redelivery. Two SKU families only — credits and diagnosis (ADR-004).
 - **TASK-BILLING-002 — Wallet UI.** Balance, purchase entry points, order history. Deps:
   BILLING-001. DoD: buyer sees balance and can start any purchase.
-- **TASK-ENTITLE-001 — Course entitlement + paywall skeleton.** `entitlements` keyed to **roadmap
-  node ids** (one SKU now, splittable later without migration — ADR-003). Lesson pages gate on it;
-  `sample: true` frontmatter keeps flagged lessons public and indexable. Deps: BILLING-001,
-  ACCT-001. DoD: unpurchased lesson shows a buy prompt, purchased renders, **sample lessons render
-  for anonymous visitors and stay in the sitemap**.
+- ~~TASK-ENTITLE-001 — Course entitlement + paywall skeleton.~~ **REMOVED by ADR-004** — content is
+  free, so there is no entitlement table, no gating, no buy prompts, and no course Stripe product.
+  Lesson pages stay **fully static**. Replaced by TASK-PROGRESS-001 in M5.
 
-## M5 — Booking
+## M5 — Progress + booking
+
+- **TASK-PROGRESS-001 — Saved progress ("sign in to save your progress").** `question_attempts` +
+  `lesson_progress` per **learner profile**; recorded on submit when signed in, ignored when
+  anonymous so lesson pages stay static and anonymous practice keeps working. This is the **lead
+  capture that replaced the paywall** (ADR-004). Deps: ACCT-001, PRACTICE-001. DoD: progress
+  persists across sessions and profile switches; RLS denies cross-account reads; **an anonymous
+  visitor can still read every lesson and answer every question**.
 
 - **TASK-AVAIL-001 — Recurring availability + exceptions.** Weekly template plus one-off blackouts
   and extra slots; slots materialized in **UTC**. No tutor dimension (solo — ADR-003). Deps:
@@ -123,9 +132,11 @@ holds; `13_COVERAGE_MATRIX.md` and `STATUS.md` updated.
   Resend domain DNS verification; **apex DNS cutover from the v1 SAT demo** (closes OQ3); backups
   and audit logging confirmed. DoD: every box ticked; money paths tested end-to-end with real cards.
 - **TASK-WORKSHEET-001 — Printable worksheets.** Generated from each lesson's question bank, so they
-  stay in sync automatically. No separate authoring. Deps: ENTITLE-001. *(May ship post-launch.)*
+  stay in sync automatically. No separate authoring, and free like the rest of the content. Deps:
+  CONTENT-001. *(May ship post-launch.)*
 - **TASK-CONTENT-002 — Author "Math up to Geometry".** The long pole, deliberately **after** launch
-  (ADR-003). Pure content work — write `content/<node-id>.mdx` + seed questions; the paywall and
+  and gating nothing (ADR-004) — a partial free catalog is honest, and every lesson added is new
+  indexable SEO surface. Pure content work: write `content/<node-id>.mdx` + seed questions; the
   pages already exist. Runs continuously.
 
 ---
@@ -136,8 +147,9 @@ holds; `13_COVERAGE_MATRIX.md` and `STATUS.md` updated.
 M2:  SPEC-002 → SPEC-003 → SPEC-004                    (paper; parallel to M3)
 M3:  CONFIG-001 → LAND-001
      AUTH-001 → ACCT-001
-M4:  {ACCT-001, CONFIG-001} → CREDIT-001 → BILLING-001 → {BILLING-002, ENTITLE-001}
-M5:  ACCT-001 → AVAIL-001 → BOOK-001 → {BOOK-002, BOOK-003, BOOK-004, NOTIFY-001}
+M4:  {ACCT-001, CONFIG-001} → CREDIT-001 → BILLING-001 → BILLING-002
+M5:  {ACCT-001, PRACTICE-001} → PROGRESS-001
+     ACCT-001 → AVAIL-001 → BOOK-001 → {BOOK-002, BOOK-003, BOOK-004, NOTIFY-001}
      BOOK-001 also needs CREDIT-001
 M6:  {BOOK-001, CREDIT-001} → {ADMIN-001, ADMIN-002}
      {BILLING-001, BOOK-001, PRACTICE-001} → DIAG-001 → DIAG-002

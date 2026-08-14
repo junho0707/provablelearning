@@ -29,16 +29,32 @@ is stale until rewritten against it. Headlines:
 
 The second interview pass closed every open decision. See `spec/14` §11–§13 and `adr/003`.
 
-- **Prices:** course **$19.99** (one SKU) · diagnosis **$49** (tripwire) · credits
-  **1/$75 · 2/$120 · 4/$200 · 8/$350**. Closes D2/OQ1.
-- **Consequence:** content and diagnosis are both tripwires — **credit packs are the whole revenue
-  line**, so credits+booking is the critical path and the paywall is lead capture.
+- **Prices:** diagnosis **$49** (tripwire) · credits **1/$75 · 2/$120 · 4/$200 · 8/$350**. Closes
+  D2/OQ1. *(The $19.99 course SKU was withdrawn hours later by ADR-004 — see below.)*
+- **Consequence:** **credit packs are the whole revenue line**, so credits+booking is the critical
+  path.
 - **Solo tutor** (no tutor entity) · recurring weekly availability + exceptions · **UTC stored,
   browser-TZ displayed** · Meet link per booking via Calendar API **after commit** · **Resend**
   email · **Google OAuth + magic link**, no passwords · no self-serve refunds (manual Stripe +
   admin ledger adjustment) · samples via `sample: true` frontmatter · **apex domain** cutover
   (closes OQ3).
-- **v1 ships the paywall over an empty shelf** — course content is authored *after* launch.
+
+## Content is FREE (2026-08-14) — ADR-004, amends ADR-003
+
+**There is no paywall.** The $19.99 course SKU is withdrawn; two products remain (credits +
+diagnosis). Reasons: a paid SKU creates a delivery obligation that a partly-authored course can't
+meet, and gating shrinks the SEO surface to a handful of samples when cold organic search *is* the
+acquisition channel.
+
+- **Every lesson is public and fully static** — max indexable surface, CWV preserved, and the
+  catalog grows with every lesson authored.
+- **Lead capture = "sign in to save your progress"** (`TASK-PROGRESS-001`), not a paywall.
+- **Dropped from scope:** entitlements table, gating, buy prompts, the course Stripe product, and
+  the `sample: true` frontmatter flag.
+- **Authoring now gates nothing** — a partial free catalog is honest; unbuilt nodes read
+  "coming soon".
+- **Number to instrument first after launch:** diagnosis → credit-pack conversion. Revenue has no
+  second leg if it's weak.
 
 ## Current task
 

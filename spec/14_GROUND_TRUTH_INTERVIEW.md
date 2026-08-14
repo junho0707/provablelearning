@@ -8,11 +8,12 @@ second pass (§11–§12), recorded as **ADR-003**. This supersedes conflicting 
 
 ## 1. What the business sells
 
-Three products:
+> **AMENDED 2026-08-14 by ADR-004.** Course content is **no longer sold** — it is free. What was
+> P1 is now the funnel, not a product. Two products remain.
 
 | # | Product | Billing | Contains |
 |---|---|---|---|
-| P1 | **Course content** (e.g. "Math up to Geometry") | **One-time purchase per course**, own it forever | All lesson explanations, worked examples, practice questions, solutions, generated worksheets |
+| ~~P1~~ | ~~Course content~~ | **Free — not sold** (ADR-004) | All lessons, examples, practice questions, solutions, worksheets — public to everyone |
 | P2 | **Tutoring credits** | One-time credit-pack purchase | 1 credit = one **60-minute** 1:1 session, any reason (class quiz/test prep, SAT/ACT math, general learning) |
 | P3 | **Math Diagnosis** | **Separate SKU**, own price | Online placement assessment → one 60-min live session → **PDF report + PDF study guide** |
 
@@ -21,14 +22,18 @@ config-driven in code, but they are no longer placeholders.
 
 ## 2. Access model
 
-Public (no account):
+> **AMENDED 2026-08-14 by ADR-004.** There is no paywall on content.
+
+Public (no account) — **all of it**:
 - The **full roadmap** — the whole arc Elementary → Algebra → Geometry → Pre-Calc → Calculus, with
   unbuilt regions rendered as **locked / coming soon**.
-- **3–5 hand-picked sample lessons**, fully readable. These plus the roadmap page are the entire
-  indexable SEO surface.
+- **Every authored lesson**: explanation, examples, practice questions, solutions, worksheets. All
+  statically rendered and indexable. The SEO surface is the whole catalog and grows with every
+  lesson authored.
 
-Paid (course purchase):
-- Every other lesson: explanation, examples, practice questions, solutions, worksheets.
+Signed in (free account):
+- **Saved progress** per learner profile. This is the lead-capture mechanism that replaced the
+  paywall — it costs the visitor nothing and does not hide anything from crawlers.
 
 Paid (diagnosis SKU):
 - The PDF report + study guide. The guide may draw on course content **and go beyond it** —
@@ -36,10 +41,13 @@ Paid (diagnosis SKU):
 
 ## 3. Acquisition
 
-No longer "cold organic search on free content" (CON6 is retired in its old form). Three channels,
-all in play: **SEO on the roadmap page + sample lessons**, **paid ads to the Diagnosis offer**, and
-**social content** (short-form explainers). Landing-page primary CTA: **Book a Math Diagnosis**;
-secondary: explore the roadmap.
+> **AMENDED 2026-08-14 by ADR-004.** With content free again, **CON6 is effectively restored** —
+> free content *is* the funnel — but now with a much larger indexable surface than the original
+> plan, and paired with the roadmap as the differentiator.
+
+Three channels, all in play: **SEO on the roadmap page + the entire free lesson catalog**, **paid
+ads to the Diagnosis offer**, and **social content** (short-form explainers). Landing-page primary
+CTA: **Book a Math Diagnosis**; secondary: explore the roadmap.
 
 ## 4. Accounts
 
@@ -114,17 +122,17 @@ All prices USD, one-time, no subscriptions.
 
 | SKU | Price | Notes |
 |---|---|---|
-| **Course** — "Math up to Geometry" | **$19.99** | **One SKU for the whole course.** Not split per region. |
+| ~~Course — "Math up to Geometry"~~ | ~~$19.99~~ → **free** | **Withdrawn by ADR-004.** Content is not sold. |
 | **Math Diagnosis** | **$49** | Deliberate **tripwire** — near-breakeven, priced to acquire buyers. |
 | **Credits — 1** | **$75** | $75.00 / session |
 | **Credits — 2** | **$120** | $60.00 / session |
 | **Credits — 4** | **$200** | $50.00 / session |
 | **Credits — 8** | **$350** | $43.75 / session |
 
-**Consequence to hold onto:** at $19.99 and $49, content and diagnosis are *both* tripwires.
-**Essentially all revenue is credit packs.** The paywall is therefore a lead-capture and
-qualification mechanism, not a revenue line — and the credits/booking system is the most
-commercially important thing in the build. Design effort should be allocated accordingly.
+**Consequence to hold onto:** with content free and diagnosis a $49 tripwire, **essentially all
+revenue is credit packs.** The credits/booking system is the most commercially important thing in
+the build; design effort should be allocated accordingly. Free content is the top of the funnel,
+diagnosis is the qualifying offer, credits are the business.
 
 Prices live in one config module and are used to create the Stripe products; they are never
 duplicated in page copy.
@@ -159,22 +167,24 @@ hand in the Stripe dashboard. Because credits are a ledger, a manual refund need
 **admin credit-adjustment action** so the wallet and Stripe don't drift — that action is in scope,
 the customer-facing refund flow is not.
 
-**Sample lessons.** Not hardcoded. A **`sample: true` flag in lesson frontmatter** promotes any
-lesson to the public SEO surface, so the sample set changes without a code change.
+**Sample lessons.** ~~A `sample: true` frontmatter flag.~~ **Dropped by ADR-004** — every lesson is
+public, so there is nothing to flag.
 
 **Domain.** Launch on the **apex**, cut over from the v1 SAT demo (closes OQ3). The DNS repoint is
 a launch-checklist item, not a build task.
 
 ## 13. Launch scope (v1)
 
-**In:** roadmap map · landing page · auth + learner profiles · Stripe checkout · credits + booking
-+ cancellation · Google Calendar/Meet · Resend email · admin reminder queue + admin surfaces ·
-**the course-purchase and paywall skeleton**.
+> **AMENDED 2026-08-14 by ADR-004** — the paywall skeleton is out; saved progress is in.
 
-**Deferred:** authoring the course content itself. The paywall ships **fully built over a
-near-empty shelf** — lessons are authored *after* the site is live, and doing so is then pure
-content work requiring no code change. The public surface at launch is the roadmap plus the
-flagged sample lessons.
+**In:** roadmap map · landing page · auth + learner profiles · **saved progress** · Stripe checkout
+(diagnosis + credit packs) · credits + booking + cancellation · Google Calendar/Meet · Resend email
+· admin reminder queue + admin surfaces.
+
+**Deferred:** authoring the course content itself — but this **no longer gates anything**. Because
+content is free, a partly-authored catalog is honest rather than an under-delivery: unbuilt nodes
+simply read "coming soon" on the roadmap. Every lesson authored after launch adds indexable SEO
+surface. The public surface at launch is the roadmap plus whatever lessons exist.
 
 **Critical path:** credits + booking. It gates the diagnosis flow (which contains a 60-min
 session) and carries essentially all revenue.
