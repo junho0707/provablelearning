@@ -15,7 +15,7 @@ second pass (§11–§12), recorded as **ADR-003**. This supersedes conflicting 
 |---|---|---|---|
 | ~~P1~~ | ~~Course content~~ | **Free — not sold** (ADR-004) | All lessons, examples, practice questions, solutions, worksheets — public to everyone |
 | P2 | **Tutoring credits** | One-time credit-pack purchase | 1 credit = one **60-minute** 1:1 session, any reason (class quiz/test prep, SAT/ACT math, general learning) |
-| P3 | **Math Diagnosis** | **Separate SKU**, own price | Online placement assessment → one 60-min live session → **PDF report + PDF study guide** |
+| P3 | **First Session** *(was "Math Diagnosis" — renamed by ADR-005)* | **Separate SKU**, $49, **one per customer** | A discounted first 60-min session shaped to the buyer's stated goal, plus a written plan. A pre-session assessment is included **only in some modes** — see §6. |
 
 No subscriptions anywhere (CON4 holds). **Prices are now decided — see §11.** They remain
 config-driven in code, but they are no longer placeholders.
@@ -71,13 +71,41 @@ CTA: **Book a Math Diagnosis**; secondary: explore the roadmap.
   message to send, the recipient's number, and the time remaining ("send this to X in 3h 20m").
   The operator sends texts personally; the page is a worklist, not an integration.
 
-## 6. Diagnosis flow
+## 6. First Session flow
 
-1. Purchase the Diagnosis SKU.
-2. **Online placement assessment** — built on the **existing practice-question engine**, with
-   questions **tagged to roadmap nodes**, so results identify weak nodes directly.
-3. **One 60-minute live session** where the operator confirms and plans.
-4. **PDF report + PDF study guide** delivered (turnaround commitment TBD in copy, not code).
+> **AMENDED 2026-08-14 by ADR-005.** Was "Diagnosis flow". The product is now a **discounted first
+> session** ($49 vs the $75 single credit, **one per customer, enforced**) that adapts to the
+> buyer's stated goal. Diagnosis is one *mode* of it, not the whole product.
+
+1. Purchase the **First Session** SKU and **state a goal**. The goal selects the mode.
+2. **Pre-session assessment — conditional on mode:**
+
+   | Mode | Pre-session assessment |
+   |---|---|
+   | **Strengths & weaknesses** | Student picks the math class they are taking **now**; questions are drawn from roadmap nodes **at or below** it (the node's transitive prerequisite closure). |
+   | **Test prep** (SAT / ACT) | A **dedicated practice test authored per test**. Not generated from the roadmap. |
+   | **Taking a class / year ahead** | **None.** A pre-test is useless here — go straight to the session. |
+
+3. **One 60-minute live session.**
+4. **Written plan delivered within 48 hours** of the session (a copy commitment, not enforced in code).
+
+**Assessment algorithm (strengths & weaknesses mode) — "probe and descend".** Sparse at the bottom,
+dense near the student's current level, so a strong student is not made to answer forty easy
+questions:
+
+- One **probe** question per major node in the prerequisite closure, foundational nodes first.
+- Probe **correct** → treat that subtree as solid; do not drill into it.
+- Probe **wrong** → **descend** into that node's own prerequisites to locate the true floor.
+- **2–3 questions per node** at or near the current class, where the useful signal lives.
+- **Hard cap ≈ 25 questions** so a session never runs long.
+
+Built on the **existing practice-question engine**; questions are already tagged to roadmap nodes by
+`lesson_slug` (ADR-001/002), and `src/lib/content/layout.ts` already computes transitive
+prerequisite chains, so the node-selection traversal is largely in place.
+
+**Schema consequence:** `roadmap/roadmap.json` needs **selectable course-level nodes** (e.g.
+"Algebra 1", "Geometry") so a student can identify the class they are currently taking. Regions and
+concepts exist today; an explicit course marker does not.
 
 ## 7. Roadmap visual
 
@@ -188,3 +216,77 @@ surface. The public surface at launch is the roadmap plus whatever lessons exist
 
 **Critical path:** credits + booking. It gates the diagnosis flow (which contains a 60-min
 session) and carries essentially all revenue.
+
+---
+
+## 14. Market, audience, brand — DECIDED
+
+- **Audience: K–12, the full arc.** Elementary through Calculus. Buyer is usually the parent;
+  learner is usually the child — but **independent students** (buyer and learner are the same
+  person) are a supported case, not an edge case.
+- **Market: US only.** USD, US tax/Stripe setup, availability in the operator's own hours.
+- **Brand: Provable Learning.**
+- **Roadmap scope at launch: the full arc**, Elementary → Calculus, unbuilt regions marked
+  "coming soon".
+
+  **Known risk, accepted:** with ~20 lessons authored against a K–12 arc, the launch map reads
+  roughly 5% built. A near-empty map can look like vaporware. **Mitigation is framing, not scope** —
+  present growth as a feature ("new lessons weekly"), and make authored regions visually prominent
+  rather than lost in a field of locked nodes.
+
+### Landing hero (approved copy)
+
+```
+Provable Learning
+
+Math help, whatever you need it for.
+
+Your first session is $49 — normally $75.
+Tell us what you're after and we'll shape the hour around it:
+
+  • Taking a class, or prepping for the SAT/ACT?
+      → a short assessment, then a written plan to follow
+
+  • Not sure where the gaps are?
+      → a full read on your strengths and weaknesses
+
+  • Getting ahead, or starting a new school year?
+      → where you stand now, and what to learn next
+
+[ Book your first session — $49 ]      Explore the roadmap →
+```
+
+**Copy rule:** frame everything as **strengths and next steps**, never as deficits. "Diagnosis",
+"behind", "struggling", and "what's wrong" language is excluded — it makes parents defensive and
+makes teenagers refuse the assessment, and it wrongly excludes the accelerating and test-prep
+buyers who are half the market.
+
+## 15. Booking operations — DECIDED
+
+- **Minimum notice: 24 hours.** Same number as the cancellation rule, so one policy governs both.
+- **Booking horizon: 4 weeks** ahead.
+- **Rescheduling: free when ≥24h ahead, and the credit is untouched** — the booking moves to another
+  open slot without a ledger round trip. Distinct from cancellation.
+- **No-show: 15 minutes late counts as a no-show and burns the credit** — but the parent or
+  independent student can **submit a request to have the credit returned**, which lands in the admin
+  queue for approval. A request/approve flow, not a silent admin fix.
+
+## 16. Accounts & progress — DECIDED
+
+- **Learner profile fields: name, grade, current math class.** Nothing collected that isn't used —
+  grade and current class drive assessment targeting and the roadmap's "you are here".
+- **Lesson completion = all practice questions answered correctly.** Completion means demonstrated
+  understanding, so the progress view is worth looking at. Accepted trade-off: a hard lesson can
+  stall a learner at "incomplete".
+
+## 17. Legal & measurement — DECIDED
+
+- **Business entity and Stripe account already exist.** Remaining paperwork is content, not a
+  blocker: **Terms of Service, Privacy Policy, and a refund policy** page, written and linked.
+- **Analytics: Vercel Analytics + the Stripe dashboard.** Near-zero setup, privacy-friendly, no
+  cookie banner.
+
+  **Known limitation, accepted:** this gives traffic and revenue but **cannot report the First
+  Session → credit-pack conversion rate**, which §11 identifies as the single number the model rests
+  on. Upgrade path is PostHog (proper funnels) whenever that number is needed. Until then it must be
+  reconstructed by hand from Stripe.
