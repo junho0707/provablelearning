@@ -15,19 +15,19 @@ The reconciliation plan is [`system/08-BUILD-PLAN.md`](system/08-BUILD-PLAN.md),
 | **R1** — identity and consent | ✅ done |
 | **R2** — money | ✅ done |
 | **R3** — booking | ✅ done |
-| **R4** — session work (pre/post-session) | ⬜ **next, and the largest stage** |
-| **R5** — cancellation and credit-return cap | ⬜ |
-| **R6** — messaging | ⬜ |
+| **R4** — session work (pre/post-session) | ✅ done |
+| **R5** — cancellation and credit-return cap | ✅ done |
+| **R6** — messaging | ⬜ **next** |
 | **R7** — diagnostics skeleton | ⬜ |
 | **R8** — launch | ⬜ (mostly not code) |
 
-**259 tests passing, `next build` clean, `tsc --noEmit` clean.**
+**305 tests passing, `next build` clean, `tsc --noEmit` clean.**
 
 **Nothing has been live-verified.** This environment has no Docker and no real Stripe/Google/Resend
-credentials, and **migrations 0017–0019 have not been applied to any database.** Every `[db]` and
+credentials, and **migrations 0017–0021 have not been applied to any database.** Every `[db]` and
 `[live]` check in [`system/07-VERIFY.md`](system/07-VERIFY.md) is genuinely unproven.
 
-## What R0–R3 changed
+## What R0–R5 changed
 
 - **R0** — `src/lib/policy.ts` holds every policy number, with a drift test that reads
   `system/02-POLICIES.md` and fails CI if the two disagree. Content is unrouted (`/courses`,
@@ -44,10 +44,18 @@ credentials, and **migrations 0017–0019 have not been applied to any database.
 - **R3** — migration `0019`: bookings carry purpose/sub-purpose/specifics/topic-mode. 6-hour notice
   and free cancellation, 1-hour floor for slots freed by a cancellation (`released_slots`),
   Monday-stepped horizon. `/book` is the booking form; `/sessions` is the list.
+- **R4** — migration `0020`: the product itself. `pre_session_submissions`, `session_uploads`,
+  `post_session_materials`, `material_progress`, and a `student_sessions` **view** so a student can
+  see their sessions without the `bookings` table ever being readable by them. Pre-session branching
+  is a pure module (`sessions/pre-session-shape.ts`). Practice answers keep the column-grant secrecy
+  of migration 0002. `/student/prepare/[id]`, `/student/materials/[id]`, the real `/student` home,
+  the tutor's authoring form on `/admin/bookings/[id]`, and `/admin/materials`.
+- **R5** — migration `0021`: credit returns capped at 2 per calendar month, per student, combined,
+  enforced in the database at both request and approval. Allowance surfaced to buyer and operator.
 
 ## Next task
 
-**R4 — session work.** See the handoff below for the full brief.
+**R6 — messaging** (small), then **R7 — the diagnostics skeleton**. See the handoff for both.
 
 Read [`HANDOFF.md`](HANDOFF.md) before starting. It carries what this file cannot: why the
-decisions are what they are, the traps, and the specific shape R4 should take.
+decisions are what they are, the traps, and the specific shape the remaining stages should take.

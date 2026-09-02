@@ -1,6 +1,6 @@
 # HANDOFF — Provable Learning
 
-Written 2026-09-02, at the R3/R4 boundary. Read `STATUS.md` for position and
+Written 2026-09-02, at the R5/R6 boundary. Read `STATUS.md` for position and
 [`system/README.md`](system/README.md) for the product. This file carries what neither can: **why**
 the code is shaped as it is, what will bite you, and exactly what to do next.
 
@@ -20,46 +20,44 @@ Then `system/08-BUILD-PLAN.md` for the stage you are on.
 student logins, 24-hour policy, one First Session per customer). Do not update them, and do not
 reason from them — several of their statements are now the exact opposite of the truth.
 
-## 2. Your next task: R4 — session work
+## 2. Your next task
 
-This is the largest remaining stage and **it is the actual product**. Everything before it was
-plumbing so that this could exist.
+**R0–R5 are done.** What remains is R6 (small), R7 (a skeleton), and R8 (mostly not code).
 
-### What to build
+### R6 — messaging
 
-**Migration `0020_session_work.sql`:**
+The smallest remaining stage. `messages`: one thread per buyer, rows carrying sender
+(`buyer` | `tutor`), body, and read state. RLS restricts a thread to its buyer and the admin.
+**Students have no access at all** (`INV-ACTOR-1`) — do not add a student policy, and do not add a
+messaging entry point to the `/student` shell.
 
-| Table | Purpose |
-|---|---|
-| `pre_session_submissions` | One row per booking: the student's typed inputs and completion state |
-| `session_uploads` | Files on a booking. Keyed by `profile_id` in storage — see the trap in §4 |
-| `post_session_materials` | The tutor's hand-authored deliverable, with `published_at` |
-| `material_progress` | The student's progress through it, so a later session resumes |
+Surfaces: `/messages` for the buyer, `/admin/messages` for the operator. Buyers are emailed when the
+tutor replies (`system/02-POLICIES.md` §11); the tutor is not emailed, they work the inbox.
 
-**A `student_sessions` view.** The student's home needs their upcoming session and Meet link, but
-`INV-ACTOR-1` says no student request may read the `bookings` table. Resolve it with a
-**security-definer view** exposing only scheduling fields, scoped by
-`where p.auth_user_id = auth.uid()`. Do **not** add a student policy to `bookings` — the invariant
-is written the way it is on purpose, and a view keeps it literally true.
+### R7 — diagnostics skeleton
 
-**Surfaces:** `/student/prepare/[bookingId]`, `/student/materials/[bookingId]`, the real
-`/student` home (it is currently a shell with only an empty state), and the tutor's authoring form
-on `/admin/bookings/[id]` plus an overdue queue.
+**Ship the skeleton, not the content** (ADR-007 §14). The owner authors diagnostics afterwards, and
+a purpose may be sold before its diagnostic exists.
 
-**Pre-session branching** is driven entirely by the booking's `purpose` — the table in
-`system/02-POLICIES.md` §7 is the specification. `assessmentKindFor()` in
-`src/lib/accounts/purposes.ts` already encodes which purposes get an assessment.
+- `/admin/diagnostics` — author a diagnostic per test (`psat`/`sat`/`act`) and per math class level,
+  as data. `practice_tests` + `test_prep_questions` (migration 0012) already have the right shape;
+  extend rather than inventing a parallel one, keyed by class level as well as test slug.
+- Wire it into the student flow by replacing the hardcoded `assessmentUnavailable: true` in
+  `src/lib/sessions/student.ts` with a real lookup. **That constant is the only thing standing
+  between the current build and working diagnostics** — everything around it is built and tested.
+- A missing diagnostic must still degrade to the descriptive questions (`AT-PRE-7`). Never block.
 
-### Rules that are easy to get wrong here
+### R8 — launch
 
-- **Pre-session work never blocks a session** (F6 step 4). A student who skips it still attends;
-  they are told it will be less effective and the tutor sees it is missing.
-- **A missing diagnostic degrades gracefully** (`AT-PRE-7`). If none is authored for that test or
-  class level, ask the descriptive questions instead and flag the tutor. Never block.
-- **`school` purposes get no assessment at all.** Not a shorter one — none. The goal is already
-  known. Do not "complete the pattern".
-- **Materials go to the student's account, and the student works them on the site**, because
-  `material_progress` is what makes a later session resume rather than restart.
+Legal pages including the kids-specific disclosure, **lawyer review of the COPPA stack**, live
+Stripe products, Resend DNS, analytics, apex cutover. See §6.
+
+### Rules that are easy to get wrong in what remains
+
+- **`school` purposes get no assessment at all.** Not a shorter one — none. Do not "complete the
+  pattern" when wiring R7.
+- **Nothing blocks a session.** Missing preparation, missing diagnostic, missing materials — all
+  degrade and are surfaced, never enforced.
 
 ## 3. What is already true and should not be re-derived
 
@@ -94,6 +92,18 @@ leaves a student who can authenticate but reads nothing, or reads everything but
 `src/lib/accounts/consent.ts` relies on that prefix being exhaustive to satisfy `AT-COPPA-5`. If you
 key them by booking instead, deletion silently stops working and the failure is invisible.
 
+**Students read `student_sessions`, never `bookings`.** The view (migration 0020) is what lets a
+student see their session and Meet link while `INV-ACTOR-1` stays literally true. Adding a student
+policy to `bookings` would collapse that distinction and is the single easiest way to break the
+permission model.
+
+**The credit-return cap counts by the session's month, not the approval's.** Counting by approval
+date would make a slow review consume the buyer's next month. It is per student and combined across
+late cancellations and no-shows.
+
+**Post-session material is invisible to the student until published.** That is RLS, not UI, so a
+half-written draft is safe to save.
+
 **`released_slots` is a table, not a flag.** The obvious implementation — a placeholder cancelled
 booking marking the freed instant — puts a session in the buyer's own list that they never had.
 
@@ -112,12 +122,12 @@ idea that may return. Do not route to it; do not delete it.
 ## 5. The honesty problem
 
 **Nothing in this codebase has been exercised against a real database, Stripe, Google, or Resend.**
-There is no Docker in this environment. Migrations `0017`–`0019` **have not been applied anywhere**.
+There is no Docker in this environment. Migrations `0017`–`0021` **have not been applied anywhere**.
 
 Treat the test suite accordingly:
 
-- **Pure-logic tests** (`slots.ts` DST maths, `policy.ts`, `purposes.ts`, `plan.ts`) are trustworthy
-  — they need no external service.
+- **Pure-logic tests** (`slots.ts` DST maths, `policy.ts`, `purposes.ts`, `pre-session-shape.ts`,
+  `answer-check.ts`) are trustworthy — they need no external service.
 - **SQL-text integrity tests** prove the migration says the right thing. They cannot prove Postgres
   does it.
 - **Mocked external-service tests** prove this codebase's error handling, not that the integration
@@ -133,7 +143,7 @@ a real project before treating any of this as trustworthy.
    consent design, and twelve questions. **Do not open to real under-13 users before this.** Q2
    (does the card payment qualify as verifiable parental consent?) and Q3 (is parent-entered child
    data already collection?) can both change the build.
-2. **Apply migrations 0017–0019** to the target Supabase project (`mlhlugfzzsigraqcxgmh`, which is
+2. **Apply migrations 0017–0021** to the target Supabase project (`mlhlugfzzsigraqcxgmh`, which is
    *not* the ref the CLI links to by default).
 3. **Live Stripe products**, Resend DNS, legal pages including the kids-specific disclosure, apex
    DNS cutover.
