@@ -40,12 +40,15 @@ export async function cancelBooking(input: { bookingId: string }): Promise<Cance
 const RESCHEDULE_ERRORS: Record<string, { code: Exclude<RescheduleResult, { ok: true }>["code"]; message: string }> = {
   not_found: { code: "not_found", message: "Booking not found." },
   invalid_state: { code: "invalid_state", message: "That booking can no longer be changed." },
-  too_late: { code: "too_late", message: "Reschedule needs at least 24 hours' notice — cancel instead." },
+  too_late: { code: "too_late", message: "Rescheduling needs at least 6 hours' notice — cancel instead." },
   slot_taken: { code: "slot_taken", message: "That time was just taken. Pick another." },
-  new_slot_not_bookable: { code: "too_late", message: "Pick a time at least 24 hours out and within 4 weeks." },
+  new_slot_not_bookable: {
+    code: "too_late",
+    message: "Pick a time at least 6 hours out and inside the booking window.",
+  },
 };
 
-/** TASK-BOOK-002, contract `rescheduleBooking`. Only offered ≥24h before the current start — enforced in `reschedule_booking`, not touching the ledger. */
+/** Reschedule (F9). Offered ≥6h before the current start, enforced in `reschedule_booking`, and it never touches the ledger. */
 export async function rescheduleBooking(input: { bookingId: string; newSlot: string }): Promise<RescheduleResult> {
   const schema = z.object({ bookingId: z.string().uuid(), newSlot: z.string().datetime() });
   const parsed = schema.safeParse(input);
@@ -78,9 +81,10 @@ export async function rescheduleBooking(input: { bookingId: string; newSlot: str
 }
 
 /**
- * TASK-BOOK-005, contract `requestCreditReturn`. Valid for any booking the caller owns whose credit
- * was burned — a `no_show`, or a cancellation made inside 24 hours (ADR-006). Eligibility and the
- * one-live-appeal-per-booking rule are enforced in `request_credit_return`, not here.
+ * Ask for a burned credit back (F10). Valid for any booking the caller owns whose credit was
+ * burned — a `no_show`, or a cancellation made inside 6 hours. Eligibility, the
+ * one-live-appeal-per-booking rule, and the 2-per-calendar-month cap are all enforced in
+ * `request_credit_return`, not here.
  */
 export async function requestCreditReturn(input: { bookingId: string; reason: string }): Promise<RequestReturnResult> {
   const schema = z.object({ bookingId: z.string().uuid(), reason: z.string().trim().min(1).max(500) });
@@ -97,6 +101,17 @@ export async function requestCreditReturn(input: { bookingId: string; reason: st
     p_booking_id: parsed.data.bookingId,
     p_reason: parsed.data.reason,
   });
-  if (error) return { ok: false, code: "invalid_state", message: "That booking isn't eligible for a credit return." };
+  if (error) {
+    const messages: Record<string, string> = {
+      cap_reached:
+        "You've used both credit returns for this student this month, so this one can't be returned.",
+      already_requested: "You've already asked about this session — we'll come back to you.",
+    };
+    return {
+      ok: false,
+      code: "invalid_state",
+      message: messages[error.message] ?? "That session isn't eligible for a credit return.",
+    };
+  }
   return { ok: true, requestId: data as string };
 }

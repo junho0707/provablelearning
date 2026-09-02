@@ -16,7 +16,16 @@ export default async function CreditReturnsPage() {
         <ul className="space-y-3">
           {requests.map((r) => (
             <li key={r.id} className="rounded-lg border border-navy-100 p-4 text-sm">
-              <p className="font-semibold text-navy-900">{r.buyerEmail}</p>
+              <p className="font-semibold text-navy-900">
+                {r.studentName}{" "}
+                <span className="font-normal text-navy-500">· {r.buyerEmail}</span>
+              </p>
+              <p className="mt-0.5 text-xs text-navy-500">
+                {r.sessionStartsAt ? new Date(r.sessionStartsAt).toLocaleString() : "—"} ·{" "}
+                {r.allowanceRemaining > 0
+                  ? `${r.allowanceRemaining} return${r.allowanceRemaining === 1 ? "" : "s"} left this month`
+                  : "no returns left this month — approving will be refused"}
+              </p>
               <p className="mt-1 text-navy-600">{r.reason}</p>
               <ResolveButtons requestId={r.id} />
             </li>

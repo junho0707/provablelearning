@@ -12,7 +12,7 @@ const STATUS_LABEL: Record<MyBooking["status"], string> = {
   no_show: "No-show",
 };
 
-/** TASK-BOOK-004. Upcoming/past sessions, cancel, and the no-show credit-return request. */
+/** Upcoming and past sessions, cancelling, and asking for a burned credit back (F9, F10). */
 export function BookingsList({ bookings }: { bookings: MyBooking[] }) {
   const now = Date.now();
   const upcoming = bookings.filter((b) => b.status === "booked" && new Date(b.startsAt).getTime() >= now);
@@ -101,14 +101,26 @@ function BookingRow({ booking }: { booking: MyBooking }) {
 
       {booking.canRequestReturn && !returnRequested && !reasonOpen && (
         <button onClick={() => setReasonOpen(true)} className="mt-2 text-sm font-semibold text-navy-700 underline">
-          Request credit back
+          Ask for the credit back
         </button>
+      )}
+
+      {/* F10 step 6: past the cap, no request is offered at all and the buyer is told why, rather
+          than being allowed to write a note that could never be granted. */}
+      {booking.creditBurned && !booking.canRequestReturn && booking.returnRequestStatus === null && (
+        <p className="mt-2 text-navy-500">
+          This one used the credit. You&apos;ve already had both credit returns for this student this
+          month, so it can&apos;t be returned.
+        </p>
       )}
 
       {reasonOpen && !returnRequested && (
         <div className="mt-2">
           <label htmlFor={`reason-${booking.id}`} className="block text-navy-700">
-            What happened? The tutor reviews each request.
+            What happened? Every request is reviewed.{" "}
+            {booking.allowanceRemaining === 1
+              ? "This is your last credit return for this student this month."
+              : `${booking.allowanceRemaining} credit returns left for this student this month.`}
           </label>
           <textarea
             id={`reason-${booking.id}`}
