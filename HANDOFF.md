@@ -1,130 +1,149 @@
-# HANDOFF — Provable Learning v2
+# HANDOFF — Provable Learning
 
-Written 2026-08-14, at the boundary between **spec work (done)** and **implementation (not
-started)**. Read `AGENTS.md` for process and `STATUS.md` for current position; this file carries the
-things you cannot infer from either — *why* the specs say what they say, and what not to "fix."
+Written 2026-09-02, at the R3/R4 boundary. Read `STATUS.md` for position and
+[`system/README.md`](system/README.md) for the product. This file carries what neither can: **why**
+the code is shaped as it is, what will bite you, and exactly what to do next.
 
 ---
 
-## 1. Where the project actually is
+## 1. Read these, in this order
 
-**Built and working (30 tests passing, `next build` clean):**
+1. `system/00-BUSINESS.md` — what is sold and how customers are acquired
+2. `system/01-ACTORS.md` — the buyer/student boundary, which is the most important rule in the system
+3. `system/02-POLICIES.md` — every number
+4. `system/03-FLOWS.md` — F1–F13, what actually happens
+5. `adr/007-v3-system-truth.md` — every decision with its cost
 
-| | |
+Then `system/08-BUILD-PLAN.md` for the stage you are on.
+
+**`spec/` and `docs/` are superseded.** They describe the previous model (free public content, no
+student logins, 24-hour policy, one First Session per customer). Do not update them, and do not
+reason from them — several of their statements are now the exact opposite of the truth.
+
+## 2. Your next task: R4 — session work
+
+This is the largest remaining stage and **it is the actual product**. Everything before it was
+plumbing so that this could exist.
+
+### What to build
+
+**Migration `0020_session_work.sql`:**
+
+| Table | Purpose |
 |---|---|
-| MDX content pipeline | `src/lib/content/*` — catalog built from `roadmap/roadmap.json` + `content/*.mdx`, KaTeX server-rendered, all SSG |
-| Practice questions | `src/lib/practice/*` — mcq / numeric / free, server-side checking, answers never client-exposed |
-| Public roadmap map | `/roadmap` — `src/lib/content/layout.ts` (pure) + `src/components/roadmap/*`, pan/zoom, prereq highlighting, mobile outline |
-| Supabase wiring | server/browser/admin clients, migrations `0001_init` + `0002_questions` |
+| `pre_session_submissions` | One row per booking: the student's typed inputs and completion state |
+| `session_uploads` | Files on a booking. Keyed by `profile_id` in storage — see the trap in §4 |
+| `post_session_materials` | The tutor's hand-authored deliverable, with `published_at` |
+| `material_progress` | The student's progress through it, so a later session resumes |
 
-**Written but not built:** everything else. Accounts, money, booking, admin, First Session.
+**A `student_sessions` view.** The student's home needs their upcoming session and Meet link, but
+`INV-ACTOR-1` says no student request may read the `bookings` table. Resolve it with a
+**security-definer view** exposing only scheduling fields, scoped by
+`where p.auth_user_id = auth.uid()`. Do **not** add a student policy to `bookings` — the invariant
+is written the way it is on purpose, and a view keeps it literally true.
 
-**Content authored:** ~20 lessons, Elementary/Fractions range. Against a K–12 arc.
+**Surfaces:** `/student/prepare/[bookingId]`, `/student/materials/[bookingId]`, the real
+`/student` home (it is currently a shell with only an empty state), and the tutor's authoring form
+on `/admin/bookings/[id]` plus an overdue queue.
 
-## 2. The decision history, and why it matters
+**Pre-session branching** is driven entirely by the booking's `purpose` — the table in
+`system/02-POLICIES.md` §7 is the specification. `assessmentKindFor()` in
+`src/lib/accounts/purposes.ts` already encodes which purposes get an assessment.
 
-The product model changed **three times on 2026-08-14**. Read the ADRs in order — each amends the
-one before, and the reasoning is the valuable part:
+### Rules that are easy to get wrong here
 
-- **ADR-003** — priced everything; solo tutor; passwordless auth; Calendar/Resend/refund decisions.
-- **ADR-004** — **made content free and cut the paywall.** Amends ADR-003.
-- **ADR-005** — **renamed the $49 SKU to "First Session"** and made the assessment goal-dependent.
-  Amends ADR-003.
+- **Pre-session work never blocks a session** (F6 step 4). A student who skips it still attends;
+  they are told it will be less effective and the tutor sees it is missing.
+- **A missing diagnostic degrades gracefully** (`AT-PRE-7`). If none is authored for that test or
+  class level, ask the descriptive questions instead and flag the tutor. Never block.
+- **`school` purposes get no assessment at all.** Not a shorter one — none. The goal is already
+  known. Do not "complete the pattern".
+- **Materials go to the student's account, and the student works them on the site**, because
+  `material_progress` is what makes a later session resume rather than restart.
 
-**Why this matters to you:** these reversals were cheap *because nothing had been built yet*. That
-window is now closed. From M3 onward, code sits behind these decisions. Do not treat them as
-provisional, and do not re-open them without the owner explicitly asking.
+## 3. What is already true and should not be re-derived
 
-**Authority:** `spec/14` is ground truth, as amended by the ADRs. The rest of `spec/` was rewritten
-against it on 2026-08-14 and is current — including `01_PRD`, which was stale and no longer is.
-
-## 3. Deliberate absences — do NOT "fix" these
-
-Every one of these looks like a gap and is a decision. `spec/13_COVERAGE_MATRIX.md` lists them too.
-
-| Absence | Why |
-|---|---|
-| No `entitlements` table, no paywall, no course SKU | Content is free (ADR-004). A paid course created a delivery obligation a partly-authored catalog can't meet, and gating shrank the SEO surface that *is* the acquisition channel. |
-| No `sample: true` flag | Every lesson is public; nothing to promote. |
-| No tutor entity | Operator is solo (ADR-003). A second tutor is a known, accepted future migration. |
-| No self-serve refunds | Manual in Stripe + an **admin ledger adjustment** so wallet and Stripe can't drift. |
-| No SMS integration | The reminder queue is a **worklist**, not an integration. The system sends email only. |
-| No password auth | Google OAuth + magic link only — no reset flow, no breach surface. |
-| No consent gate | Learner profiles have **no credentials**, so COPPA doesn't bite. This is why the profile model exists. |
+- **Prices** live in `src/lib/pricing.ts`; **policy numbers** in `src/lib/policy.ts`. Both have
+  drift tests that read the docs. Never retype a number into page copy — import it.
+- **Every migration has a companion SQL-text integrity test.** They assert the migration *says*
+  what a live database would enforce. They are a substitute for exercising Postgres, not a
+  replacement — see §5.
+- **Purpose vocabulary** is `src/lib/accounts/purposes.ts`. It is deliberately open: presets are
+  suggestions and free text is allowed, so there is no CHECK constraint on purpose values.
+- **`PurposePicker`** (`src/components/purpose-picker.tsx`) is shared by the First Session purchase
+  and the booking form, because they ask the same question.
 
 ## 4. Traps
 
-**The identity model is the subtle one.** `accounts` and `learner_profiles` are separate tables
-**even when the buyer is the learner** (independent student). Collapsing them looks like a
-simplification and would destroy the property that makes a future profile→login upgrade additive
-rather than a migration — and would reintroduce the consent problem. Don't.
+**The buyer/student boundary is structural, not cosmetic.** A student has **no `accounts` row**, so
+every existing `account_id = auth.uid()` policy denies them without a single new check. If you ever
+find yourself adding a student-specific policy to a money or booking table, you are about to break
+`INV-ACTOR-1` — add a scoped view instead.
 
-**`meet_url` is nullable on purpose.** The Google Calendar call happens *after* the booking
-transaction commits. A Google outage must leave a valid booking with a missing link, surfaced on the
-admin queue — never a rolled-back booking. `AT-BOOK-006` tests exactly this.
+**Consent gates the login, not the profile.** A parent typing their own child's name is not
+collection *from a child*; the child's own submissions are. That is why the gate sits at login
+activation. It is also **Q3 to the lawyer** in the review brief, so it may yet be overturned — if it
+is, consent has to move earlier, before a student record can be created at all.
 
-**Rescheduling is not cancel-and-rebook.** At 24h+ it moves the slot and **leaves the ledger
-untouched**. Implementing it as a refund/respend pair would show up in the ledger and could be used
-to dodge the 24h rule.
+**Two auth-layer flags, both needed.** `login_active` (database, read by RLS) and Supabase's
+`ban_duration` (auth, blocks session minting). The database flag is the boundary; the ban is the
+door. `record_consent` sets the first, `activateStudentLogins` lifts the second. Setting only one
+leaves a student who can authenticate but reads nothing, or reads everything but cannot sign in.
 
-**`class_help` mode has no assessment at all.** Not a shorter one — none. A pre-test tells you
-nothing when the goal is already known. Don't "complete" the pattern by adding one.
+**Uploads are keyed by `profile_id` in storage.** `deleteStudentUploads` in
+`src/lib/accounts/consent.ts` relies on that prefix being exhaustive to satisfy `AT-COPPA-5`. If you
+key them by booking instead, deletion silently stops working and the failure is invisible.
 
-**Answer secrecy is enforced by column-level grants**, not by application code. `answer`,
-`tolerance`, and `explanation` are withheld from `anon`/`authenticated`; only the service role reads
-them. Don't route question reads through a client that would need those columns.
+**`released_slots` is a table, not a flag.** The obvious implementation — a placeholder cancelled
+booking marking the freed instant — puts a session in the buyer's own list that they never had.
 
-**Prices live in one config module** with a test asserting they match `spec/14` §11. If you change a
-price, change the spec — the test is there to make drift fail CI.
+**`listFirstSessionEligible` and `listUnusedFirstSessions` are opposite sets.** Eligible = has not
+bought one, still being offered $49. Unused = bought, not yet booked. Confusing them either gives
+away a paid session or hides one already paid for.
 
-## 5. Accepted risks (already argued, don't re-litigate)
+**The webhook must not throw.** `activateStudentLogins` is wrapped in try/catch on purpose: a
+student left banned is recoverable by the next purchase, whereas a 500 makes Stripe retry a payment
+that already succeeded.
 
-- **Free content is close to a one-way door.** Charging later means charging for what was free.
-- **Revenue has one leg:** First Session → credit-pack conversion. And **Vercel Analytics cannot
-  measure it** — it must be reconstructed from Stripe by hand until PostHog is adopted.
-- **The near-empty map:** ~20 lessons against a K–12 arc reads as ~5% built and can look like
-  vaporware. Mitigation is **framing** ("new lessons weekly", make authored regions prominent), not
-  scope reduction.
-- **Solo-tutor schema** will need a migration if a second tutor is ever hired.
+**`probe.ts` is shelved, not dead.** ADR-007 replaced algorithmic probe-and-descend with
+hand-authored diagnostics per class level. The file stays because it is a good implementation of an
+idea that may return. Do not route to it; do not delete it.
 
-## 6. What to do next
+## 5. The honesty problem
 
-`TASK-SPEC-004` (rebuild the layered `docs/` tree) is **done** — see `docs/README.md`. It's a
-navigation layer over `/spec`, not a replacement; `/spec` is still ground truth.
+**Nothing in this codebase has been exercised against a real database, Stripe, Google, or Resend.**
+There is no Docker in this environment. Migrations `0017`–`0019` **have not been applied anywhere**.
 
-**Build starts at M3** (`spec/12_IMPLEMENTATION_PLAN.md`):
+Treat the test suite accordingly:
 
-```
-CONFIG-001 (pricing config + drift test)  →  LAND-001 (landing, approved hero copy)
-AUTH-001 (Google + magic link)            →  ACCT-001 (accounts + learner profiles)
-ROADMAP-002 (course-level nodes)
-```
+- **Pure-logic tests** (`slots.ts` DST maths, `policy.ts`, `purposes.ts`, `plan.ts`) are trustworthy
+  — they need no external service.
+- **SQL-text integrity tests** prove the migration says the right thing. They cannot prove Postgres
+  does it.
+- **Mocked external-service tests** prove this codebase's error handling, not that the integration
+  works.
 
-Then **M4 money** → **M5 progress + booking** ← *critical path, carries all revenue* → **M6 admin +
-First Session** → **M7 launch**.
+`system/07-VERIFY.md` marks every check `[db]` or `[live]` accordingly. Work it top to bottom against
+a real project before treating any of this as trustworthy.
 
-**Write `AT-CONTENT-005` early.** It asserts no content route requires an account. ADR-004 is the
-decision most likely to erode silently as features land; that test is the guard.
+## 6. Blocking, non-code work the owner must do
 
-**Landing copy is already approved** — verbatim in `spec/14` §14. Use it as written. The binding
-rule: **strengths and next steps, never deficits.** No "diagnosis", "behind", or "struggling"
-language anywhere in user-facing copy; it makes parents defensive and excludes the getting-ahead and
-test-prep buyers who are half the market.
+1. **Lawyer review of the COPPA stack.** The brief to hand over is at
+   `https://claude.ai/code/artifact/a857afb1-c960-440a-a5e3-7af4385592a9` — facts, the proposed
+   consent design, and twelve questions. **Do not open to real under-13 users before this.** Q2
+   (does the card payment qualify as verifiable parental consent?) and Q3 (is parent-entered child
+   data already collection?) can both change the build.
+2. **Apply migrations 0017–0019** to the target Supabase project (`mlhlugfzzsigraqcxgmh`, which is
+   *not* the ref the CLI links to by default).
+3. **Live Stripe products**, Resend DNS, legal pages including the kids-specific disclosure, apex
+   DNS cutover.
 
-## 7. Known open follow-ups
+## 7. Accepted risks — argued already, do not re-litigate
 
-1. **Remote migrations not applied.** `0002_questions.sql` + `seed.sql` are verified against a
-   **local** stack only. The linked CLI points at the *prod* ref (`vufizavpkjpybsknvyno`) and the
-   dev project's DB password isn't available, so DDL was **not** pushed remotely. Until applied,
-   `getLessonQuestions` returns `[]` on remote — pages still render, gracefully.
-2. **NFR-PERF-002 CWV lab run** — needs a deployed Vercel preview; not doable in this environment.
-3. **Launch checklist** (`TASK-OPS-001`): live Stripe products from the pricing config, Resend DNS
-   verification, ToS / Privacy / refund pages, analytics on, **apex DNS cutover** from the v1 demo.
-   Business entity and Stripe account already exist.
-
-## 8. Environment notes
-
-- Git identity was unset; configured **repo-locally** as `Junho Yoon <junhoyoon00@gmail.com>`.
-  Correct it if the name is wrong.
-- No Docker in this WSL distro, so no local Supabase stack can be started here.
-- `npm test` → 30 tests, 4 files. `npm run build` → clean, content + `/roadmap` prerendered.
+- **No organic acquisition channel at launch.** Content is hidden, so paid ads and social carry
+  everything and neither compounds. The $49 tripwire's economics depend on a CAC nobody has measured.
+- **Post-session materials are hand-authored**, so throughput is capped by the owner's writing time.
+  This is the first thing that breaks if the business works.
+- **Under-13 support carries legal exposure** that a lawyer has not yet reviewed.
+- **Revenue has one leg:** First Session → credit-pack conversion, and Vercel Analytics cannot
+  measure it. It must be reconstructed by hand from Stripe.
