@@ -2,19 +2,19 @@
 
 ## Documentation
 
-**Read [spec/14_GROUND_TRUTH_INTERVIEW.md](spec/14_GROUND_TRUTH_INTERVIEW.md) first** — it is the
-current ground truth (decided 2026-08-14): what is sold, the access model, accounts, tutoring ops,
-the diagnosis program, and the build order. `spec/01_PRD.md` predates it and is being rewritten
-against it; where they disagree, spec/14 wins.
+**Read [system/README.md](system/README.md) first**, then `00`–`03` in order. The `system/` tree is
+the single source of truth (decided 2026-09-02, ADR-007): business model, actors, policies, flows,
+schema, surfaces, verification, and the build plan.
 
-`docs/` is **archived** under `docs/archive/v1-sat/` — it describes the frozen v1 SAT model
-(enrollment, waitlists, journeys) and does not describe this system. The layered doc tree will be
-rebuilt from spec/14.
+`spec/00`–`spec/14` and `docs/` are **superseded** — they describe the previous product model (free
+public content, no student logins, 24-hour policy, one First Session per customer) and are retained
+only as decision history. Do not update them. Where anything conflicts with `system/`, `system/` wins.
 
 Update rule:
 
-- Change to what the system sells, the access model, or pricing → update `spec/14` AND write an ADR
-- New / changed RPC, cron, webhook, page route → update `spec/08_API_CONTRACTS.md` / `spec/10_BACKEND.md`
+- Change to what the system sells, the access model, or pricing → update `system/00-BUSINESS.md` AND write an ADR
+- Change to a rule (notice window, cancellation, credit return, consent) → `system/02-POLICIES.md` AND the affected flow in `system/03-FLOWS.md`
+- New / changed table, RPC, cron, webhook, page route → `system/04-DATA.md` / `system/05-SURFACES.md`
 - Curriculum structure change → `roadmap/roadmap.json` (single source of truth, ADR-002)
 
 If a change touches multiple docs, update them in the same commit. No update needed for bug fixes,
