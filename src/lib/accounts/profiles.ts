@@ -10,17 +10,29 @@ import {
 } from "./types";
 
 /**
- * TASK-ACCT-001: profile CRUD, scoped to the signed-in buyer. RLS (migration 0003) is the actual
- * access boundary — every query below runs through the cookie-bound client, so a cross-account
- * read/write is denied by Postgres, not by application logic (AT-SEC-001).
+ * Student CRUD, scoped to the signed-in buyer. RLS (migrations 0003 + 0017) is the actual access
+ * boundary — every query below runs through the cookie-bound client, so a cross-account read or
+ * write is denied by Postgres rather than by application logic (AT-ACTOR-3).
+ *
+ * Credentials are deliberately *not* handled here: they need the service role, and keeping them in
+ * `student-credentials.ts` means this module never touches an admin client.
  */
+
+const COLUMNS =
+  "id, name, grade, current_course_node, current_math_class, previous_math_class, primary_purpose, secondary_purpose, username, login_active, auth_user_id, created_at";
 
 type ProfileRow = {
   id: string;
   name: string;
   grade: string | null;
   current_course_node: string | null;
-  purposes: string[] | null;
+  current_math_class: string | null;
+  previous_math_class: string | null;
+  primary_purpose: string | null;
+  secondary_purpose: string | null;
+  username: string | null;
+  login_active: boolean;
+  auth_user_id: string | null;
   created_at: string;
 };
 
@@ -30,7 +42,13 @@ function toProfile(row: ProfileRow): LearnerProfile {
     name: row.name,
     grade: row.grade,
     currentCourseNode: row.current_course_node,
-    purposes: (row.purposes ?? []) as LearnerProfile["purposes"],
+    currentMathClass: row.current_math_class,
+    previousMathClass: row.previous_math_class,
+    primaryPurpose: row.primary_purpose,
+    secondaryPurpose: row.secondary_purpose,
+    username: row.username,
+    loginActive: row.login_active,
+    hasLogin: row.auth_user_id !== null,
     createdAt: row.created_at,
   };
 }
@@ -39,15 +57,35 @@ export async function listProfiles(): Promise<LearnerProfile[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("learner_profiles")
-    .select("id, name, grade, current_course_node, purposes, created_at")
+    .select(COLUMNS)
     .order("created_at", { ascending: true });
   if (error || !data) return [];
   return (data as ProfileRow[]).map(toProfile);
 }
 
+export async function getProfile(profileId: string): Promise<LearnerProfile | null> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("learner_profiles").select(COLUMNS).eq("id", profileId).maybeSingle();
+  return data ? toProfile(data as ProfileRow) : null;
+}
+
+function toPatch(input: Partial<ProfileInput>): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  if (input.name !== undefined) patch.name = input.name;
+  if (input.grade !== undefined) patch.grade = input.grade;
+  if (input.currentCourseNode !== undefined) patch.current_course_node = input.currentCourseNode;
+  if (input.currentMathClass !== undefined) patch.current_math_class = input.currentMathClass;
+  if (input.previousMathClass !== undefined) patch.previous_math_class = input.previousMathClass;
+  if (input.primaryPurpose !== undefined) patch.primary_purpose = input.primaryPurpose;
+  if (input.secondaryPurpose !== undefined) patch.secondary_purpose = input.secondaryPurpose;
+  return patch;
+}
+
 export async function createProfile(input: ProfileInput): Promise<ProfileResult> {
   const parsed = profileInputSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, code: "malformed", message: "Invalid profile." };
+  if (!parsed.success) {
+    return { ok: false, code: "malformed", message: parsed.error.issues[0]?.message ?? "Invalid student." };
+  }
   if (!validCourseNode(parsed.data.currentCourseNode)) {
     return { ok: false, code: "malformed", message: "Unknown current class." };
   }
@@ -60,17 +98,11 @@ export async function createProfile(input: ProfileInput): Promise<ProfileResult>
 
   const { data, error } = await supabase
     .from("learner_profiles")
-    .insert({
-      account_id: user.id,
-      name: parsed.data.name,
-      grade: parsed.data.grade ?? null,
-      current_course_node: parsed.data.currentCourseNode ?? null,
-      purposes: parsed.data.purposes ?? [],
-    })
-    .select("id, name, grade, current_course_node, purposes, created_at")
+    .insert({ account_id: user.id, ...toPatch(parsed.data) })
+    .select(COLUMNS)
     .single();
 
-  if (error || !data) return { ok: false, code: "denied", message: "Could not create profile." };
+  if (error || !data) return { ok: false, code: "denied", message: "Could not add that student." };
   return { ok: true, profile: toProfile(data as ProfileRow) };
 }
 
@@ -79,35 +111,22 @@ export async function updateProfile(
   input: Partial<ProfileInput>,
 ): Promise<ProfileResult> {
   const parsed = profileInputSchema.partial().safeParse(input);
-  if (!parsed.success) return { ok: false, code: "malformed", message: "Invalid profile." };
+  if (!parsed.success) {
+    return { ok: false, code: "malformed", message: parsed.error.issues[0]?.message ?? "Invalid student." };
+  }
   if (!validCourseNode(parsed.data.currentCourseNode)) {
     return { ok: false, code: "malformed", message: "Unknown current class." };
   }
 
   const supabase = await createClient();
-  const patch: Record<string, unknown> = {};
-  if (parsed.data.name !== undefined) patch.name = parsed.data.name;
-  if (parsed.data.grade !== undefined) patch.grade = parsed.data.grade;
-  if (parsed.data.currentCourseNode !== undefined) patch.current_course_node = parsed.data.currentCourseNode;
-  if (parsed.data.purposes !== undefined) patch.purposes = parsed.data.purposes;
-
   const { data, error } = await supabase
     .from("learner_profiles")
-    .update(patch)
+    .update(toPatch(parsed.data))
     .eq("id", profileId)
-    .select("id, name, grade, current_course_node, purposes, created_at")
+    .select(COLUMNS)
     .maybeSingle();
 
-  if (error) return { ok: false, code: "denied", message: "Could not update profile." };
-  if (!data) return { ok: false, code: "not_found", message: "Profile not found." };
+  if (error) return { ok: false, code: "denied", message: "Could not update that student." };
+  if (!data) return { ok: false, code: "not_found", message: "Student not found." };
   return { ok: true, profile: toProfile(data as ProfileRow) };
-}
-
-export async function deleteProfile(profileId: string): Promise<{ ok: boolean }> {
-  const supabase = await createClient();
-  const { error, count } = await supabase
-    .from("learner_profiles")
-    .delete({ count: "exact" })
-    .eq("id", profileId);
-  return { ok: !error && (count ?? 0) > 0 };
 }

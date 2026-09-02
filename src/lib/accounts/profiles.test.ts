@@ -36,7 +36,9 @@ describe("validCourseNode", () => {
 describe("createProfile — validation short-circuit", () => {
   it("rejects an empty name before touching Supabase", async () => {
     const result = await createProfile({ name: "" });
-    expect(result).toEqual({ ok: false, code: "malformed", message: "Invalid profile." });
+    // The specific zod message is surfaced now, rather than a generic one — a parent adding a
+    // student should be told which field is wrong.
+    expect(result).toEqual({ ok: false, code: "malformed", message: "Enter a name." });
   });
 
   it("rejects an unknown current class before touching Supabase", async () => {
