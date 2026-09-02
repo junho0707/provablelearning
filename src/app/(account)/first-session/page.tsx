@@ -1,58 +1,66 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { getFirstSessionStatus } from "@/lib/assessment/first-session";
+import { redirect } from "next/navigation";
+import { currentBuyerId } from "@/lib/auth/session";
+import { listFirstSessionEligible } from "@/lib/assessment/first-session";
 import { listProfiles } from "@/lib/accounts/profiles";
-import { getOpenAvailability } from "@/lib/booking/availability";
-import { FirstSessionFlow } from "./first-session-flow";
+import { PRICING, formatPrice } from "@/lib/pricing";
 
-export const metadata = { title: "Your first session" };
+export const metadata = { title: "First session" };
 
-/** TASK-FIRST-001. Routes a purchased First Session to its mode's pre-session step, or straight to booking (`class_help`). */
+/**
+ * Buying a First Session (F4). This used to be a multi-step "flow" that routed a purchased session
+ * to its assessment; ADR-007 moved preparation into the student's own account and booking into
+ * `/book`, so all that remains here is the purchase itself.
+ */
 export default async function FirstSessionPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login?next=/first-session");
+  const buyerId = await currentBuyerId();
+  if (!buyerId) redirect("/login?next=/first-session");
 
-  const status = await getFirstSessionStatus();
-  const profiles = await listProfiles();
+  const [eligible, profiles] = await Promise.all([listFirstSessionEligible(), listProfiles()]);
+  const price = formatPrice(PRICING.first_session.priceCents);
+  const { FirstSessionPurchase } = await import("./first-session-purchase");
 
-  if (!status) {
+  if (profiles.length === 0) {
     return (
-      <main className="mx-auto max-w-lg px-5 py-16 text-center">
-        <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-navy-950">Your first session</h1>
-        <p className="mb-6 text-sm text-navy-700">You haven&apos;t purchased a First Session yet.</p>
-        <Link href="/sessions" className="rounded-lg bg-navy-900 px-4 py-2 text-sm font-semibold text-white">
-          Buy your first session
+      <main className="mx-auto max-w-lg px-5 py-20 text-center">
+        <h1 className="text-2xl font-extrabold tracking-tight text-navy-950">First session</h1>
+        <p className="mt-3 text-navy-700">Add a student first — the offer is theirs, one each.</p>
+        <Link
+          href="/account"
+          className="mt-6 inline-block rounded-lg bg-navy-900 px-5 py-2.5 font-semibold text-white hover:bg-navy-800"
+        >
+          Add a student
         </Link>
       </main>
     );
   }
 
-  if (status.booked) {
+  if (eligible.length === 0) {
     return (
-      <main className="mx-auto max-w-lg px-5 py-16 text-center">
-        <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-navy-950">You&apos;re all set</h1>
-        <p className="text-sm text-navy-700">
-          Your first session is booked. Check <Link href="/sessions" className="underline">your sessions</Link> for the details.
+      <main className="mx-auto max-w-lg px-5 py-20 text-center">
+        <h1 className="text-2xl font-extrabold tracking-tight text-navy-950">First session</h1>
+        <p className="mt-3 text-navy-700">
+          Every student on your account has already used their first session. Credit packs are what
+          come next.
         </p>
+        <Link
+          href="/credits"
+          className="mt-6 inline-block rounded-lg bg-navy-900 px-5 py-2.5 font-semibold text-white hover:bg-navy-800"
+        >
+          See credit packs
+        </Link>
       </main>
     );
   }
 
-  const slots = await getOpenAvailability();
-
   return (
     <main className="mx-auto max-w-lg px-5 py-16">
-      <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-navy-950">Your first session</h1>
-      <FirstSessionFlow
-        purchaseId={status.purchaseId}
-        goal={status.goal}
-        profiles={profiles.map((p) => ({ id: p.id, name: p.name }))}
-        slots={slots}
-      />
+      <h1 className="text-2xl font-extrabold tracking-tight text-navy-950">First session — {price}</h1>
+      <p className="mb-8 mt-2 text-navy-700">
+        One per student, instead of {formatPrice(PRICING.credits_1.priceCents)}. Tell us what
+        you&apos;re after and we&apos;ll shape the hour around it.
+      </p>
+      <FirstSessionPurchase eligible={eligible} price={price} />
     </main>
   );
 }

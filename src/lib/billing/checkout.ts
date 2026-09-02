@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { stripePriceId, type SkuId } from "@/lib/pricing";
 import { SITE_URL } from "@/lib/site";
+import { validSubPurpose } from "@/lib/accounts/purposes";
 import { stripeClient } from "./stripe";
 
 export type CheckoutResult =
@@ -12,7 +13,7 @@ export type CheckoutResult =
 
 const creditsSkuSchema = z.enum(["credits_1", "credits_2", "credits_4", "credits_8"]);
 
-/** TASK-BILLING-001. `REQ-BILLING-001`, F7. */
+/** Credit-pack checkout (F3). Packs top up a shared wallet, so they name no student. */
 export async function createCreditsCheckout(input: { sku: string }): Promise<CheckoutResult> {
   const parsed = creditsSkuSchema.safeParse(input.sku);
   if (!parsed.success) return { ok: false, code: "malformed", message: "Unknown credit pack." };
@@ -23,23 +24,31 @@ export async function createCreditsCheckout(input: { sku: string }): Promise<Che
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, code: "denied", message: "Sign in required." };
 
-  return startCheckout(user.id, user.email ?? undefined, parsed.data, null);
+  return startCheckout({ accountId: user.id, email: user.email ?? undefined, sku: parsed.data });
 }
 
-const goalSchema = z.enum(["strengths", "test_prep", "class_help"]);
+const firstSessionSchema = z.object({
+  profileId: z.string().uuid(),
+  purpose: z.string().trim().min(1).max(80),
+  subPurpose: z.string().trim().max(80).optional().nullable(),
+});
 
 /**
- * TASK-BILLING-001. `REQ-FIRST-001`, F5. `profileId` is accepted for the caller's future session
- * linkage (TASK-FIRST-001) but not validated here — First Session purchase precedes the assessment
- * flow that needs it.
+ * First Session checkout (F4). **Per student, not per account** (ADR-007 §4) — the student is
+ * chosen before payment, both because the offer belongs to them and because the purchase is what
+ * records parental consent for the household.
  */
 export async function createFirstSessionCheckout(input: {
   profileId: string;
-  goal: string;
+  purpose: string;
+  subPurpose?: string | null;
 }): Promise<CheckoutResult> {
-  const goal = goalSchema.safeParse(input.goal);
-  if (!goal.success || !input.profileId) {
-    return { ok: false, code: "malformed", message: "Invalid First Session request." };
+  const parsed = firstSessionSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, code: "malformed", message: "Pick a student and what the session is for." };
+  }
+  if (!validSubPurpose(parsed.data.purpose, parsed.data.subPurpose)) {
+    return { ok: false, code: "malformed", message: "Say which test you're preparing for." };
   }
 
   const supabase = await createClient();
@@ -48,37 +57,65 @@ export async function createFirstSessionCheckout(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, code: "denied", message: "Sign in required." };
 
-  // INV-MONEY-2 (ADR-005): checked here as the first line of defense; the partial unique index on
-  // `purchases` (migration 0004) is the backstop that makes it true under concurrency.
+  // The student must be the caller's. RLS would deny the read anyway; checking explicitly turns a
+  // silent empty result into a clear message.
+  const { data: profile } = await supabase
+    .from("learner_profiles")
+    .select("id")
+    .eq("id", parsed.data.profileId)
+    .maybeSingle();
+  if (!profile) return { ok: false, code: "denied", message: "That student isn't yours." };
+
+  // INV-FIRST-1, first line of defence. The partial unique index on `purchases(profile_id)`
+  // (migration 0018) is the backstop that makes it true under concurrency.
   const { data: existing } = await supabase
     .from("purchases")
     .select("id")
-    .eq("account_id", user.id)
+    .eq("profile_id", parsed.data.profileId)
     .eq("sku", "first_session")
     .maybeSingle();
   if (existing) {
-    return { ok: false, code: "already_purchased", message: "First Session already purchased." };
+    return {
+      ok: false,
+      code: "already_purchased",
+      message: "This student has already used their first session — credit packs are next.",
+    };
   }
 
-  return startCheckout(user.id, user.email ?? undefined, "first_session", goal.data);
+  return startCheckout({
+    accountId: user.id,
+    email: user.email ?? undefined,
+    sku: "first_session",
+    purpose: parsed.data.purpose,
+    subPurpose: parsed.data.subPurpose ?? null,
+    profileId: parsed.data.profileId,
+  });
 }
 
-async function startCheckout(
-  accountId: string,
-  email: string | undefined,
-  sku: SkuId,
-  goal: string | null,
-): Promise<CheckoutResult> {
+async function startCheckout(input: {
+  accountId: string;
+  email: string | undefined;
+  sku: SkuId;
+  purpose?: string;
+  subPurpose?: string | null;
+  profileId?: string;
+}): Promise<CheckoutResult> {
   const stripe = stripeClient();
-  const sessionUrl = `${SITE_URL}${goal ? "/first-session" : "/credits"}`;
+  const returnPath = input.sku === "first_session" ? "/first-session" : "/credits";
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
-    customer_email: email,
-    line_items: [{ price: stripePriceId(sku), quantity: 1 }],
-    metadata: { account_id: accountId, sku, ...(goal ? { goal } : {}) },
-    success_url: `${sessionUrl}?purchase=success`,
-    cancel_url: `${sessionUrl}?purchase=cancelled`,
+    customer_email: input.email,
+    line_items: [{ price: stripePriceId(input.sku), quantity: 1 }],
+    metadata: {
+      account_id: input.accountId,
+      sku: input.sku,
+      ...(input.purpose ? { purpose: input.purpose } : {}),
+      ...(input.subPurpose ? { sub_purpose: input.subPurpose } : {}),
+      ...(input.profileId ? { profile_id: input.profileId } : {}),
+    },
+    success_url: `${SITE_URL}${returnPath}?purchase=success`,
+    cancel_url: `${SITE_URL}${returnPath}?purchase=cancelled`,
   });
 
   if (!session.url) {

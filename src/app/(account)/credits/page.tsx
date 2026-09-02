@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getBalance } from "@/lib/credits/balance";
 import { getPurchaseHistory, getLedgerHistory } from "@/lib/credits/history";
-import { listProfiles } from "@/lib/accounts/profiles";
+import { listFirstSessionEligible } from "@/lib/assessment/first-session";
 import { PRICING, formatPrice } from "@/lib/pricing";
 import { BuyCredits } from "./buy-credits";
 import { OrderHistory } from "./order-history";
@@ -12,7 +12,7 @@ export const metadata = { title: "Credits" };
 const INFO_ITEMS = [
   "Credits never expire",
   "Each session uses one credit",
-  "The first session is a separate, one-time purchase",
+  "The first session is a separate, one-time purchase — one per student",
 ];
 
 /**
@@ -26,13 +26,12 @@ export default async function CreditsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/credits");
 
-  const [balance, purchases, ledger, profiles] = await Promise.all([
+  const [balance, purchases, ledger, firstSessionEligible] = await Promise.all([
     getBalance(),
     getPurchaseHistory(),
     getLedgerHistory(),
-    listProfiles(),
+    listFirstSessionEligible(),
   ]);
-  const hasFirstSession = purchases.some((p) => p.sku === "first_session");
 
   return (
     <main>
@@ -63,9 +62,8 @@ export default async function CreditsPage() {
 
           <div className="rounded-xl border border-navy-100 bg-white p-6 shadow-[var(--shadow-card)]">
             <BuyCredits
-              hasFirstSession={hasFirstSession}
+              firstSessionEligible={firstSessionEligible}
               firstSessionPrice={formatPrice(PRICING.first_session.priceCents)}
-              profiles={profiles.map((p) => ({ id: p.id, name: p.name }))}
               creditPacks={[
                 { sku: "credits_1", label: "1 credit", price: formatPrice(PRICING.credits_1.priceCents) },
                 { sku: "credits_2", label: "2 credits", price: formatPrice(PRICING.credits_2.priceCents) },

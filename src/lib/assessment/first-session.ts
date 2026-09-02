@@ -5,14 +5,28 @@ import { createClient } from "@/lib/supabase/server";
 import { attachCalendarEvent } from "@/lib/booking/calendar";
 import { sendBookingConfirmationEmail } from "@/lib/notify/booking";
 
-export type FirstSessionStatus = {
+/**
+ * The First Session entitlement (F4).
+ *
+ * ADR-007 collapsed what used to be a separate "First Session flow" into the ordinary booking
+ * path: a First Session and a credit session are the same session, with the same preparation and
+ * the same materials — only the payment differs. So this module no longer routes anyone anywhere.
+ * It answers one question for the booking form ("is this session already paid for?") and performs
+ * the booking that spends no credit.
+ */
+
+export type FirstSessionEntitlement = {
   purchaseId: string;
-  goal: "strengths" | "test_prep" | "class_help";
-  booked: boolean;
+  profileId: string;
+  purpose: string;
+  subPurpose: string | null;
 };
 
-/** TASK-FIRST-001, contract for routing: what goal did the buyer state, and is it already booked? */
-export async function getFirstSessionStatus(): Promise<FirstSessionStatus | null> {
+/**
+ * The named student's unused First Session, if they have one. Per student, not per account
+ * (INV-FIRST-1) — a sibling's entitlement is not available here.
+ */
+export async function getFirstSessionEntitlement(profileId: string): Promise<FirstSessionEntitlement | null> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -21,27 +35,55 @@ export async function getFirstSessionStatus(): Promise<FirstSessionStatus | null
 
   const { data: purchase } = await supabase
     .from("purchases")
-    .select("id, goal")
-    .eq("account_id", user.id)
+    .select("id, profile_id, purpose, sub_purpose")
+    .eq("profile_id", profileId)
     .eq("sku", "first_session")
     .maybeSingle();
-  if (!purchase || !purchase.goal) return null;
+  if (!purchase) return null;
 
-  const { data: booking } = await supabase.from("bookings").select("id").eq("purchase_id", purchase.id).maybeSingle();
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("id")
+    .eq("purchase_id", purchase.id)
+    .maybeSingle();
+  if (booking) return null; // Already used.
 
-  return { purchaseId: purchase.id, goal: purchase.goal, booked: !!booking };
+  return {
+    purchaseId: purchase.id as string,
+    profileId: purchase.profile_id as string,
+    purpose: (purchase.purpose as string) ?? "",
+    subPurpose: (purchase.sub_purpose as string | null) ?? null,
+  };
+}
+
+/** Every student on the account who has not yet bought their First Session (F4 step 2). */
+export async function listFirstSessionEligible(): Promise<Array<{ profileId: string; name: string }>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("students_eligible_for_first_session");
+  if (error || !data) return [];
+  return (data as Array<{ profile_id: string; name: string }>).map((row) => ({
+    profileId: row.profile_id,
+    name: row.name,
+  }));
 }
 
 export type BookFirstSessionResult =
   | { ok: true; bookingId: string }
-  | { ok: false; code: "denied" | "malformed" | "invalid_profile" | "invalid_purchase" | "already_booked" | "slot_taken"; message: string };
+  | {
+      ok: false;
+      code: "denied" | "malformed" | "invalid_profile" | "invalid_purchase" | "already_booked" | "slot_taken";
+      message: string;
+    };
 
-const inputSchema = z.object({ profileId: z.string().uuid(), startsAt: z.string().datetime(), purchaseId: z.string().uuid() });
+const inputSchema = z.object({
+  profileId: z.string().uuid(),
+  startsAt: z.string().datetime(),
+  purchaseId: z.string().uuid(),
+});
 
 /**
- * TASK-FIRST-001, `class_help` mode routes straight here (no assessment step, ADR-005) and
- * `strengths`/`test_prep` land here once their assessment is done. No credit is spent — the $49
- * purchase itself is the payment (`book_first_session`, migration 0013).
+ * Book a session against the First Session entitlement. No credit is spent — the $49 purchase
+ * itself is the payment (`book_first_session`, migrations 0013 + 0018).
  */
 export async function bookFirstSession(input: unknown): Promise<BookFirstSessionResult> {
   const parsed = inputSchema.safeParse(input);
@@ -62,9 +104,9 @@ export async function bookFirstSession(input: unknown): Promise<BookFirstSession
   if (error) {
     type FailureCode = Exclude<BookFirstSessionResult, { ok: true }>["code"];
     const known: Partial<Record<string, { code: FailureCode; message: string }>> = {
-      invalid_profile: { code: "invalid_profile", message: "That profile isn't yours." },
-      invalid_purchase: { code: "invalid_purchase", message: "No First Session purchase found for that." },
-      already_booked: { code: "already_booked", message: "This First Session has already been booked." },
+      invalid_profile: { code: "invalid_profile", message: "That student isn't yours." },
+      invalid_purchase: { code: "invalid_purchase", message: "No first session found for that student." },
+      already_booked: { code: "already_booked", message: "This first session has already been booked." },
       slot_taken: { code: "slot_taken", message: "That time was just booked. Pick another." },
     };
     const match = known[error.message];

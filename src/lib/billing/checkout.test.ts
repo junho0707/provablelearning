@@ -19,13 +19,30 @@ describe("createCreditsCheckout — validation short-circuit", () => {
 });
 
 describe("createFirstSessionCheckout — validation short-circuit", () => {
-  it("rejects an unknown goal before touching Supabase or Stripe", async () => {
-    const result = await createFirstSessionCheckout({ profileId: "p1", goal: "not_a_real_goal" });
-    expect(result).toEqual({ ok: false, code: "malformed", message: "Invalid First Session request." });
+  const profileId = "00000000-0000-4000-8000-000000000001";
+
+  it("rejects a profileId that isn't a uuid, before touching Supabase or Stripe", async () => {
+    const result = await createFirstSessionCheckout({ profileId: "p1", purpose: "school" });
+    expect(result).toEqual({
+      ok: false,
+      code: "malformed",
+      message: "Pick a student and what the session is for.",
+    });
   });
 
-  it("rejects a missing profileId", async () => {
-    const result = await createFirstSessionCheckout({ profileId: "", goal: "strengths" });
+  it("rejects a missing purpose", async () => {
+    const result = await createFirstSessionCheckout({ profileId, purpose: "" });
     expect(result.ok).toBe(false);
+  });
+
+  // Test prep is the one purpose that must name a sub-purpose: "SAT" and "ACT" shape different
+  // sessions, and a diagnostic cannot be selected without knowing which (system/02-POLICIES.md §7).
+  it("rejects test prep with no test named", async () => {
+    const result = await createFirstSessionCheckout({ profileId, purpose: "test_prep" });
+    expect(result).toEqual({
+      ok: false,
+      code: "malformed",
+      message: "Say which test you're preparing for.",
+    });
   });
 });

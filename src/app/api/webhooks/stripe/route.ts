@@ -4,6 +4,7 @@ import { stripeClient } from "@/lib/billing/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PRICING, type SkuId } from "@/lib/pricing";
 import { sendReceipt } from "@/lib/notify/email";
+import { activateStudentLogins } from "@/lib/accounts/student-credentials";
 
 /**
  * TASK-BILLING-001. The trusted credit/purchase trigger — `08_API_CONTRACTS.md`. Must verify the
@@ -34,7 +35,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   const session = event.data.object as Stripe.Checkout.Session;
   const accountId = session.metadata?.account_id;
   const sku = session.metadata?.sku as SkuId | undefined;
-  const goal = session.metadata?.goal ?? null;
+  const purpose = session.metadata?.purpose ?? null;
+  const subPurpose = session.metadata?.sub_purpose ?? null;
+  const profileId = session.metadata?.profile_id ?? null;
 
   if (!accountId || !sku || !(sku in PRICING)) {
     // Malformed metadata should never happen from our own checkout session creation, but a
@@ -49,12 +52,27 @@ export async function POST(request: Request): Promise<NextResponse> {
     p_sku: sku,
     p_amount_cents: PRICING[sku].priceCents,
     p_credits: PRICING[sku].credits,
-    p_goal: goal,
+    p_purpose: purpose,
+    p_sub_purpose: subPurpose,
+    p_profile_id: profileId,
     p_stripe_session_id: session.id,
   });
 
   if (error) {
     return NextResponse.json({ error: { code: "processing_failed", message: error.message } }, { status: 500 });
+  }
+
+  // A successful payment is the verifiable-parental-consent event (system/06-AUTH-AND-COPPA.md
+  // §3). `process_purchase` records it in the database; this lifts the matching auth-level ban so
+  // the household's students can actually sign in. Runs only on a genuine first processing, and
+  // never blocks the 200 — a student who stays banned is repaired by the next purchase or by the
+  // buyer, whereas a webhook that 500s makes Stripe retry a payment that already succeeded.
+  if (processed) {
+    try {
+      await activateStudentLogins(accountId);
+    } catch {
+      // Deliberately swallowed: the DB flag is already set, so this is recoverable state.
+    }
   }
 
   // Only on a genuine first processing — `processed: false` means this was a redelivery no-op
