@@ -1,25 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getOpenAvailability } from "@/lib/booking/availability";
 import { getMyBookings } from "@/lib/booking/history";
-import { listProfiles } from "@/lib/accounts/profiles";
 import { getBalance } from "@/lib/credits/balance";
+import { POLICY_COPY } from "@/lib/policy";
 import { TUTOR_TIMEZONE } from "@/lib/booking/timezone";
-import { BookingPicker } from "./booking-picker";
 import { BookingsList } from "./bookings-list";
 
 export const metadata = { title: "Sessions" };
 
-/** spec/14 §15 — the rules a buyer needs before spending a credit, not buried in a paragraph. */
+/** The rules a buyer needs when managing a booked session, straight from the policy module. */
 const SESSION_RULES = [
-  { title: "Booking window", body: "Book up to 4 weeks ahead, with at least 24 hours' notice." },
-  { title: "Credits", body: "Never expire. Each session uses one." },
-  {
-    title: "Cancel or reschedule",
-    body: "Free at 24 hours or more ahead. Inside 24 hours uses the credit — you can request it back.",
-  },
-  { title: "No-show", body: "15 minutes late counts as a no-show — you can request the credit back." },
+  { title: "Booking window", body: `Up to ${POLICY_COPY.horizon} ahead. ${POLICY_COPY.release}` },
+  { title: "Credits", body: `${POLICY_COPY.creditsNeverExpire} Each session uses one.` },
+  { title: "Cancel or reschedule", body: POLICY_COPY.freeCancel },
+  { title: "Missed it?", body: POLICY_COPY.lateCancel },
 ];
 
 /** TASK-BOOK-004. Booking only — buying happens on `/credits`, so no checkout redirect can
@@ -31,12 +26,7 @@ export default async function SessionsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/sessions");
 
-  const [slots, profiles, bookings, balance] = await Promise.all([
-    getOpenAvailability(),
-    listProfiles(),
-    getMyBookings(),
-    getBalance(),
-  ]);
+  const [bookings, balance] = await Promise.all([getMyBookings(), getBalance()]);
 
   return (
     <main>
@@ -45,7 +35,7 @@ export default async function SessionsPage() {
           Sessions
         </h1>
         <p className="mb-10 text-lg text-navy-600">
-          Book your 1 hour 1:1 sessions and manage what&apos;s coming up.
+          What&apos;s coming up, and everything you&apos;ve had.
         </p>
 
         <div className="mb-12 flex flex-wrap items-center gap-3 rounded-xl border border-navy-100 bg-white px-5 py-4 shadow-[var(--shadow-card)]">
@@ -62,16 +52,15 @@ export default async function SessionsPage() {
         </div>
 
         <div className="mb-12">
-          <h2 className="mb-6 text-lg font-bold text-navy-950">Pick a time</h2>
-          <BookingPicker
-            slots={slots}
-            profiles={profiles.map((p) => ({ id: p.id, name: p.name }))}
-            balance={balance}
-          />
-        </div>
-
-        <div className="mb-12 border-t border-navy-100 pt-10">
-          <h2 className="mb-6 text-lg font-bold text-navy-950">Your sessions</h2>
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-bold text-navy-950">Your sessions</h2>
+            <Link
+              href="/book"
+              className="rounded-lg bg-navy-900 px-4 py-2 text-sm font-semibold text-white hover:bg-navy-800"
+            >
+              Book a session
+            </Link>
+          </div>
           <BookingsList bookings={bookings} />
         </div>
 

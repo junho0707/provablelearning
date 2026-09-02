@@ -2,18 +2,20 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { generateSlots, isBookable, BOOKING_HORIZON_MS, type AvailabilityRule, type AvailabilityException } from "./slots";
+import { generateSlots, isBookable, horizonEnd, type AvailabilityRule, type AvailabilityException } from "./slots";
 import { TUTOR_TIMEZONE } from "./timezone";
 
 type RuleRow = { weekday: number; start_time: string; end_time: string; active: boolean };
 type ExceptionRow = { date: string; kind: "blackout" | "extra"; start_time: string | null; end_time: string | null };
 
 /**
- * TASK-AVAIL-001/BOOK-001, contract `getOpenAvailability()`. Returns open future slots, **≥24h
- * out, ≤4 weeks ahead**, in UTC (REQ-BOOK-001) — the client renders them in the visitor's browser
- * time zone. Excludes instants with an existing non-cancelled booking, but that's a display
- * convenience for the picker, not the source of truth — `book_session`'s advisory lock + partial
- * unique index is what actually prevents a double-book (AT-BOOK-002).
+ * Open future slots in UTC — the client renders them in the visitor's browser time zone.
+ *
+ * The window is **≥6h out** (or ≥1h for a slot freed by a cancellation) and no later than the
+ * Monday-stepped 4-week horizon (`system/02-POLICIES.md` §2). Excluding taken instants here is a
+ * display convenience, not the source of truth — `book_session`'s advisory lock plus the partial
+ * unique index is what actually prevents a double-book (AT-BOOK-002), and it re-checks the window
+ * itself so a stale picker cannot slip a slot through.
  */
 export async function getOpenAvailability(): Promise<string[]> {
   const supabase = await createClient();
@@ -26,12 +28,17 @@ export async function getOpenAvailability(): Promise<string[]> {
   // `bookings` RLS scopes select to the owning account (AT-SEC-001) — a buyer must not see whose
   // slot it is, only that it's gone. The service-role client reads just `starts_at`, nothing
   // account-identifying, so this doesn't leak anything the RLS boundary is protecting.
-  const [{ data: ruleRows }, { data: exceptionRows }, { data: bookingRows }] = await Promise.all([
-    supabase.from("availability_rules").select("weekday, start_time, end_time, active"),
-    supabase.from("availability_exceptions").select("date, kind, start_time, end_time"),
-    createAdminClient().from("bookings").select("starts_at").neq("status", "cancelled"),
-  ]);
+  const [{ data: ruleRows }, { data: exceptionRows }, { data: bookingRows }, { data: releasedRows }] =
+    await Promise.all([
+      supabase.from("availability_rules").select("weekday, start_time, end_time, active"),
+      supabase.from("availability_exceptions").select("date, kind, start_time, end_time"),
+      createAdminClient().from("bookings").select("starts_at").neq("status", "cancelled"),
+      supabase.from("released_slots").select("starts_at"),
+    ]);
   const takenInstants = new Set((bookingRows ?? []).map((b) => new Date(b.starts_at).getTime()));
+  // Slots someone else gave back. They keep a shorter floor, so they can still appear inside the
+  // ordinary 6-hour cutoff (INV-BOOK-3).
+  const released = new Set((releasedRows ?? []).map((r) => new Date(r.starts_at).getTime()));
 
   const rules: AvailabilityRule[] = ((ruleRows ?? []) as RuleRow[]).map((r) => ({
     weekday: r.weekday,
@@ -47,10 +54,13 @@ export async function getOpenAvailability(): Promise<string[]> {
   }));
 
   const now = new Date();
-  const to = new Date(now.getTime() + BOOKING_HORIZON_MS + 24 * 60 * 60 * 1000); // one extra day of buffer
+  const to = horizonEnd(now);
   const slots = generateSlots(rules, exceptions, { from: now, to, timeZone: TUTOR_TIMEZONE });
 
   return slots
-    .filter((s) => isBookable(s, now) && !takenInstants.has(s.getTime()))
+    .filter(
+      (s) =>
+        isBookable(s, now, { released: released.has(s.getTime()) }) && !takenInstants.has(s.getTime()),
+    )
     .map((s) => s.toISOString());
 }

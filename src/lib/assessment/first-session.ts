@@ -67,6 +67,31 @@ export async function listFirstSessionEligible(): Promise<Array<{ profileId: str
   }));
 }
 
+/**
+ * Students who have **bought** a First Session and not yet used it. Distinct from
+ * `listFirstSessionEligible`, which is the opposite set — those who have not bought one and are
+ * still being offered the $49 purchase. Confusing the two would either give away a paid session or
+ * hide one already paid for.
+ */
+export async function listUnusedFirstSessions(): Promise<string[]> {
+  const supabase = await createClient();
+  const { data: purchases } = await supabase
+    .from("purchases")
+    .select("id, profile_id")
+    .eq("sku", "first_session");
+  if (!purchases?.length) return [];
+
+  const { data: bookings } = await supabase
+    .from("bookings")
+    .select("purchase_id")
+    .in("purchase_id", purchases.map((p) => p.id as string));
+  const used = new Set((bookings ?? []).map((b) => b.purchase_id as string));
+
+  return purchases
+    .filter((p) => !used.has(p.id as string) && p.profile_id)
+    .map((p) => p.profile_id as string);
+}
+
 export type BookFirstSessionResult =
   | { ok: true; bookingId: string }
   | {
@@ -79,6 +104,7 @@ const inputSchema = z.object({
   profileId: z.string().uuid(),
   startsAt: z.string().datetime(),
   purchaseId: z.string().uuid(),
+  specifics: z.string().trim().max(2000).optional().nullable(),
 });
 
 /**
@@ -99,6 +125,7 @@ export async function bookFirstSession(input: unknown): Promise<BookFirstSession
     p_profile_id: parsed.data.profileId,
     p_starts_at: parsed.data.startsAt,
     p_purchase_id: parsed.data.purchaseId,
+    p_specifics: parsed.data.specifics ?? null,
   });
 
   if (error) {

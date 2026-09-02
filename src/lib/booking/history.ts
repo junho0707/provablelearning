@@ -4,7 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 
 export type MyBooking = {
   id: string;
+  profileId: string;
   startsAt: string;
+  purpose: string | null;
+  subPurpose: string | null;
+  specifics: string | null;
   status: "booked" | "cancelled" | "completed" | "no_show";
   meetUrl: string | null;
   profileName: string;
@@ -18,7 +22,7 @@ export async function getMyBookings(): Promise<MyBooking[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("bookings")
-    .select("id, starts_at, status, meet_url, learner_profiles(name)")
+    .select("id, profile_id, starts_at, status, meet_url, purpose, sub_purpose, specifics, learner_profiles(name)")
     .order("starts_at", { ascending: false });
   if (error || !data) return [];
 
@@ -41,7 +45,11 @@ export async function getMyBookings(): Promise<MyBooking[]> {
 
     return {
       id: row.id,
+      profileId: row.profile_id,
       startsAt: row.starts_at,
+      purpose: row.purpose ?? null,
+      subPurpose: row.sub_purpose ?? null,
+      specifics: row.specifics ?? null,
       status: row.status,
       meetUrl: row.meet_url,
       profileName,
