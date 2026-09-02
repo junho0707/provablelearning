@@ -10,6 +10,7 @@ import {
   type PreSessionView,
 } from "@/lib/sessions/student";
 import { UPLOAD_EXTENSIONS } from "@/lib/policy";
+import { DiagnosticQuestions } from "./diagnostic";
 
 const inputClass =
   "w-full rounded-lg border border-navy-200 px-3 py-2.5 text-navy-950 outline-none focus:border-navy-400";
@@ -111,6 +112,12 @@ export function PrepareForm({ view }: { view: PreSessionView }) {
             />
           </label>
         </div>
+      )}
+
+      {/* After the class fields, because for a math diagnostic those are what select the set
+          (AT-PRE-4) — saving them is what makes it appear. */}
+      {view.diagnostic && (
+        <DiagnosticQuestions bookingId={view.session.bookingId} diagnostic={view.diagnostic} />
       )}
 
       {shape.fields.includes("notes") && (

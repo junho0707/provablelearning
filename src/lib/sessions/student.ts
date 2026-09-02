@@ -5,6 +5,14 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStudent } from "@/lib/auth/session";
 import { UPLOAD_EXTENSIONS, UPLOAD_MAX_BYTES } from "@/lib/policy";
+import { assessmentKindFor } from "@/lib/accounts/purposes";
+import {
+  findDiagnostic,
+  getDiagnosticQuestions,
+  hasTakenDiagnostic,
+  type Diagnostic,
+  type DiagnosticQuestion,
+} from "@/lib/assessment/diagnostics";
 import { preSessionShape, isPreSessionComplete } from "./pre-session-shape";
 
 /**
@@ -73,7 +81,34 @@ export type PreSessionView = {
     notes: string | null;
   };
   uploads: Array<{ id: string; fileName: string; linkUrl: string | null; createdAt: string }>;
+  /** The diagnostic to serve, if one is authored for this purpose and not already sat. */
+  diagnostic: { id: string; name: string; questions: DiagnosticQuestion[] } | null;
 };
+
+/**
+ * Which diagnostic — if any — this booking should serve, given what the student has told us so
+ * far. Shared by the read and the save so the two can never disagree about what was asked.
+ *
+ * Every outcome except "a published set exists, and this student has not sat it" is a null, and
+ * a null is not an error: it degrades to the descriptive questions (AT-PRE-7).
+ */
+async function resolveDiagnostic(
+  session: StudentSession,
+  profileId: string,
+  currentMathClass: string | null,
+): Promise<{ diagnostic: Diagnostic | null; alreadyTaken: boolean }> {
+  const kind = session.purpose ? assessmentKindFor(session.purpose) : null;
+  if (!kind) return { diagnostic: null, alreadyTaken: false };
+
+  const diagnostic = await findDiagnostic({
+    kind,
+    subPurpose: session.subPurpose,
+    currentMathClass,
+  });
+  if (!diagnostic) return { diagnostic: null, alreadyTaken: false };
+
+  return { diagnostic, alreadyTaken: await hasTakenDiagnostic(profileId, diagnostic.id) };
+}
 
 export async function getPreSession(bookingId: string): Promise<PreSessionView | null> {
   const student = await requireStudent();
@@ -96,20 +131,35 @@ export async function getPreSession(bookingId: string): Promise<PreSessionView |
       .order("created_at", { ascending: true }),
   ]);
 
-  // No authored diagnostics exist yet, so every assessment currently degrades to the descriptive
-  // questions (AT-PRE-7). R7 replaces this constant with a real lookup.
+  const currentMathClass =
+    (submission?.current_math_class as string | null) ?? student.currentMathClass;
+
+  const { diagnostic, alreadyTaken } = await resolveDiagnostic(
+    session,
+    student.profileId,
+    currentMathClass,
+  );
   const shape = preSessionShape({
     purpose: session.purpose,
     subPurpose: session.subPurpose,
-    assessmentUnavailable: true,
+    assessmentAlreadyTaken: alreadyTaken,
+    assessmentUnavailable: diagnostic === null,
   });
 
   return {
     session,
     shape,
+    diagnostic:
+      shape.assessment && diagnostic
+        ? {
+            id: diagnostic.id,
+            name: diagnostic.name,
+            questions: await getDiagnosticQuestions(diagnostic.id, bookingId),
+          }
+        : null,
     values: {
       topic: (submission?.topic as string | null) ?? null,
-      currentMathClass: (submission?.current_math_class as string | null) ?? student.currentMathClass,
+      currentMathClass,
       previousMathClass:
         (submission?.previous_math_class as string | null) ?? student.previousMathClass,
       notes: (submission?.notes as string | null) ?? null,
@@ -148,10 +198,16 @@ export async function savePreSession(input: unknown): Promise<SaveResult> {
   const session = sessions.find((s) => s.bookingId === parsed.data.bookingId);
   if (!session) return { ok: false, message: "That session isn't yours." };
 
+  const { diagnostic, alreadyTaken } = await resolveDiagnostic(
+    session,
+    student.profileId,
+    parsed.data.currentMathClass ?? student.currentMathClass,
+  );
   const shape = preSessionShape({
     purpose: session.purpose,
     subPurpose: session.subPurpose,
-    assessmentUnavailable: true,
+    assessmentAlreadyTaken: alreadyTaken,
+    assessmentUnavailable: diagnostic === null,
   });
   const complete = isPreSessionComplete(shape, parsed.data);
 
