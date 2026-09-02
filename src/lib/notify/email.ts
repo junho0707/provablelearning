@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { formatPrice, type SkuId } from "@/lib/pricing";
+import { absoluteUrl } from "@/lib/site";
 
 function resendClient(): Resend {
   const key = process.env.RESEND_API_KEY;
@@ -63,6 +64,27 @@ export async function sendReceipt(params: { to: string; sku: SkuId; amountCents:
       to: params.to,
       subject: "Your receipt",
       html: `<p>Thanks for your purchase — ${formatPrice(params.amountCents)} for ${params.sku.replace(/_/g, " ")}.</p>`,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * F11 step 2. The reply itself is not in the email — the thread lives in the app, and a buyer who
+ * replies to a notification would be replying to nowhere. Only the buyer is notified; the tutor
+ * works the inbox (system/02-POLICIES.md §11).
+ */
+export async function sendMessageReply(params: { to: string }): Promise<boolean> {
+  try {
+    await resendClient().emails.send({
+      from: FROM,
+      to: params.to,
+      subject: "Your tutor replied",
+      html:
+        `<p>Your tutor has replied to your message.</p>` +
+        `<p><a href="${absoluteUrl("/messages")}">Read it here</a></p>`,
     });
     return true;
   } catch {
