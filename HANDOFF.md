@@ -1,6 +1,6 @@
 # HANDOFF — Provable Learning
 
-Written 2026-09-02, at the R5/R6 boundary. Read `STATUS.md` for position and
+Written 2026-09-02, at the R7/R8 boundary. Read `STATUS.md` for position and
 [`system/README.md`](system/README.md) for the product. This file carries what neither can: **why**
 the code is shaped as it is, what will bite you, and exactly what to do next.
 
@@ -14,50 +14,92 @@ the code is shaped as it is, what will bite you, and exactly what to do next.
 4. `system/03-FLOWS.md` — F1–F13, what actually happens
 5. `adr/007-v3-system-truth.md` — every decision with its cost
 
-Then `system/08-BUILD-PLAN.md` for the stage you are on.
-
 **`spec/` and `docs/` are superseded.** They describe the previous model (free public content, no
 student logins, 24-hour policy, one First Session per customer). Do not update them, and do not
-reason from them — several of their statements are now the exact opposite of the truth.
+reason from them — several of their statements are now the exact opposite of the truth. The root
+`VERIFY.md` belongs to that era too; the live checklist that matters is `system/07-VERIFY.md`.
 
-## 2. Your next task
+## 2. Your next task — walk the flows
 
-**R0–R5 are done.** What remains is R6 (small), R7 (a skeleton), and R8 (mostly not code).
+**Every stage with a code deliverable is done.** What remains is proving it, and the non-code launch
+work in §6. Nothing below is a code change; if one turns out to be needed, that is a finding, which
+is the point of doing this.
 
-### R6 — messaging
+Work `system/07-VERIFY.md` top to bottom and check a box **only when the expected result actually
+happened**. The order below is the cheapest path through it — each step sets up the next, so a
+failure stops you before you have wasted the setup after it.
 
-The smallest remaining stage. `messages`: one thread per buyer, rows carrying sender
-(`buyer` | `tutor`), body, and read state. RLS restricts a thread to its buyer and the admin.
-**Students have no access at all** (`INV-ACTOR-1`) — do not add a student policy, and do not add a
-messaging entry point to the `/student` shell.
+### Step 0 — make a stack exist
 
-Surfaces: `/messages` for the buyer, `/admin/messages` for the operator. Buyers are emailed when the
-tutor replies (`system/02-POLICIES.md` §11); the tutor is not emailed, they work the inbox.
+1. **Apply migrations `0017`–`0023`** to the target Supabase project (`mlhlugfzzsigraqcxgmh` — *not*
+   the ref the CLI links to by default; confirm before pushing). `0001`–`0016` are already there.
+   Nothing after R0 has ever run against a database, so expect this step itself to find things.
+2. Fill `.env.local` per `SETUP.md` §3: Supabase, Stripe **test** keys, Google, Resend, `CRON_SECRET`.
+3. Give your own account `accounts.is_admin = true` — you are the tutor as well as the owner.
+4. Set one weekly availability rule on `/admin/availability`, far enough ahead to be bookable.
 
-### R7 — diagnostics skeleton
+### Step 1 — the boundary (`AT-ACTOR`, `AT-AUTH`, `AT-COPPA`)
 
-**Ship the skeleton, not the content** (ADR-007 §14). The owner authors diagnostics afterwards, and
-a purpose may be sold before its diagnostic exists.
+Prove the permission model before anything is riding on it.
 
-- `/admin/diagnostics` — author a diagnostic per test (`psat`/`sat`/`act`) and per math class level,
-  as data. `practice_tests` + `test_prep_questions` (migration 0012) already have the right shape;
-  extend rather than inventing a parallel one, keyed by class level as well as test slug.
-- Wire it into the student flow by replacing the hardcoded `assessmentUnavailable: true` in
-  `src/lib/sessions/student.ts` with a real lookup. **That constant is the only thing standing
-  between the current build and working diagnostics** — everything around it is built and tested.
-- A missing diagnostic must still degrade to the descriptive questions (`AT-PRE-7`). Never block.
+5. Sign in as a buyer with Google, then again with a magic link on the same address → **one**
+   account (`AT-AUTH-1`, `AT-AUTH-2`).
+6. Add a student and set their username and password from `/account`. Try to sign in as them at
+   `/student/login` **before any purchase** → refused, the login is dormant (`AT-COPPA-1`).
+7. With a student session, query `bookings`, `credit_ledger`, `purchases` and `messages` directly
+   through the API → **denied on all four** (`AT-ACTOR-1`, `AT-MSG-2`). This is the check that
+   matters most in the whole file. Do it at the database, not by looking for missing links.
 
-### R8 — launch
+### Step 2 — money (`AT-MONEY`)
 
-Legal pages including the kids-specific disclosure, **lawyer review of the COPPA stack**, live
-Stripe products, Resend DNS, analytics, apex cutover. See §6.
+8. Buy a First Session for that student with a test card. Confirm: credits granted, a
+   `consent_events` row naming the mechanism, and the student's login now works (`AT-COPPA-2`).
+9. Replay the same Stripe webhook → nothing granted twice (`AT-MONEY-2`).
+10. Try to buy a second First Session for the same student → refused **by the database**
+    (`AT-MONEY-3`); add a sibling and buy theirs → allowed (`AT-MONEY-4`).
 
-### Rules that are easy to get wrong in what remains
+### Step 3 — booking (`AT-BOOK`)
 
-- **`school` purposes get no assessment at all.** Not a shorter one — none. Do not "complete the
-  pattern" when wiring R7.
+11. Book with a purpose, specifics, and continue-vs-new-topic. Check the Meet link arrives and the
+    tutor's `/admin/bookings/[id]` shows all four (`AT-BOOK-8`).
+12. Try a slot under 6 hours out → refused (`AT-BOOK-3`). Cancel a booking and confirm the freed
+    slot reappears and stays bookable to the 1-hour floor (`AT-BOOK-4`).
+
+### Step 4 — the session itself (`AT-PRE`, `AT-POST`)
+
+13. As the student, open `/student/prepare/[id]`. With **no diagnostic authored**, you should be
+    asked the descriptive questions and the tutor's page should say so in those words
+    (`AT-PRE-7`). Confirm nothing is blocked.
+14. Now author one on `/admin/diagnostics` — a test-prep set for whichever test you booked, or a
+    class-level set matching what the student typed — add a question, publish, reload the prepare
+    page. It should appear; answer it; the result should reach `/admin/bookings/[id]` (`AT-OPS-5`,
+    `AT-PRE-3`, `AT-PRE-4`). Book a second session for the same student and same test → **no
+    re-sit** (`AT-PRE-3`).
+15. Upload a `.docx` and a Google Docs link; try a `.exe` → rejected with the accepted list shown
+    (`AT-PRE-8`). Confirm the upload is visible to that student, their buyer, and you, and nobody
+    else (`AT-PRE-9`).
+16. Author and publish post-session material; confirm the student sees it in-app and the buyer is
+    emailed, and that **the draft was invisible to the student before publishing** (`AT-POST-1/2`).
+
+### Step 5 — the rest (`AT-CANCEL`, `AT-MSG`, `AT-CONTENT`)
+
+17. Late-cancel and no-show a session, request returns, approve two in one calendar month, then try
+    a third → refused at the database, not just hidden (`AT-CANCEL-*`).
+18. Message the tutor from `/messages`, reply from `/admin/messages`, confirm the buyer is emailed
+    and the reply lands in the same thread (`AT-MSG-1`).
+19. Confirm `/courses`, `/roadmap` and the worksheet routes 404 and appear in neither nav nor
+    sitemap (`AT-CONTENT-1..3`).
+
+### Step 6 — the non-code launch work
+
+Then §6 below: legal pages, the lawyer review, live Stripe, Resend DNS, apex cutover.
+
+### Rules that are easy to get wrong while verifying
+
+- **`school` purposes get no assessment at all.** Not a shorter one — none. If you see a diagnostic
+  offered on a `school` booking, that is a bug, not a feature to complete.
 - **Nothing blocks a session.** Missing preparation, missing diagnostic, missing materials — all
-  degrade and are surfaced, never enforced.
+  degrade and are surfaced, never enforced. A step that blocks is a failed check.
 
 ## 3. What is already true and should not be re-derived
 
@@ -70,13 +112,15 @@ Stripe products, Resend DNS, analytics, apex cutover. See §6.
   suggestions and free text is allowed, so there is no CHECK constraint on purpose values.
 - **`PurposePicker`** (`src/components/purpose-picker.tsx`) is shared by the First Session purchase
   and the booking form, because they ask the same question.
+- **No diagnostics are authored, and that is a shipped state, not a gap.** Authoring runs after
+  launch at whatever pace suits (ADR-007 §14).
 
 ## 4. Traps
 
 **The buyer/student boundary is structural, not cosmetic.** A student has **no `accounts` row**, so
 every existing `account_id = auth.uid()` policy denies them without a single new check. If you ever
-find yourself adding a student-specific policy to a money or booking table, you are about to break
-`INV-ACTOR-1` — add a scoped view instead.
+find yourself adding a student-specific policy to a money, booking, or messaging table, you are
+about to break `INV-ACTOR-1` — add a scoped view instead.
 
 **Consent gates the login, not the profile.** A parent typing their own child's name is not
 collection *from a child*; the child's own submissions are. That is why the gate sits at login
@@ -102,7 +146,9 @@ date would make a slow review consume the buyer's next month. It is per student 
 late cancellations and no-shows.
 
 **Post-session material is invisible to the student until published.** That is RLS, not UI, so a
-half-written draft is safe to save.
+half-written draft is safe to save. **An unpublished diagnostic works the same way** (migration
+0023): the policy checks the set's `published_at`, so an unfinished one is safe to leave sitting
+there, and withdrawing one stops it being served without destroying answers already given.
 
 **`released_slots` is a table, not a flag.** The obvious implementation — a placeholder cancelled
 booking marking the freed instant — puts a session in the buyer's own list that they never had.
@@ -115,6 +161,16 @@ away a paid session or hides one already paid for.
 student left banned is recoverable by the next purchase, whereas a 500 makes Stripe retry a payment
 that already succeeded.
 
+**A diagnostic's class level matches on lowercased alphanumerics and nothing else.** "Algebra 1" and
+"algebra1" are the same level; "Algebra I" is not. That is deliberate — a fuzzy match would serve a
+Geometry student the Algebra 2 set and nobody would notice, whereas a miss falls through to the
+descriptive questions, which is the safe direction to be wrong in. If students routinely miss, add
+authored levels, don't loosen the match.
+
+**"No diagnostic result" has three meanings** and the tutor's page distinguishes them: this purpose
+never asks for one, none is authored, or the student didn't sit it. Collapsing them makes a gap in
+the content look like a student who ignored their preparation.
+
 **`probe.ts` is shelved, not dead.** ADR-007 replaced algorithmic probe-and-descend with
 hand-authored diagnostics per class level. The file stays because it is a good implementation of an
 idea that may return. Do not route to it; do not delete it.
@@ -122,19 +178,19 @@ idea that may return. Do not route to it; do not delete it.
 ## 5. The honesty problem
 
 **Nothing in this codebase has been exercised against a real database, Stripe, Google, or Resend.**
-There is no Docker in this environment. Migrations `0017`–`0021` **have not been applied anywhere**.
+There is no Docker in this environment. Migrations `0017`–`0023` **have not been applied anywhere**.
 
 Treat the test suite accordingly:
 
 - **Pure-logic tests** (`slots.ts` DST maths, `policy.ts`, `purposes.ts`, `pre-session-shape.ts`,
-  `answer-check.ts`) are trustworthy — they need no external service.
+  `answer-check.ts`, `class-level.ts`) are trustworthy — they need no external service.
 - **SQL-text integrity tests** prove the migration says the right thing. They cannot prove Postgres
   does it.
 - **Mocked external-service tests** prove this codebase's error handling, not that the integration
   works.
 
-`system/07-VERIFY.md` marks every check `[db]` or `[live]` accordingly. Work it top to bottom against
-a real project before treating any of this as trustworthy.
+`system/07-VERIFY.md` marks every check `[db]` or `[live]` accordingly. §2 above is the order to
+work it in.
 
 ## 6. Blocking, non-code work the owner must do
 
@@ -143,7 +199,7 @@ a real project before treating any of this as trustworthy.
    consent design, and twelve questions. **Do not open to real under-13 users before this.** Q2
    (does the card payment qualify as verifiable parental consent?) and Q3 (is parent-entered child
    data already collection?) can both change the build.
-2. **Apply migrations 0017–0021** to the target Supabase project (`mlhlugfzzsigraqcxgmh`, which is
+2. **Apply migrations 0017–0023** to the target Supabase project (`mlhlugfzzsigraqcxgmh`, which is
    *not* the ref the CLI links to by default).
 3. **Live Stripe products**, Resend DNS, legal pages including the kids-specific disclosure, apex
    DNS cutover.
@@ -157,3 +213,6 @@ a real project before treating any of this as trustworthy.
 - **Under-13 support carries legal exposure** that a lawyer has not yet reviewed.
 - **Revenue has one leg:** First Session → credit-pack conversion, and Vercel Analytics cannot
   measure it. It must be reconstructed by hand from Stripe.
+- **Launching with no diagnostics authored** means every early student gets the descriptive
+  questions. That is the designed fallback, but it does mean the diagnostic path is the least-worn
+  code in the build on day one.

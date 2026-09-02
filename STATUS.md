@@ -17,17 +17,19 @@ The reconciliation plan is [`system/08-BUILD-PLAN.md`](system/08-BUILD-PLAN.md),
 | **R3** — booking | ✅ done |
 | **R4** — session work (pre/post-session) | ✅ done |
 | **R5** — cancellation and credit-return cap | ✅ done |
-| **R6** — messaging | ⬜ **next** |
-| **R7** — diagnostics skeleton | ⬜ |
-| **R8** — launch | ⬜ (mostly not code) |
+| **R6** — messaging | ✅ done |
+| **R7** — diagnostics skeleton | ✅ done |
+| **R8** — launch | ⬜ **next** — not code |
 
-**305 tests passing, `next build` clean, `tsc --noEmit` clean.**
+**Every stage with a code deliverable is code-complete.** 325 tests passing, `next build` clean
+(38 routes), `tsc --noEmit` clean.
 
 **Nothing has been live-verified.** This environment has no Docker and no real Stripe/Google/Resend
-credentials, and **migrations 0017–0021 have not been applied to any database.** Every `[db]` and
-`[live]` check in [`system/07-VERIFY.md`](system/07-VERIFY.md) is genuinely unproven.
+credentials, and **migrations 0017–0023 have not been applied to any database.** Every `[db]` and
+`[live]` check in [`system/07-VERIFY.md`](system/07-VERIFY.md) is genuinely unproven — including for
+code called "done" above.
 
-## What R0–R5 changed
+## What R0–R7 changed
 
 - **R0** — `src/lib/policy.ts` holds every policy number, with a drift test that reads
   `system/02-POLICIES.md` and fails CI if the two disagree. Content is unrouted (`/courses`,
@@ -52,10 +54,16 @@ credentials, and **migrations 0017–0021 have not been applied to any database.
   the tutor's authoring form on `/admin/bookings/[id]`, and `/admin/materials`.
 - **R5** — migration `0021`: credit returns capped at 2 per calendar month, per student, combined,
   enforced in the database at both request and approval. Allowance surfaced to buyer and operator.
+- **R6** — migration `0022`: `messages`, one thread per buyer. `/messages` for the buyer,
+  `/admin/messages` for the operator, and a reply email to the buyer only. No student policy on the
+  table and no student entry point.
+- **R7** — migration `0023`: `practice_tests` extended into diagnostics keyed by test slug **or**
+  class level, published-gated, plus `diagnostic_responses`. `/admin/diagnostics` authors them as
+  data; the pre-session flow serves one when it exists and falls through to the descriptive
+  questions when it does not. **No diagnostics are authored yet, and none gate launch.**
 
 ## Next task
 
-**R6 — messaging** (small), then **R7 — the diagnostics skeleton**. See the handoff for both.
-
-Read [`HANDOFF.md`](HANDOFF.md) before starting. It carries what this file cannot: why the
-decisions are what they are, the traps, and the specific shape the remaining stages should take.
+**Walk the flows against a real stack.** That is R8, and almost none of it is code. Read
+[`HANDOFF.md`](HANDOFF.md) §2 — it is an ordered walkthrough, starting with applying migrations
+`0017`–`0023`, and it names which `system/07-VERIFY.md` check each step proves.
