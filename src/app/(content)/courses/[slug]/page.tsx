@@ -34,7 +34,7 @@ export default async function LessonPage({ params }: { params: Promise<Params> }
   return (
     <article className="mx-auto max-w-[720px] px-5 py-16 sm:px-8">
       <nav className="mb-6 text-sm text-navy-500">
-        <Link href="/courses" className="hover:text-navy-950">
+        <Link href="/roadmap?view=courses" className="hover:text-navy-950">
           Courses
         </Link>
         {trail.map((a) => (
@@ -60,7 +60,15 @@ export default async function LessonPage({ params }: { params: Promise<Params> }
         </div>
       )}
 
-      {lesson.hasContent && <PracticeQuestions questions={questions} />}
+      {lesson.hasContent && <PracticeQuestions questions={questions} lessonSlug={lesson.slug} />}
+
+      {lesson.hasContent && questions.length > 0 && (
+        <p className="mt-6 text-sm">
+          <Link href={`/courses/${lesson.slug}/worksheet`} className="font-semibold text-navy-700 underline">
+            Printable worksheet →
+          </Link>
+        </p>
+      )}
 
       <nav className="mt-16 flex justify-between gap-4 border-t border-navy-100 pt-6 text-sm">
         {prev ? (

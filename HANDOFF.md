@@ -89,9 +89,8 @@ price, change the spec — the test is there to make drift fail CI.
 
 ## 6. What to do next
 
-**Optional paper task:** `TASK-SPEC-004`, rebuild the layered `docs/` tree (currently only
-`docs/archive/v1-sat/`). The spec set is complete without it; recommendation is to skip until
-there's a real system to document.
+`TASK-SPEC-004` (rebuild the layered `docs/` tree) is **done** — see `docs/README.md`. It's a
+navigation layer over `/spec`, not a replacement; `/spec` is still ground truth.
 
 **Build starts at M3** (`spec/12_IMPLEMENTATION_PLAN.md`):
 

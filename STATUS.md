@@ -4,8 +4,9 @@ Read this first when starting or resuming work. See `AGENTS.md` for the operatin
 
 **Project:** Provable Learning v2 — **free** K–12 math content + credit-based 1:1 tutoring.
 **Branch:** `main` (fresh v2 app; v1 SAT platform frozen on `v1-sat`).
-**Phase:** M2 paper work complete; **build resumes at M3**. Ground truth settled, specs rewritten,
-ADR-001..005 accepted.
+**Phase:** M0–M6 **code-complete** (2026-08-14); M7 is the launch checklist (`VERIFY.md` §5), not
+further code. **Nothing has been live-verified** — this environment has no Docker and no real
+Stripe/Google/Resend accounts. Read `VERIFY.md` before treating any of it as trustworthy.
 
 ## READ FIRST — the model as of 2026-08-14
 
@@ -79,12 +80,105 @@ getting-ahead and test-prep buyers, who are half the market.
 
 ## Current task
 
-**M2 (close out the pivot) — paper work COMPLETE.** Rewritten against spec/14 + ADR-003/004/005:
-`01_PRD`, `02_GLOSSARY`, `03_REQUIREMENTS`, `04_ACTORS`, `05_FLOWS`, `07_DATA_MODEL`,
-`11_ACCEPTANCE_TESTS`, `12_IMPLEMENTATION_PLAN`, `13_COVERAGE_MATRIX`.
+**M2 (close out the pivot) — paper work COMPLETE.** **M3 (landing + accounts) — IN PROGRESS.**
 
-Remaining paper task: **TASK-SPEC-004** — rebuild the layered `docs/` tree (currently only the v1
-archive). Then **build starts at M3**: CONFIG-001 → LAND-001, AUTH-001 → ACCT-001, ROADMAP-002.
+Done in M3:
+- **TASK-CONFIG-001** — `src/lib/pricing.ts` (First Session $49, credit packs), drift test passing.
+- **TASK-ROADMAP-002** — `course: true` marker + `courseId` inheritance in the roadmap; `courses()`
+  enumerates algebra/geometry/precalculus/calculus for the picker.
+- **TASK-AUTH-001** — `/login` (Google OAuth as a popup, not a full-page redirect — Google blocks
+  iframes so a `window.open` popup is the real ceiling on "no page leave"), magic link,
+  `/auth/callback`, `signOut`, `src/proxy.ts` session refresh. Code-complete; **not live-verified** —
+  see follow-up 3 below.
+- **TASK-LAND-001** — `src/app/page.tsx` rebuilt with the approved hero copy verbatim (spec/14 §14),
+  prices pulled from `pricing.ts` (no retyped numbers). Primary CTA currently points at `/login`,
+  not a checkout — see follow-up 4, revisit once FIRST-001/BILLING-001 ship. Lighthouse/CWV lab run
+  still not done in this environment (same limitation as NFR-PERF-002, follow-up 1).
+
+- **TASK-ACCT-001** — `supabase/migrations/0003_accounts.sql` (`accounts` auto-provisioned by a
+  trigger on `auth.users`, `learner_profiles` beneath it, RLS scoping both to `auth.uid()`);
+  `src/lib/accounts/*` (profile CRUD + active-profile "switching" via cookie, `currentCourseNode`
+  validated against `courses()` from ROADMAP-002); `/profiles` page (redirects signed-out visitors
+  to `/login`). Migration **not applied anywhere** — same unresolved-DB-password limitation as
+  follow-up 2. Code-complete, not live-verified — see follow-up 3.
+
+**M3 is now feature-complete on paper** (CONFIG-001, ROADMAP-002, AUTH-001, LAND-001, ACCT-001 all
+code-complete). What's missing before calling M3 actually *done* is the live-verification pass
+(follow-up 3) — this environment cannot run a local Supabase stack or confirm the linked project's
+OAuth config, so nothing that touches Supabase Auth or RLS has been exercised against a real
+database.
+
+**M4 (money) — code-complete, not live-verified.** TASK-CREDIT-001 (`supabase/migrations/0004_credits.sql`
+— ledger, purchases, stripe_events, `get_balance`/`spend_credit`/`process_purchase` RPCs),
+TASK-BILLING-001 (`src/lib/billing/*` checkout SAs + `/api/webhooks/stripe`), TASK-BILLING-002
+(`/wallet` page) are all built and tested (SQL-text invariant tests + SA/route unit tests — no live
+Stripe/Supabase in this environment, same limitation as M3). See `VERIFY.md` §2.
+
+**M5 (progress + booking, the critical path) — code-complete, not live-verified.**
+TASK-PROGRESS-001 (`supabase/migrations/0005_progress.sql`, `src/lib/progress/*`, wired into
+`checkAnswer`), TASK-AVAIL-001 (`0006_availability.sql`, `src/lib/booking/{slots,timezone,availability}.ts`
+— DST-boundary-correct slot derivation, pure-logic tested), TASK-BOOK-001 (`0007_bookings.sql`,
+`book_session` RPC — advisory-lock + partial-unique-index concurrency guard, `src/lib/booking/book.ts`),
+TASK-BOOK-002/BOOK-005 (`0008_booking_lifecycle.sql` — `cancel_booking`/`reschedule_booking`/
+`mark_no_show`/`resolve_credit_return_request`, `audit_log`, `src/lib/booking/manage.ts`),
+TASK-BOOK-003 (`src/lib/booking/calendar.ts` — Google Calendar/Meet, resilient to failure by
+design, mocked-Google unit tests), TASK-NOTIFY-001 (`0009_notifications.sql`,
+`src/lib/notify/*`, `/api/cron/session-reminders` — idempotent via per-flag "only set on success"),
+TASK-BOOK-004 (`/book` page — slot picker in the visitor's browser time zone, upcoming/past list,
+cancel + no-show credit-return request UI) are all built and tested (SQL-text invariant tests +
+pure-logic tests for slot generation/DST/windowing + mocked-external-service unit tests for
+Stripe/Google/Resend — no live Supabase/Stripe/Google/Resend in this environment). 134 tests
+passing, `next build` clean. See `VERIFY.md` §3.
+
+**M6 (admin + First Session) — code-complete, not live-verified.** TASK-ADMIN-001
+(`supabase/migrations/0010_admin.sql` — cross-account admin read policies + `refund_credit` RPC;
+`src/lib/admin/*`; `/admin/*` pages: availability editor, bookings calendar + missing-Meet-link
+queue, credit-return queue, users, question CRUD), TASK-ADMIN-002 (`0011_sms_worklist.sql` —
+closes a spec gap: `accounts.phone`, buyer-settable on `/profiles`, since REQ-ADMIN-004 needs a
+number and none existed; `/admin/reminders` worklist), TASK-FIRST-003 (`src/lib/assessment/probe.ts`
+— stateless, replay-based probe-and-descend engine, fully pure-logic tested over fixture graphs,
+no DB needed for the traversal itself), TASK-FIRST-004 (`0012_test_prep.sql` — hand-authored
+`practice_tests`/`test_prep_questions`, mirrors `questions`' answer-secrecy shape;
+`src/lib/assessment/test-prep.ts`), TASK-FIRST-001 (`0013_first_session.sql` — `assessments`/
+`assessment_items`, `book_first_session` RPC that never spends a credit; `src/lib/assessment/
+{first-session,session}.ts`; `/first-session` page routing by stated goal — `class_help` straight
+to booking, `strengths`/`test_prep` through their pre-session step first; closes a second spec gap,
+`assessments.test_slug`, since ADR-005's `test_prep` goal didn't name *which* test), TASK-FIRST-002
+(`0014_session_notes.sql`, `src/lib/assessment/plan.ts` — pure written-plan renderer, works from
+session notes alone in `class_help` mode; `/admin/bookings/[id]` plan page) are all built and
+tested. 181 tests passing, `next build` clean (46 routes). **Not live-verified** — same limitation
+as M3–M5, plus: most of the roadmap is unauthored so most `strengths`-mode probes hit the
+no-content skip path in practice (documented in `session.ts`). See `VERIFY.md` §4.
+
+**M6 completes the implementation plan through M7's build order** (`spec/12_IMPLEMENTATION_PLAN.md`
+lists M7 as OPS-001 launch checklist + WORKSHEET-001 + continuous content authoring — none of which
+are more code to write against this environment's limits). Per the owner's instruction to keep
+implementing through M7 and collect every live check in one place: **the codebase is now
+feature-complete against spec/12**. What remains is the live-verification pass this environment
+cannot run (`VERIFY.md`, all four sections) and the genuinely non-code parts of M7 (Stripe live
+products, Resend DNS, ToS/Privacy pages, apex DNS cutover, content authoring) — tracked in
+`VERIFY.md` §5 and unchanged from `HANDOFF.md` §7.
+
+**Spec-freshness cleanup (2026-08-14):** `06_ARCHITECTURE.md`, `08_API_CONTRACTS.md`,
+`09_FRONTEND.md` were still **DRAFT/LIGHT** — never rewritten against spec/14 during TASK-SPEC-003 —
+and had accumulated v1 leftovers (parent/dependent/consent language, `payer`/`owner`/`student`
+roles instead of the `04_ACTORS.md` Buyer/Learner-profile/Admin-Tutor model, stale RPC param names,
+a `FLOW-*` ID scheme `05_FLOWS.md` no longer uses). All three are now rewritten and consistent;
+`10_BACKEND.md` (already "LIGHT (intentional)") got the same terminology pass. `00_README.md`'s ID
+convention section was corrected to match `05_FLOWS.md`'s actual `F1`–`F13` numbering. **All of
+`spec/00`–`13` are now current against spec/14 + ADR-003/004/005** — this was not true before today
+despite `HANDOFF.md` §2 claiming it was.
+
+For a comprehensive, up-to-date view of the system: **`spec/05_FLOWS.md`** is the end-to-end
+flow-by-flow walkthrough (F1–F13, every actor journey including failure paths — this is the doc to
+read to understand "what should happen"), and **`spec/13_COVERAGE_MATRIX.md`** is the audit view
+(what's built vs not, ✅/🟡/⬜ per capability — this is the doc to read to check "what's actually
+done"). Read them together.
+
+**TASK-SPEC-004 done (2026-08-14)** — the layered `docs/` tree (L0 business, L1 context, L1′
+invariants, L2 journeys one-per-`F*`, L3 components one-per-built-module) is rebuilt; start at
+`docs/README.md`. It's a navigation/onboarding layer over `/spec`, not a duplicate — `/spec` stays
+the single source of truth; fix conflicts there, not in `docs/`. No paper tasks remain open.
 
 **No open blockers.**
 
@@ -92,12 +186,26 @@ archive). Then **build starts at M3**: CONFIG-001 → LAND-001, AUTH-001 → ACC
 1. **NFR-PERF-002 Core Web Vitals lab run** — pages are static + KaTeX-rendered server-side (no math
    CLS, next/font, minimal JS) so they meet CWV structurally, but a Lighthouse run on a deployed
    preview is the honest confirmation; not done in this environment. Run at first Vercel preview.
-2. **Apply migration `0002_questions.sql` + `seed.sql` to the remote Supabase projects.** They were
-   verified against a **local** stack only. The linked CLI points at the *prod* project ref
-   (`vufizavpkjpybsknvyno`) and I don't have the dev project's DB password, so I did **not** push DDL
-   remotely. Until applied, `getLessonQuestions` returns `[]` on remote (pages still build/render —
-   graceful) and no questions show. Apply via `supabase db push` (verify the target ref first) or the
-   dashboard SQL editor, then re-run the seed.
+2. **Apply migrations `0002_questions.sql`, `0003_accounts.sql` + `seed.sql` to the remote Supabase
+   projects.** All verified against a **local** stack only (and 0003 not even locally — no Docker
+   here at all). The linked CLI points at the *prod* project ref (`vufizavpkjpybsknvyno`) and I
+   don't have the dev project's DB password, so I did **not** push DDL remotely. Until `0002` is
+   applied, `getLessonQuestions` returns `[]` on remote (pages still build/render — graceful) and no
+   questions show. Until `0003` is applied, every `/profiles` query will fail (no `accounts` /
+   `learner_profiles` tables exist yet — the page will error, not degrade). Apply via
+   `supabase db push` (verify the target ref first) or the dashboard SQL editor, then re-run the
+   seed.
+3. **AUTH-001 and ACCT-001 need a live verification pass.** No Docker in this WSL distro (no local
+   Supabase stack at all), and no confirmation that the linked project's Auth → Providers → Google
+   is configured with the right redirect URLs. The code (OAuth popup, magic-link form, callback
+   exchange, session refresh proxy, profile CRUD, RLS policies) is in place and builds clean, but
+   none of it has actually run against Postgres: the OAuth round-trip, same-email identity linking,
+   the `handle_new_user` trigger, profile CRUD, and RLS cross-account denial (AT-SEC-001) are all
+   unexercised. Verify on a deployed preview or a machine with Docker before treating any of it as
+   trustworthy.
+4. **Landing page's primary CTA has nowhere real to land yet.** "Book your first session — $49"
+   goes to `/login` because BILLING-001/FIRST-001 (checkout, First Session flow) don't exist. Point
+   it at the real purchase flow once M6 ships.
 
 ## Completed
 
@@ -154,21 +262,33 @@ archive). Then **build starts at M3**: CONFIG-001 → LAND-001, AUTH-001 → ACC
 
 ## Next task
 
-**`TASK-SPEC-004`** — rebuild the layered `docs/` tree from spec/14. Then build at M3:
-**CONFIG-001** (pricing config + drift test) → **LAND-001** (landing, approved hero copy);
-**AUTH-001** → **ACCT-001**; **ROADMAP-002** (course-level nodes). Follow the dependency order in
-`spec/12_IMPLEMENTATION_PLAN.md`.
+**Nothing left to build against `spec/12_IMPLEMENTATION_PLAN.md`** — M0 through M6 are
+code-complete, and M7 (`TASK-OPS-001`) is a launch checklist, not code (see `VERIFY.md` §5).
+`TASK-WORKSHEET-001` is also built (`/courses/<slug>/worksheet`). `TASK-CONTENT-002` (authoring
+"Math up to Geometry") is continuous content work, explicitly scoped to run post-launch and gate
+nothing (ADR-004) — pick it up whenever, it never blocks anything else.
 
-**Write `AT-CONTENT-005` early** — the guard asserting no content route requires an account. It is
-the one test protecting ADR-004 from erosion.
+**The actual next step is the live-verification pass** — work through `VERIFY.md` top to bottom
+(§0 environment setup, then §1–§5 in order) against a real Supabase project with Docker or a
+deployed preview, real Stripe test-mode keys, a real Google account, and a real Resend account.
+Nothing in this codebase has been exercised against any of those. Log each pass in `VERIFY.md`'s
+sign-off table.
 
 ## Build / test status
 
-- Build: **passing** (`next build`, Next 16, TS strict, no error-ignoring). Content pages
-  prerendered (○ catalog, ● course + lessons); degrades gracefully when the questions table is
-  absent on the target DB. Lint clean.
-- Tests: **20 passing** across 3 files (`content.test.tsx` ×10; `practice/check.test.ts` ×7;
-  `practice/integrity.test.ts` ×3 — answer-secrecy grants + slug integrity). Run with `npm test`.
-- Last meaningful verification: 2026-07-11 — PRACTICE-001 against a local Supabase stack: migrations
-  0001+0002 applied + seed loaded; anon **denied** the `answer` column (HTTP 401), service role
+- Build: **passing** (`next build`, Next 16, TS strict, no error-ignoring). 49 routes; content
+  pages prerendered (○ catalog, ● course + lessons); everything touching Supabase degrades
+  gracefully when a table/migration is absent. Lint clean.
+- Tests: **181 passing** across 33 files. Every SQL migration has a companion "integrity" test
+  that checks the migration's *text* for the invariant a live database would otherwise enforce
+  (RLS policies, `SECURITY DEFINER` grants, idempotency guards) — a substitute for, not a
+  replacement of, exercising the real database. Pure-logic modules (`booking/slots.ts`'s DST math,
+  `assessment/probe.ts`'s traversal, `assessment/plan.ts`'s renderer, `progress/completion.ts`) are
+  tested directly and are the most trustworthy code in the build, since they need no external
+  service to verify. External services (Stripe, Google Calendar, Resend) are tested with the SDK
+  call mocked, confirming this codebase's own error handling (never throws, degrades correctly) —
+  not that the real integration works. Run with `npm test`.
+- Last meaningful *live* verification: 2026-07-11 — PRACTICE-001 against a local Supabase stack
+  (migrations 0001+0002 + seed): anon **denied** the `answer` column (HTTP 401), service role
   reads it; built lesson HTML shows question prompts/choices with no answer/explanation leaked.
+  **Everything built since then (M3 onward) has zero live verification** — see `VERIFY.md`.

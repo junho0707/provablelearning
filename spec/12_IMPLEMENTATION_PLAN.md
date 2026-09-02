@@ -26,7 +26,7 @@ holds; `13_COVERAGE_MATRIX.md` and `STATUS.md` updated.
 - **TASK-ROADMAP-001 — Public skill-tree map (`/roadmap`).** Done 2026-08-14 (commit `9447849`).
 - ~~TASK-CONTENT-002 — author the full slice~~ → **moved post-launch**, see M7.
 
-## M2 — Paper: close out the pivot — **IN PROGRESS**
+## M2 — Paper: close out the pivot — **COMPLETE**
 
 - **TASK-SPEC-001 — ADR-003 + pricing/ops in spec/14.** Done 2026-08-14.
 - **TASK-SPEC-002 — Rewrite `01_PRD.md`** against spec/14. **Done 2026-08-14.** Original scope: Supersede: 45-min unit (C4),
@@ -43,7 +43,7 @@ holds; `13_COVERAGE_MATRIX.md` and `STATUS.md` updated.
 - **TASK-SPEC-004 — Rebuild the layered doc tree** from spec/14 (`docs/` currently holds only the
   v1 archive). Deps: SPEC-003.
 
-## M3 — Landing + accounts
+## M3 — Landing + accounts — **CODE-COMPLETE, not live-verified**
 
 - **TASK-ROADMAP-002 — Course-level nodes.** Add a selectable **course** marker to
   `roadmap/roadmap.json` ("Algebra 1", "Geometry", …) so a student can name the class they are
@@ -72,7 +72,7 @@ holds; `13_COVERAGE_MATRIX.md` and `STATUS.md` updated.
   only their own profiles. Deps: AUTH-001. Files: `supabase/migrations/*profiles*`,
   `src/lib/accounts/*`. DoD: profile CRUD + switching; cross-account read denied under test.
 
-## M4 — Money — **critical path**
+## M4 — Money — **critical path** — **CODE-COMPLETE, not live-verified**
 
 - **TASK-CREDIT-001 — Ledger + balance + spend RPC.** `credit_ledger` (balance = Σdelta),
   `credit_packs` seeded from CONFIG-001, and a `SECURITY DEFINER` spend path enforcing a
@@ -90,7 +90,7 @@ holds; `13_COVERAGE_MATRIX.md` and `STATUS.md` updated.
   free, so there is no entitlement table, no gating, no buy prompts, and no course Stripe product.
   Lesson pages stay **fully static**. Replaced by TASK-PROGRESS-001 in M5.
 
-## M5 — Progress + booking
+## M5 — Progress + booking — **CODE-COMPLETE, not live-verified**
 
 - **TASK-PROGRESS-001 — Saved progress ("sign in to save your progress").** `question_attempts` +
   `lesson_progress` per **learner profile**; recorded on submit when signed in, ignored when
@@ -128,7 +128,7 @@ holds; `13_COVERAGE_MATRIX.md` and `STATUS.md` updated.
   upcoming/past sessions. Deps: BOOK-001. DoD: a slot booked from a non-local time zone lands at the
   correct absolute instant.
 
-## M6 — Admin + First Session
+## M6 — Admin + First Session — **CODE-COMPLETE, not live-verified**
 
 - **TASK-ADMIN-001 — Admin surfaces.** Availability editor, bookings calendar, user/profile list,
   question CRUD, and the **credit-adjustment action** that pairs with manual Stripe refunds so the
@@ -161,7 +161,7 @@ holds; `13_COVERAGE_MATRIX.md` and `STATUS.md` updated.
   may go **beyond** catalog content (spec/14 §2). Deps: FIRST-001. DoD: a plan renders from real
   assessment results, and from session notes alone in the no-assessment mode.
 
-## M7 — Launch + post-launch content
+## M7 — Launch + post-launch content — **checklist in `VERIFY.md` §5; no further code**
 
 - **TASK-OPS-001 — Launch checklist.** Apply migration `0002_questions.sql` + `seed.sql` to the
   **remote** Supabase projects (verified locally only — needs the dev project's DB password);

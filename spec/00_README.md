@@ -23,7 +23,7 @@ in exactly one place and is referenced elsewhere by **stable ID**, never duplica
 | 02 | `02_GLOSSARY.md` | Canonical domain terms; used consistently everywhere |
 | 03 | `03_REQUIREMENTS.md` | Precise, testable system obligations (`REQ-*`, `NFR-*`) |
 | 04 | `04_ACTORS.md` | Every person/system that interacts; goals, permissions, restrictions |
-| 05 | `05_FLOWS.md` | End-to-end actor behavior incl. failure paths (`FLOW-*`) |
+| 05 | `05_FLOWS.md` | End-to-end actor behavior incl. failure paths (`F1`–`F13`) |
 | 06 | `06_ARCHITECTURE.md` | System context, modules, boundaries, deployment, observability |
 | 07 | `07_DATA_MODEL.md` | Entities, relationships, constraints, invariants, lifecycles |
 | 08 | `08_API_CONTRACTS.md` | Interfaces (FE↔BE, module↔module, external) |
@@ -38,12 +38,14 @@ changes), `../AGENTS.md` (agent operating rules), `../adr/NNN-*.md` (architectur
 
 ## How IDs and references work
 
-- Stable ID prefixes: `REQ-<AREA>-NNN`, `NFR-<AREA>-NNN`, `FLOW-<AREA>-NNN`, `AT-<AREA>-NNN`,
-  `TASK-<AREA>-NNN`, `ADR-NNN`. Areas in use: `AUTH`, `ACCT`, `CONTENT`, `PRACTICE`,
-  `PROGRESS`, `CREDIT`, `BILLING`, `BOOK`, `NOTIFY`, plus NFR areas `PERF`, `SEC`, `REL`, `OPS`.
+- Stable ID prefixes: `REQ-<AREA>-NNN`, `NFR-<AREA>-NNN`, `AT-<AREA>-NNN`, `TASK-<AREA>-NNN`,
+  `ADR-NNN`. Areas in use: `AUTH`, `ACCT`, `CONTENT`, `PRACTICE`, `PROGRESS`, `CREDIT`, `BILLING`,
+  `BOOK`, `NOTIFY`, plus NFR areas `PERF`, `SEC`, `REL`, `OPS`. **Flows are the one exception:**
+  `05_FLOWS.md` (rewritten 2026-08-14) numbers them plainly, `F1`–`F13`, not `FLOW-<AREA>-NNN` —
+  there are few enough flows that an area prefix added noise without adding lookup value.
 - IDs are **stable and never reused**. To retire one, mark it `DEPRECATED`, don't delete the number.
-- Cross-reference by ID (e.g. "satisfies REQ-CREDIT-003, FLOW-BOOK-001"). Do not restate the
-  referenced content.
+- Cross-reference by ID (e.g. "satisfies REQ-CREDIT-003, F8"). Do not restate the referenced
+  content.
 
 ## Conflict authority order
 

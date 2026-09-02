@@ -238,7 +238,7 @@
       "id": "natural-numbers",
       "title": "Natural Numbers",
       "type": "concept",
-      "parent": "numbers",
+      "parent": "rationals",
       "prereqs": []
     },
     {
@@ -296,6 +296,7 @@
       "title": "Algebra",
       "type": "concept",
       "status": "planned",
+      "course": true,
       "parent": "math",
       "prereqs": []
     },
@@ -339,6 +340,7 @@
       "title": "Geometry",
       "type": "concept",
       "status": "planned",
+      "course": true,
       "parent": "math",
       "prereqs": []
     },
@@ -382,6 +384,7 @@
       "title": "Pre-Calculus",
       "type": "concept",
       "status": "planned",
+      "course": true,
       "parent": "math",
       "prereqs": []
     },
@@ -418,6 +421,7 @@
       "title": "Calculus",
       "type": "concept",
       "status": "planned",
+      "course": true,
       "parent": "math",
       "prereqs": []
     },

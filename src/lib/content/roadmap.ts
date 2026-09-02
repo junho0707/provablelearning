@@ -89,10 +89,11 @@ function orderKey(id: string, r: Indexed, seen = new Set<string>()): number {
  */
 export function buildTree(hasContent: (id: string) => boolean = () => false): TreeNode[] {
   const r = index();
-  const toNode = (id: string, plannedAbove: boolean): TreeNode => {
+  const toNode = (id: string, plannedAbove: boolean, courseAbove: string | null): TreeNode => {
     const n = r.byId.get(id)!;
     const lesson = isLesson(n);
     const planned = plannedAbove || n.status === "planned";
+    const courseId = n.course ? id : courseAbove;
     const children = [...(r.childrenOf.get(id) ?? [])].sort((a, b) => orderKey(a, r) - orderKey(b, r));
     return {
       id,
@@ -103,10 +104,18 @@ export function buildTree(hasContent: (id: string) => boolean = () => false): Tr
       hasContent: lesson ? hasContent(id) : false,
       planned,
       prereqs: n.prereqs ?? [],
-      children: children.map((c) => toNode(c, planned)),
+      courseId,
+      children: children.map((c) => toNode(c, planned, courseId)),
     };
   };
-  return [...r.roots].sort((a, b) => orderKey(a, r) - orderKey(b, r)).map((id) => toNode(id, false));
+  return [...r.roots].sort((a, b) => orderKey(a, r) - orderKey(b, r)).map((id) => toNode(id, false, null));
+}
+
+/** Every node marked `course: true`, in roadmap order — the choices for a "current math class" picker (ADR-005). */
+export function courses(): { id: string; title: string }[] {
+  return index()
+    .nodes.filter((n) => n.course === true)
+    .map((n) => ({ id: n.id, title: n.title }));
 }
 
 /** Every lesson node, deduped and sorted by `number` — the linear Learning Path. */
@@ -120,6 +129,11 @@ export function orderedLessonNodes(): RoadmapNode[] {
 export function lessonNode(slug: string): RoadmapNode | null {
   const n = index().byId.get(slug);
   return n && isLesson(n) ? n : null;
+}
+
+/** Any roadmap node by id — lesson or concept — or null if unknown. Unlike `lessonNode`, doesn't require a page. */
+export function roadmapNode(id: string): RoadmapNode | null {
+  return index().byId.get(id) ?? null;
 }
 
 /** Breadcrumb trail root → … → self, following the first parent at each step. */

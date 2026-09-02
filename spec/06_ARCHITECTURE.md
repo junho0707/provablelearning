@@ -1,8 +1,9 @@
 # 06 — Architecture
 
-Status: **DRAFT** · System-level design for v2. Endpoint detail lives in `08_API_CONTRACTS.md`;
-schema detail in `07_DATA_MODEL.md`. Decisions of record: ADR-001 (content model); the codebase
-approach (fresh app, port v1 modules), stack, and repo shape are recorded in §9 below.
+Status: **REWRITTEN 2026-08-14** against `14_GROUND_TRUTH_INTERVIEW.md` + ADR-003/004/005. Endpoint
+detail lives in `08_API_CONTRACTS.md`; schema detail in `07_DATA_MODEL.md`. Decisions of record:
+ADR-001 (content model); the codebase approach (fresh app, port v1 modules), stack, and repo shape
+are recorded in §9 below.
 
 ## System context
 
@@ -20,7 +21,7 @@ approach (fresh app, port v1 modules), stack, and repo shape are recorded in §9
         │            ▲     │                │  Google     │  OAuth + Calendar/Meet
    content/*.mdx     │     └───────────────►└─────────────┘
    (in-repo)         │                      ┌─────────────┐
-                     └─────────────────────►│  Email      │  transactional (reset, confirm, remind)
+                     └─────────────────────►│  Email      │  transactional (confirm, remind, receipt)
                                             └─────────────┘
 ```
 
@@ -33,9 +34,10 @@ in-repo MDX at build/render time; all dynamic state is in Supabase.
 - **Next.js server (trusted app tier).** Server Components + route handlers run server-side with
   the user's session; enforce input validation (Zod) and orchestrate calls to Supabase.
 - **Supabase (data tier).** **RLS is the primary authorization boundary** (NFR-SEC-001):
-  own-data isolation, parents→dependents, world-readable content, admin-all. Correctness-critical
-  writes go only through **`SECURITY DEFINER` RPCs with `FOR UPDATE`** (NFR-SEC-002) — never
-  unguarded client writes.
+  own-data isolation (`accounts` → `learner_profiles`, no consent gate — learner profiles hold no
+  credentials, INV-ACTOR-1), world-readable content, admin-all. Correctness-critical writes go only
+  through **`SECURITY DEFINER` RPCs with `FOR UPDATE`** (NFR-SEC-002) — never unguarded client
+  writes.
 - **Stripe → webhook (server-to-server).** The signature-verified webhook is the *only* trusted
   trigger that credits the ledger (NFR-SEC-004, NFR-REL-001). The browser redirect after checkout
   is not trusted to grant credits.
@@ -49,11 +51,11 @@ in-repo MDX at build/render time; all dynamic state is in Supabase.
 | `content` | Read MDX, build catalog + Learning Path, render lessons (SSR/SSG) | REQ-CONTENT-*, NFR-PERF-* |
 | `practice` | Serve questions, check answers (mcq/numeric), free-response reveal | REQ-PRACTICE-* |
 | `progress` | Record attempts + lesson progress (logged-in) | REQ-PROGRESS-* |
-| `accounts` | Auth, roles, parent↔dependent linking, consent gate | REQ-AUTH-*, REQ-ACCT-* |
+| `accounts` | Google OAuth + magic link; learner-profile CRUD and switching (no consent gate — no credentials) | REQ-AUTH-*, REQ-ACCT-* |
 | `credits` | Credit ledger; atomic spend RPC | REQ-CREDIT-* |
-| `billing` | Stripe checkout; idempotent webhook → purchase entry | REQ-BILLING-*, NFR-REL-001 |
+| `billing` | Stripe checkout (credit packs + First Session); idempotent webhook → purchase entry | REQ-BILLING-*, NFR-REL-001 |
 | `booking` | Availability; atomic reserve-slot-and-spend RPC; Calendar/Meet | REQ-BOOK-*, NFR-REL-002 |
-| `notifications` | Transactional email (confirm, reminders, reset) | REQ-NOTIFY-*, REQ-AUTH-004 |
+| `notifications` | Transactional email (confirmation, reminders, receipt) | REQ-NOTIFY-* |
 | `admin` | Authoring, availability, refunds, calendar, users, audit log | REQ-CONTENT-*, REQ-BILLING-005, NFR-OPS-002 |
 | `cron` | Scheduled reminders (24h/1h), housekeeping | REQ-NOTIFY-001 |
 
@@ -63,18 +65,18 @@ in-repo MDX at build/render time; all dynamic state is in Supabase.
 ## Request & data flow (critical paths)
 
 - **Read a lesson (SEO path):** request → Next server renders the MDX page (static/SSR) + fetches
-  that lesson's questions → HTML with crawlable content. No auth. *(FLOW-CONTENT-001)*
+  that lesson's questions → HTML with crawlable content. No auth. *(F1)*
 - **Buy credits:** app creates Stripe Checkout → user pays on Stripe → **webhook** (verified,
-  idempotent) writes one `purchase` ledger row → balance = Σ ledger. *(FLOW-BILLING-001)*
+  idempotent) writes one `purchase` ledger row → balance = Σ ledger. *(F7)*
 - **Book a 1:1:** app calls the booking RPC → RPC locks the slot `FOR UPDATE`, verifies open +
-  balance ≥ 1, writes `spend` (−1), marks slot booked, creates the Session — all in one tx →
-  app then creates Calendar event + Meet link and sends confirmation. *(FLOW-BOOK-001)*
+  balance ≥ 1, writes `spend` (−1), marks slot booked, creates the booking — all in one tx →
+  app then creates Calendar event + Meet link and sends confirmation. *(F8)*
 - **Reminders:** cron finds Sessions at ~24h/~1h without that reminder flag → emails → sets flag
-  (idempotent). *(FLOW-NOTIFY-001)*
+  (idempotent). *(F8)*
 
 ## Failure boundaries
 
-- **Booking vs side effects:** the credit spend + slot reservation + Session row commit as one
+- **Booking vs side effects:** the credit spend + slot reservation + `bookings` row commit as one
   transaction; Calendar/Meet creation and the confirmation email are *after* and best-effort — a
   failure there never loses the booking or double-spends (retried; reminder can carry the link).
 - **Webhook idempotency:** a `stripe_events` unique key makes redelivery a no-op; a missed event
@@ -90,16 +92,16 @@ in-repo MDX at build/render time; all dynamic state is in Supabase.
 - **Scaling assumptions:** read-heavy on free content (served static/SSR + cacheable — cheap to
   scale for organic traffic); write volume (accounts, purchases, bookings) is low (solo tutor
   capacity), so the DB and RPCs are not a scaling concern at launch.
-- **Domain:** apex domain (reserved) points to this app at cutover (PRD OQ3); until then the v1
-  demo keeps `*.vercel.app`.
+- **Domain:** apex domain (reserved) points to this app at cutover, decided (spec/14 §14) and
+  tracked as a launch checklist item (`TASK-OPS-001`); until then the v1 demo keeps `*.vercel.app`.
 
 ## Observability
 
 - Money/booking actions (purchase, spend, refund, booking, admin override) are written to an
-  audit log (`admin_logs`, NFR-OPS-002). Platform request/error logs from Vercel + Supabase.
+  audit log (`audit_log`, NFR-OPS). Platform request/error logs from Vercel + Supabase.
   Stripe dashboard is the payment source of truth to reconcile against the ledger.
 
-## 9. Recorded architecture decisions (non-ADR-worthy or pending ADRs)
+## 9. Recorded architecture decisions
 
 - **Content model:** ADR-001 — hybrid MDX-in-repo + questions-in-DB.
 - **Codebase approach:** fresh Next.js app on `main`; port specific v1 modules (credit RPC,
@@ -109,5 +111,6 @@ in-repo MDX at build/render time; all dynamic state is in Supabase.
   TypeScript strict; content pages SSR/SSG.
 - **Repo shape:** single app in the existing repo (`src/`, `content/`, `supabase/`, `spec/`,
   `adr/`).
-- **Pending ADR-002 (auth/consent):** the parent-consent gate mechanics (CON3, NFR-SEC-003) —
-  authored before any account-creation code.
+- **Identity/consent, resolved:** there is no parent-consent gate. Learner profiles carry no
+  credentials (INV-ACTOR-1, ADR-003) — one buyer login owns any number of profiles. This is not a
+  pending decision; it is why no consent mechanism exists anywhere in this doc set.

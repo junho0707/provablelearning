@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { recordAttempt } from "@/lib/progress/progress";
 import { checkSubmission, MalformedSubmissionError } from "./check";
 import {
   checkAnswerInputSchema,
@@ -24,7 +25,9 @@ type FullQuestionRow = {
 /**
  * Check a submitted answer and return correctness + explanation (FLOW-PRACTICE-001). The answer
  * secret is read only here, server-side, via the service-role key — never sent to the client
- * (AT-PRACTICE-005). Anonymous in M1: nothing is recorded (attempt recording is TASK-PROGRESS-001).
+ * (AT-PRACTICE-005). An attempt is recorded against the active learner profile when signed in
+ * (TASK-PROGRESS-001); anonymous practice still records nothing (ADR-004). Free-response
+ * submissions are never graded (`isCorrect: null`) so nothing is recorded for them.
  *
  * Returns a discriminated result rather than throwing, so the client can render 404/422 states
  * inline (contract 08): `not_found` for an unknown question, `malformed` for invalid input
@@ -62,6 +65,9 @@ export async function checkAnswer(input: unknown): Promise<CheckAnswerResponse> 
 
   try {
     const result = checkSubmission(question, parsed.data.submitted);
+    if (result.isCorrect !== null) {
+      await recordAttempt(question.id, result.isCorrect);
+    }
     return { ok: true, ...result };
   } catch (e) {
     if (e instanceof MalformedSubmissionError) {

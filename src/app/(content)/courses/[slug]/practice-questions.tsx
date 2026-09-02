@@ -2,10 +2,16 @@
 
 import { useState } from "react";
 import { checkAnswer } from "@/lib/practice/actions";
+import { markActiveProfileLessonProgress } from "@/lib/progress/progress";
 import type { CheckResult, PublicQuestion } from "@/lib/practice/types";
 
-/** Practice section rendered under a lesson's prose. Anonymous — no login, nothing saved (M1). */
-export function PracticeQuestions({ questions }: { questions: PublicQuestion[] }) {
+/**
+ * Practice section rendered under a lesson's prose. Works fully anonymously — nothing saved.
+ * Signed-in visitors additionally get attempts recorded and lesson completion tracked against
+ * their active profile (TASK-PROGRESS-001); this component doesn't know or care which case it's
+ * in — `checkAnswer`/`markActiveProfileLessonProgress` resolve that server-side.
+ */
+export function PracticeQuestions({ questions, lessonSlug }: { questions: PublicQuestion[]; lessonSlug: string }) {
   if (questions.length === 0) return null;
 
   return (
@@ -14,12 +20,12 @@ export function PracticeQuestions({ questions }: { questions: PublicQuestion[] }
         Practice
       </h2>
       <p className="mt-1 text-sm text-navy-600">
-        Try these to check your understanding. Nothing is saved — practice as many times as you like.
+        Try these to check your understanding. Sign in to save your progress.
       </p>
       <ol className="mt-8 space-y-8">
         {questions.map((q, i) => (
           <li key={q.id}>
-            <QuestionCard question={q} index={i + 1} />
+            <QuestionCard question={q} index={i + 1} lessonSlug={lessonSlug} />
           </li>
         ))}
       </ol>
@@ -27,7 +33,15 @@ export function PracticeQuestions({ questions }: { questions: PublicQuestion[] }
   );
 }
 
-function QuestionCard({ question, index }: { question: PublicQuestion; index: number }) {
+function QuestionCard({
+  question,
+  index,
+  lessonSlug,
+}: {
+  question: PublicQuestion;
+  index: number;
+  lessonSlug: string;
+}) {
   const [selected, setSelected] = useState("");
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<CheckResult | null>(null);
@@ -42,6 +56,7 @@ function QuestionCard({ question, index }: { question: PublicQuestion; index: nu
     setPending(false);
     if (res.ok) {
       setResult({ isCorrect: res.isCorrect, explanation: res.explanation });
+      if (res.isCorrect) void markActiveProfileLessonProgress(lessonSlug);
     } else {
       setError(res.message);
       setResult(null);

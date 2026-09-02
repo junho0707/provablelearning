@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getTree } from "@/lib/content/catalog";
 import { layoutTree } from "@/lib/content/layout";
 import { SiteNav } from "@/components/site-nav";
-import { RoadmapOutline } from "@/components/roadmap/outline";
+import { CourseView } from "@/components/roadmap/course-view";
 import { SkillTree } from "@/components/roadmap/skill-tree";
 
 /**
- * The public curriculum map — the whole of school math as one picture, and (per the v3 ground truth)
- * the only structural thing a visitor sees without buying. Static: the layout is computed at build
- * time from `roadmap/roadmap.json`.
+ * The public curriculum map. One dataset, two renderings: the graph (how topics relate) and the
+ * course list (what to read, in order). `?view=` drives it so both are real, shareable URLs and
+ * both render on the server.
  */
 
 export const metadata: Metadata = {
@@ -18,7 +19,14 @@ export const metadata: Metadata = {
   alternates: { canonical: "/roadmap" },
 };
 
-export default function RoadmapPage() {
+export default async function RoadmapPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
+  const { view } = await searchParams;
+  const isCourses = view === "courses";
+
   const roots = getTree();
   const layout = layoutTree(roots);
   const lessons = layout.nodes.filter((n) => n.kind === "lesson");
@@ -28,27 +36,28 @@ export default function RoadmapPage() {
     <main className="min-h-screen bg-[#f7f8fa]">
       <SiteNav />
 
-      <section className="mx-auto max-w-[1240px] px-5 pt-14 sm:px-8">
-        <p className="mb-3 text-sm font-bold uppercase tracking-widest text-gold-600">
-          The Math Roadmap
-        </p>
-        <h1 className="mb-4 max-w-2xl text-3xl font-extrabold leading-[1.1] tracking-[-0.02em] text-navy-950 sm:text-4xl">
-          All of school math, on one map.
+      {/* Same 1120px shell as every other page, so the title lines up with the nav logo. */}
+      <section className="mx-auto flex max-w-[1120px] flex-wrap items-center justify-between gap-4 px-5 pt-20 sm:px-8">
+        <h1 className="text-3xl font-extrabold tracking-[-0.01em] text-navy-950 sm:text-4xl">
+          Math Roadmap
         </h1>
-        <p className="mb-8 max-w-xl text-navy-700">
-          Every topic, what it lives inside, and what you have to learn before it. Solid lines are
-          containment; dashed gold lines are prerequisites. Click any node to see where it sits.
-        </p>
+        <ViewToggle isCourses={isCourses} />
       </section>
 
-      <section className="mx-auto max-w-[1240px] px-5 pb-16 sm:px-8">
-        {/* Canvas on desktop; the same data as an outline on phones, where a tree is unreadable. */}
-        <div className="hidden md:block">
-          <SkillTree layout={layout} />
-        </div>
-        <div className="md:hidden">
-          <RoadmapOutline roots={roots} />
-        </div>
+      <section className="mx-auto max-w-[1120px] px-5 pb-20 pt-6 sm:px-8">
+        {isCourses ? (
+          <CourseView roots={roots} />
+        ) : (
+          <>
+            {/* A pannable graph is unusable on a phone, so small screens get the list instead. */}
+            <div className="hidden md:block">
+              <SkillTree layout={layout} />
+            </div>
+            <div className="md:hidden">
+              <CourseView roots={roots} />
+            </div>
+          </>
+        )}
 
         <p className="mt-4 text-sm text-navy-500">
           {built} of {lessons.length} mapped lessons written so far · locked regions are mapped and
@@ -57,10 +66,28 @@ export default function RoadmapPage() {
       </section>
 
       <footer className="border-t border-navy-100 bg-white">
-        <div className="mx-auto max-w-[1240px] px-5 py-8 text-sm text-navy-500 sm:px-8">
+        <div className="mx-auto max-w-[1120px] px-5 py-8 text-sm text-navy-500 sm:px-8">
           © Provable Learning
         </div>
       </footer>
     </main>
+  );
+}
+
+/** Links, not client state — each view stays a shareable, server-rendered URL. */
+function ViewToggle({ isCourses }: { isCourses: boolean }) {
+  const base = "rounded-md px-3 py-1.5 text-sm font-semibold transition";
+  const on = "bg-white text-navy-950 shadow-[var(--shadow-card)]";
+  const off = "text-navy-600 hover:text-navy-950";
+
+  return (
+    <div className="flex gap-1 rounded-lg border border-navy-100 bg-navy-50 p-1">
+      <Link href="/roadmap" className={`${base} ${isCourses ? off : on}`}>
+        Graph
+      </Link>
+      <Link href="/roadmap?view=courses" className={`${base} ${isCourses ? on : off}`}>
+        Courses
+      </Link>
+    </div>
   );
 }

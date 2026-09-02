@@ -2,6 +2,172 @@
 
 Meaningful completed changes only (not a raw command log).
 
+## 2026-08-14 — M7: launch checklist, legal pages, worksheets, analytics — implementation plan complete
+
+Added `@vercel/analytics` (spec/14 §17) and wired `<Analytics />` into `src/app/layout.tsx`. Wrote
+`/terms`, `/privacy`, `/refund-policy` — real, product-accurate content (Stripe for payments, Google
+for OAuth/Calendar, Resend for email, no SMS integration, credits never expire, the 24h cancellation
+rule, no self-serve refunds) with `[BRACKETED]` placeholders for the legal-entity facts (name,
+address, jurisdiction, contact email) this codebase has no source of truth for and did not invent;
+linked from the landing footer. Built `TASK-WORKSHEET-001` — a printable worksheet page per lesson
+(`/courses/<slug>/worksheet`, browser print-to-PDF, no PDF library) generated from the same question
+bank as interactive practice, with an answer key. Updated the landing page's primary CTA from
+`/login` to `/wallet` now that a real First Session checkout exists (BILLING-001/FIRST-001).
+
+Consolidated the remaining `TASK-OPS-001` items — live Stripe products, Resend DNS, apex cutover,
+backups/audit-log spot-check, Lighthouse, real-card end-to-end money test — into `VERIFY.md` §5;
+none of them are code this session can write. Closed out `spec/13_COVERAGE_MATRIX.md`'s gap list
+(AT-CONTENT-005 and the landing CTA gap were both resolved earlier in M3/M4 and are now marked so)
+and marked M2–M7 in `spec/12_IMPLEMENTATION_PLAN.md` with accurate status badges.
+
+**Every task in `spec/12_IMPLEMENTATION_PLAN.md` with a code deliverable is now code-complete.**
+181 tests passing (unchanged — this milestone's additions are pages, not logic worth a unit test:
+static legal-content pages and a worksheet renderer that's a straightforward re-projection of
+already-tested question data), `next build` clean, 49 routes. What remains is exactly the
+live-verification pass this environment cannot run (`VERIFY.md`, all five sections — real Supabase
+with Docker, Stripe, Google, and Resend accounts needed) and the non-code launch steps in
+`VERIFY.md` §5. `TASK-CONTENT-002` (authoring "Math up to Geometry") remains open-ended, ongoing
+content work by design (ADR-004) — there is no "done" for it to reach.
+
+## 2026-08-14 — M6 (admin + First Session) code-complete
+
+Added `supabase/migrations/0010_admin.sql` (additive admin cross-account read policies on
+`accounts`/`learner_profiles`/`bookings`/`purchases`/`credit_ledger` — RLS OR's them with the
+existing owner-scoped policies, nothing removed; `refund_credit` RPC, admin-gated + audited).
+Added `src/lib/admin/*` (a `requireAdmin()` guard every action starts with) and the `/admin/*`
+surfaces: availability editor, bookings calendar with a missing-Meet-link queue (INV-BOOK-2's
+admin-facing half), credit-return approve/deny queue, user list, question CRUD (writes through the
+service-role client after the admin check, since `questions`' column-privilege wall is deliberately
+not something an RLS policy should punch through). Added `0011_sms_worklist.sql` closing a spec gap
+found here: REQ-ADMIN-004 needs "the recipient's number" but no phone field existed anywhere in
+`07_DATA_MODEL` — added an optional `accounts.phone`, buyer-settable on `/profiles`; `/admin/reminders`
+is the worklist itself (soonest-first, "3h 20m" formatting, a `sms_sent` flag the admin controls,
+not the system).
+
+Added `src/lib/assessment/probe.ts` (TASK-FIRST-003) — the probe-and-descend engine, deliberately
+stateless/replay-based (`nextProbe(history, ...)` recomputes the walk from `assessment_items` every
+call, since a web request can't hold a generator between "ask" and "answer") so it doubles as a pure
+function testable over a fixture prerequisite graph with no database. Six tests cover a strong
+student finishing in ~3 questions, a cascading gap located by descent, the cap never exceeded on a
+30-node chain, and resumability. Added `0012_test_prep.sql` (TASK-FIRST-004 — `practice_tests`/
+`test_prep_questions`, deliberately not the `questions` table, since test-prep sets aren't tied to a
+lesson slug and reusing it would break the lesson-slug integrity guard) and `src/lib/assessment/
+test-prep.ts`.
+
+Added `0013_first_session.sql` (TASK-FIRST-001 — `assessments`/`assessment_items`; `book_first_session`,
+a separate RPC from `book_session` because the $49 purchase is a flat fee, not a spendable credit —
+it must never call `spend_credit`) and `src/lib/assessment/{first-session,session}.ts` + the
+`/first-session` page: routes by the goal stated at purchase (`class_help` straight to booking,
+`strengths` through the probe engine wired to real questions — auto-skipping nodes with no authored
+content yet, `test_prep` through a chosen fixed set), closing a second spec gap
+(`assessments.test_slug`, since ADR-005 named the `test_prep` goal but not which test).
+
+Added `0014_session_notes.sql` + `src/lib/assessment/plan.ts` (TASK-FIRST-002 — the written-plan
+renderer, pure, works from session notes alone when there's no assessment) and the
+`/admin/bookings/[id]` plan page (notes editor + live preview).
+
+181 tests passing (up from 134 at the end of M5), `next build` clean, 46 routes. **Not
+live-verified** — same limitation as M3–M5. Checklist added to `VERIFY.md` §4.
+
+## 2026-08-14 — M5 (progress + booking, critical path) code-complete
+
+Added `supabase/migrations/0005_progress.sql` (`question_attempts`/`lesson_progress`, RLS scoped
+through `learner_profiles` ownership) and wired attempt recording into `checkAnswer` via the active
+profile cookie — anonymous practice still records nothing (ADR-004). Added
+`0006_availability.sql` (recurring weekly template + one-off exceptions, admin-write/
+authenticated-read) and `src/lib/booking/{timezone,slots}.ts` — a from-scratch, dependency-free
+DST-correct wall-clock↔UTC converter and slot generator, pure-logic tested including actual 2026
+spring-forward/fall-back boundaries. Added `0007_bookings.sql` (`book_session` RPC: advisory-lock
+keyed on the slot instant + a partial unique index as the DB-level backstop, INV-BOOK-1; trusts
+`auth.uid()` internally rather than a caller-supplied account id). Added `0008_booking_lifecycle.sql`
+(`cancel_booking`/`reschedule_booking` — the latter never touches the ledger, INV-MONEY intact;
+`mark_no_show`/`resolve_credit_return_request`, admin-gated + `audit_log`-backed). Added
+`src/lib/booking/calendar.ts` (Google Calendar + Meet — every Google call is wrapped so a failure
+returns `null`/no-throw instead of breaking a committed booking, INV-BOOK-2, S10) and
+`0009_notifications.sql` + `src/lib/notify/*` + `/api/cron/session-reminders` (Resend confirmation/
+reminder/receipt emails; `reminded_24h`/`reminded_1h` flags flip only on a successful send, so a
+cron rerun before a flag flips is the only way to double-send and a rerun after is a guaranteed
+no-op). Added the `/book` page (slot picker grouped by the visitor's *browser* local date, booking
+confirmation, upcoming/past list with cancel and no-show credit-return request). 134 tests passing
+(up from 61 after M4) — SQL-text invariant tests per migration, pure-logic tests for slot
+generation/DST/24h-4week windowing, and mocked-external-service tests for the Stripe/Google/Resend
+call sites; `next build` clean. **Not live-verified** — same limitation as M3/M4, plus two new
+external dependencies (Google, Resend) this environment can't reach. Checklist added to
+`VERIFY.md` §3.
+
+## 2026-08-14 — M4 (money): CREDIT-001, BILLING-001, BILLING-002 code-complete
+
+Added `supabase/migrations/0004_credits.sql` (`purchases` with a partial unique index enforcing
+≤1 First Session per account — INV-MONEY-2; append-only `credit_ledger` — INV-MONEY-1;
+`stripe_events` idempotency guard — INV-MONEY-3; `get_balance()`, `spend_credit()` — advisory-lock
+serialized so concurrent spends can't drive the balance negative — and `process_purchase()` RPCs).
+Added `src/lib/credits/*` (balance/history reads), `src/lib/billing/*` (Stripe client,
+`createCreditsCheckout`/`createFirstSessionCheckout` SAs — the latter pre-checks the one-per-
+customer rule before hitting Stripe), `src/app/api/webhooks/stripe/route.ts` (signature-verified,
+routes `checkout.session.completed` to `process_purchase`), and the `/wallet` page (balance,
+purchase buttons, order history). Tests: SQL-text invariant checks for the migration
+(`credits/integrity.test.ts`), input-validation short-circuits for both checkout SAs, and
+webhook-route tests (signature rejection, unknown event passthrough, malformed metadata, happy
+path) with `stripeClient`/`createAdminClient` mocked. `next build` clean; 61 tests passing.
+**Not live-verified** — same limitation as AUTH-001/ACCT-001 (no Docker, and no Stripe test
+account configured in this environment). Checklist added to `VERIFY.md` §2.
+
+## 2026-08-14 — TASK-SPEC-004: rebuild the layered `docs/` tree
+
+Built `docs/` as a navigation/narrative layer over `/spec` (L0 business, L1 context/actors/journey
+catalog, L1′ invariants + traps, L2 one journey doc per `F1`–`F13` citing build status, L3 one
+component doc per module that actually exists in `src/`). It does not duplicate `/spec` content —
+`/spec` stays the single source of truth; this tree cites `REQ-*`/`F*`/`ADR-*` IDs instead of
+restating them, and exists to make onboarding, refinement, and extension fast for a new reader.
+Corrected two inaccuracies surfaced while writing it: the transitive-prerequisite-closure BFS used
+for roadmap highlighting lives client-side in `skill-tree.tsx`, not in `layout.ts` as earlier docs
+implied — F6's assessment will need it extracted to a pure function, not reused as-is. Updated
+`STATUS.md` and `spec/13_COVERAGE_MATRIX.md`'s doc-tree notes to point at it. Last open paper task
+before this; none remain.
+
+## 2026-08-14 — spec cleanup: 06/08/09/10 were never rewritten against spec/14
+
+`06_ARCHITECTURE.md`, `08_API_CONTRACTS.md`, and `09_FRONTEND.md` were marked DRAFT/LIGHT and
+skipped by TASK-SPEC-003's rewrite pass (which covered 02–05, 07, 11, 13). They still carried v1
+parent/dependent-consent language, a `payer`/`owner`/`student` role vocabulary that contradicts
+`04_ACTORS.md`'s Buyer/Learner-profile/Admin-Tutor model, RPC parameter names that don't match
+`07_DATA_MODEL.md` (`p_payer_id` vs the real `account_id`/`profile_id` columns), and a `FLOW-*` ID
+scheme `05_FLOWS.md` replaced with plain `F1`–`F13`. Rewrote all three against spec/14 +
+ADR-003/004/005; gave `10_BACKEND.md` the same terminology pass; corrected `00_README.md`'s ID
+convention section to describe the real `F1`–`F13` scheme instead of `FLOW-<AREA>-NNN`. Also filled
+two real gaps `08_API_CONTRACTS.md` had never covered: `rescheduleBooking`/`reschedule_booking` (F9)
+and `resolveCreditReturnRequest` (F10). `spec/00`–`13` are now consistently current; before this,
+only 8 of the 14 files actually were, despite `HANDOFF.md` claiming otherwise.
+
+## 2026-08-14 — M3 build starts: pricing config, course nodes, auth, landing
+
+- **TASK-CONFIG-001** — `src/lib/pricing.ts`, the single source for the First Session ($49) and
+  the four credit packs (1/$75 · 2/$120 · 4/$200 · 8/$350), plus a Stripe price-id-per-SKU env
+  mapping. `pricing.test.ts` asserts the numbers match spec/14 §11 exactly.
+- **TASK-ROADMAP-002** — `roadmap/roadmap.json` nodes can now carry `course: true` (algebra,
+  geometry, precalculus, calculus tagged); `buildTree` inherits a `courseId` down to every
+  descendant, and `courses()` enumerates the picker choices for a learner's "current math class."
+- **TASK-AUTH-001** — Google OAuth as a popup window (not a full-page redirect — Google blocks
+  iframes, so `window.open` + a `postMessage`-and-close `/auth/callback?popup=1` page is the
+  closest feasible thing to a modal), magic-link sign-in (`/login`), a shared `/auth/callback` code
+  exchange, `signOut`, and `src/proxy.ts` (Next 16's session-refresh middleware) so cookies stay
+  valid across requests. No passwords, no reset flow. **Not live-verified**: this environment has
+  no Docker (no local Supabase stack) and no confirmed Google provider config on the linked
+  project, so the OAuth round-trip and same-email identity linking are unexercised — verify against
+  a running project before relying on them.
+- **TASK-LAND-001** — `src/app/page.tsx` rebuilt with the approved hero copy verbatim from
+  spec/14 §14 ("Math help, whatever you need it for", the three goal branches), prices read from
+  `pricing.ts` rather than retyped, and the stale "45-minute session" line corrected to 60-minute
+  (spec/14 §15). The primary CTA points at `/login` for now, not a checkout — BILLING-001/FIRST-001
+  don't exist yet.
+- **TASK-ACCT-001** — `supabase/migrations/0003_accounts.sql` adds `accounts` (auto-provisioned by a
+  trigger on `auth.users`, so no signup step is needed) and `learner_profiles` beneath it — name,
+  grade, current class, no credentials (INV-ACTOR-1). RLS scopes both to `auth.uid()`.
+  `src/lib/accounts/*` adds profile CRUD and a cookie-based "active profile" switch; a profile's
+  `currentCourseNode` is validated against `courses()` from ROADMAP-002. `/profiles` is a first
+  account-management page, redirecting signed-out visitors to `/login`. Rewrote `08_API_CONTRACTS`'s
+  stale Accounts section (leftover v1 parent/dependent-consent language) to match.
+
 ## 2026-08-14 — content is free; the paywall is cut (ADR-004)
 
 - **The $19.99 course SKU is withdrawn.** All course content is free and public; two products remain

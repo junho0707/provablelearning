@@ -21,6 +21,8 @@ export const roadmapNodeSchema = z.object({
   /** Container id, or an array for a *bridge* node that belongs to two branches. Absent for a root. */
   parent: z.union([z.string(), z.array(z.string())]).optional(),
   prereqs: z.array(z.string()).optional(),
+  /** Marks a node selectable as a learner's "current math class" (ADR-005, TASK-ROADMAP-002). */
+  course: z.boolean().optional(),
 });
 export type RoadmapNode = z.infer<typeof roadmapNodeSchema>;
 
@@ -47,6 +49,8 @@ export type TreeNode = {
   planned: boolean;
   /** Direct prerequisite node ids (transitive ones are implied, never listed). */
   prereqs: string[];
+  /** The nearest self-or-ancestor node id marked `course: true`, or null if none. Drives the "current math class" picker and the roadmap's "you are here". */
+  courseId: string | null;
   children: TreeNode[];
 };
 

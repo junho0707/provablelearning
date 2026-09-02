@@ -89,10 +89,14 @@ describe("MDX + KaTeX server rendering (REQ-CONTENT-003, AT-CONTENT-001)", () =>
 });
 
 describe("SEO surface (NFR-PERF-003, AT-CONTENT-003)", () => {
-  it("lists the courses index and every lesson in the sitemap", () => {
+  it("lists the roadmap and every lesson in the sitemap", () => {
     const urls = sitemap().map((e) => e.url);
-    expect(urls.some((u) => u.endsWith("/courses"))).toBe(true);
+    expect(urls.some((u) => u.endsWith("/roadmap"))).toBe(true);
     expect(urls.some((u) => u.endsWith("/courses/fractions-definition"))).toBe(true);
+  });
+
+  it("omits the redirecting /courses index", () => {
+    expect(sitemap().map((e) => e.url).some((u) => u.endsWith("/courses"))).toBe(false);
   });
 
   it("exposes title/description/canonical metadata per lesson", async () => {

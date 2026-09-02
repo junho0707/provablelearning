@@ -63,7 +63,8 @@ CTA: **Book a Math Diagnosis**; secondary: explore the roadmap.
 - **Platform owns availability and booking.** Booking spends a credit atomically in one
   `SECURITY DEFINER` RPC with row locks (CON1/CON2 hold — reuse v1's reserve-slot pattern).
 - Session length **60 minutes**, universally. (Supersedes the PRD's 45-minute credit unit.)
-- **Cancellation:** free cancel 24h+ ahead returns the credit; later cancel or no-show burns it.
+- **Cancellation:** free cancel 24h+ ahead returns the credit; later cancel or no-show burns it —
+  but either may be appealed for the credit back (ADR-006).
 - **Credits never expire.**
 - **Venue:** a Google Meet link generated **per booking**.
 - **Notifications:** **email only** from the system (confirmations + reminders).
@@ -270,6 +271,11 @@ buyers who are half the market.
 - **No-show: 15 minutes late counts as a no-show and burns the credit** — but the parent or
   independent student can **submit a request to have the credit returned**, which lands in the admin
   queue for approval. A request/approve flow, not a silent admin fix.
+- **Late cancellation: burns the credit, and is appealable the same way** (AMENDED 2026-08-18 by
+  ADR-006). A cancel inside 24h still costs the credit by default; the buyer may request it back and
+  the operator reviews **case by case**. Eligibility is "the credit was burned" — a `no_show`, or a
+  `cancelled` booking with no `cancel_refund` ledger row — not a dedicated status. One live appeal
+  per booking; a denied one may be resubmitted.
 
 ## 16. Accounts & progress — DECIDED
 

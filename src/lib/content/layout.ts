@@ -1,34 +1,67 @@
 import type { TreeNode } from "./types";
 
 /**
- * Skill-tree layout: turns the curriculum tree into positioned nodes plus two kinds of edge.
+ * Skill-tree layout: turns the curriculum tree into positioned boxes plus prerequisite edges.
  *
  * Pure and deterministic — no DOM, no measurement — so the whole map is computed at build time and
  * shipped as data. The client only pans, zooms, and highlights.
  *
- * Two relationships, drawn differently (the distinction `roadmap/README.md` insists on):
- * - **branch** — containment (`parent`). Solid line, the trunk of the tree.
- * - **prereq** — must-learn-before (`prereqs`). Dashed line, drawn on top, crossing branches.
+ * The two relationships are drawn with two different mechanisms, which is what keeps them apart:
+ * - **containment** (`parent`) is *nesting*: a concept is a box, and its children sit inside it. No
+ *   line is needed, so the only lines left on the map mean one thing.
+ * - **prereq** (`prereqs`) is the arrow — must-learn-before, drawn across the nesting.
+ *
+ * Depth is carried by type size and by one step of background lightness per level, never by hue.
  */
 
+/** Per-depth box metrics. Deeper levels get smaller type, tighter padding — the visual hierarchy. */
+const LEVEL = [
+  { title: 38, header: 82, pad: 34, gap: 30, tracking: 1.2 },
+  { title: 27, header: 58, pad: 26, gap: 24, tracking: 0.6 },
+  { title: 19, header: 43, pad: 19, gap: 18, tracking: 0.3 },
+  { title: 15.5, header: 35, pad: 15, gap: 14, tracking: 0.2 },
+  { title: 13.5, header: 31, pad: 13, gap: 12, tracking: 0 },
+  { title: 12.5, header: 28, pad: 11, gap: 10, tracking: 0 },
+] as const;
+
 export const TREE = {
-  lessonW: 208,
-  lessonH: 72,
-  conceptW: 176,
-  conceptH: 48,
-  gapX: 26,
-  rowH: 132,
-  padding: 64,
-  /** Each top-level region is its own cluster; clusters wrap into rows so the map stays screen-shaped. */
-  islandPad: 34,
-  islandHeader: 38,
-  islandGapX: 72,
-  islandGapY: 86,
-  /** Soft target width for a row of islands — a row wraps once adding the next island would exceed it. */
-  rowWidth: 3200,
-  /** A region wider than this is split into its sub-concepts, so no single cluster becomes a strip. */
-  maxRegionWidth: 1500,
+  /** Every leaf card is the same width, so rows line up and titles wrap predictably. */
+  leafW: 200,
+  leafPadX: 13,
+  leafPadY: 13,
+  leafLine: 16,
+  /** A lesson title never grows past the card; a childless concept keeps a little more of its rank. */
+  leafTitleMax: { lesson: 13, concept: 15 },
+  maxLines: 3,
+  padding: 72,
+  /** Wide:tall shape each level is packed toward. The map reads best when regions stay landscape. */
+  aspect: [1.7, 2.1, 1.9, 1.7, 1.5, 1.4] as const,
 } as const;
+
+const level = (d: number) => LEVEL[Math.min(Math.max(d, 0), LEVEL.length - 1)];
+const aspectAt = (d: number) => TREE.aspect[Math.min(Math.max(d, 0), TREE.aspect.length - 1)];
+
+/** Advance width, near enough for a fixed UI font — layout only needs boxes that don't clip. */
+const textWidth = (s: string, size: number) => s.length * size * 0.56;
+
+/** Greedy wrap to at most `TREE.maxLines`, the last line ellipsised if the title overruns. */
+export function wrapTitle(title: string, perLine: number): string[] {
+  const lines: string[] = [];
+  let line = "";
+  for (const w of title.split(" ")) {
+    if (line && (line + " " + w).length > perLine) {
+      lines.push(line);
+      line = w;
+    } else {
+      line = line ? `${line} ${w}` : w;
+    }
+  }
+  if (line) lines.push(line);
+  if (lines.length <= TREE.maxLines) return lines;
+  const kept = lines.slice(0, TREE.maxLines - 1);
+  const rest = lines.slice(TREE.maxLines - 1).join(" ");
+  return [...kept, `${rest.slice(0, perLine - 1)}…`];
+}
 
 export type LaidOutNode = {
   /** Unique per rendered instance. A bridge node (two parents) is drawn once per branch. */
@@ -44,38 +77,38 @@ export type LaidOutNode = {
   /** Ancestor titles, root first, excluding self — the breadcrumb shown in the detail panel. */
   trail: string[];
   depth: number;
-  /** Centre point and box size, in layout space. */
+  /** True when this box holds other boxes: it is drawn as a container, not a card. */
+  isContainer: boolean;
+  /** Lessons nested anywhere beneath, self included. */
+  lessonCount: number;
+  /** Top-left corner and size, in layout space. Boxes nest, so children lie inside their parent. */
   x: number;
   y: number;
   w: number;
   h: number;
+  /** Height of the title strip; a container's children start below it. Cards fill their whole box. */
+  headerH: number;
+  /** Pre-wrapped title and its type size — the visual rank of this level. */
+  lines: string[];
+  titleSize: number;
+  tracking: number;
 };
 
 export type LayoutEdge = {
-  kind: "branch" | "prereq";
+  /** `prereq` — must-learn-before. `order` — the next lesson the course actually teaches. */
+  kind: "prereq" | "order";
   from: string;
   to: string;
   /** SVG path `d`, in layout space. */
   d: string;
 };
 
-/** A top-level region of the curriculum, drawn as a bordered cluster with a title. */
-export type Island = {
-  id: string;
-  title: string;
-  planned: boolean;
-  lessonCount: number;
-  /** Cluster box in layout space, including padding and the header strip. */
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-};
-
 export type Layout = {
+  /** Parents before children, so painting them in order nests correctly. */
   nodes: LaidOutNode[];
   edges: LayoutEdge[];
-  islands: Island[];
+  /** Lesson keys in teaching order (by `number`) — the sequence the `order` edges run through. */
+  order: string[];
   /** Bounding box in layout space, already padded — feed straight into an SVG `viewBox`. */
   minX: number;
   minY: number;
@@ -83,239 +116,259 @@ export type Layout = {
   height: number;
 };
 
-function sizeOf(n: TreeNode): { w: number; h: number } {
-  return n.kind === "lesson"
-    ? { w: TREE.lessonW, h: TREE.lessonH }
-    : { w: TREE.conceptW, h: TREE.conceptH };
-}
+/** A measured, not yet positioned, box. */
+type Box = {
+  node: TreeNode;
+  depth: number;
+  w: number;
+  h: number;
+  headerH: number;
+  lines: string[];
+  titleSize: number;
+  tracking: number;
+  pad: number;
+  lessonCount: number;
+  /** Children grouped into rows, in curriculum order; empty for a card. */
+  rows: Box[][];
+};
 
 /**
- * Tidy top-down tree placement. Children are packed left to right; a parent centres over its
- * children's span. When a node is wider than everything beneath it, its subtree is nudged right so
- * the node still fits in its own lane — this is what keeps a concept with a single child from
- * colliding with its neighbour.
+ * Flows boxes into rows, trying every row length and keeping the one whose block comes closest to
+ * the target proportion. Curriculum order is preserved — rows read left to right, top to bottom.
  */
-function place(roots: TreeNode[]): LaidOutNode[] {
-  const out: LaidOutNode[] = [];
-  const byKey = new Map<string, LaidOutNode>();
-  let cursor = 0;
+function pack(kids: Box[], gap: number, target: number) {
+  let best: { rows: Box[][]; w: number; h: number } | null = null;
+  let bestScore = Infinity;
 
-  const shift = (keys: string[], dx: number) => {
-    for (const k of keys) byKey.get(k)!.x += dx;
-  };
+  for (let perRow = 1; perRow <= kids.length; perRow++) {
+    const rows: Box[][] = [];
+    for (let i = 0; i < kids.length; i += perRow) rows.push(kids.slice(i, i + perRow));
 
-  /** Lays out `node`, returning its instance key, centre x, and every key in its subtree. */
-  const walk = (
-    node: TreeNode,
-    depth: number,
-    trail: string[],
-    parentKey: string | null,
-  ): { key: string; center: number; keys: string[] } => {
-    const key = parentKey ? `${parentKey}/${node.id}` : node.id;
-    const { w, h } = sizeOf(node);
-    const subtree: string[] = [key];
+    const w = Math.max(...rows.map((r) => r.reduce((s, b) => s + b.w, 0) + gap * (r.length - 1)));
+    const h =
+      rows.reduce((s, r) => s + Math.max(...r.map((b) => b.h)), 0) + gap * (rows.length - 1);
 
-    let center: number;
-    if (node.children.length === 0) {
-      center = cursor + w / 2;
-      cursor += w + TREE.gapX;
-    } else {
-      const start = cursor;
-      const kids = node.children.map((c) => walk(c, depth + 1, [...trail, node.title], key));
-      for (const k of kids) subtree.push(...k.keys);
-      const span = cursor - TREE.gapX - start;
-      center = (kids[0].center + kids[kids.length - 1].center) / 2;
-
-      // The node needs its own lane: if it is wider than its children's span, widen the span.
-      if (w > span) {
-        const dx = (w - span) / 2;
-        shift(
-          kids.flatMap((k) => k.keys),
-          dx,
-        );
-        center += dx;
-        cursor += w - span;
-      }
+    const score = Math.abs(Math.log(w / h / target));
+    if (!best || score < bestScore) {
+      best = { rows, w, h };
+      bestScore = score;
     }
-
-    const laid: LaidOutNode = {
-      key,
-      id: node.id,
-      title: node.title,
-      kind: node.kind,
-      role: node.role,
-      number: node.number,
-      hasContent: node.hasContent,
-      planned: node.planned,
-      prereqs: node.prereqs,
-      trail,
-      depth,
-      x: center,
-      y: depth * TREE.rowH,
-      w,
-      h,
-    };
-    byKey.set(key, laid);
-    out.push(laid);
-    return { key, center, keys: subtree };
-  };
-
-  for (const r of roots) walk(r, 0, [], null);
-  return out;
-}
-
-/** Vertical S-curve from a parent's bottom edge to a child's top edge. */
-function branchPath(p: LaidOutNode, c: LaidOutNode): string {
-  const y1 = p.y + p.h / 2;
-  const y2 = c.y - c.h / 2;
-  const mid = (y1 + y2) / 2;
-  return `M ${p.x} ${y1} C ${p.x} ${mid}, ${c.x} ${mid}, ${c.x} ${y2}`;
-}
-
-/**
- * Prereq curve between two lessons anywhere in the tree. It leaves and enters horizontally so it
- * reads as a cross-link rather than another branch, and bows outward proportionally to the gap.
- */
-function prereqPath(from: LaidOutNode, to: LaidOutNode): string {
-  const leftToRight = from.x <= to.x;
-  const x1 = from.x + (leftToRight ? from.w / 2 : -from.w / 2);
-  const x2 = to.x + (leftToRight ? -to.w / 2 : to.w / 2);
-  const bow = Math.min(180, Math.max(48, Math.abs(x2 - x1) / 2));
-  return `M ${x1} ${from.y} C ${x1 + (leftToRight ? bow : -bow)} ${from.y}, ${
-    x2 - (leftToRight ? bow : -bow)
-  } ${to.y}, ${x2} ${to.y}`;
-}
-
-/** Width a subtree would occupy, from its leaf count — cheap, and exact enough to decide splits. */
-function estimateWidth(n: TreeNode): number {
-  if (n.children.length === 0) return sizeOf(n).w + TREE.gapX;
-  return Math.max(
-    sizeOf(n).w + TREE.gapX,
-    n.children.reduce((s, c) => s + estimateWidth(c), 0),
-  );
-}
-
-/**
- * The regions drawn as separate clusters. Starting from the root's children, any region too wide to
- * read as one cluster is replaced by its own children — so a single overgrown branch ("Numbers"
- * holding the entire curriculum) becomes several honest regions rather than one strip in a box.
- * A promoted region carries its ancestry in the title ("Numbers › Fractions").
- */
-function islandsOf(roots: TreeNode[]): { node: TreeNode; title: string }[] {
-  const top = roots.length === 1 && roots[0].children.length > 0 ? roots[0].children : roots;
-  const out: { node: TreeNode; title: string }[] = [];
-
-  const consider = (n: TreeNode, prefix: string[]) => {
-    const title = [...prefix, n.title].join(" › ");
-    const splittable = n.children.filter((c) => c.children.length > 0).length >= 2;
-    if (estimateWidth(n) > TREE.maxRegionWidth && splittable) {
-      // Lessons sitting directly under a split concept would be orphaned, so keep them together
-      // as a region of their own alongside the promoted sub-concepts.
-      const loose = n.children.filter((c) => c.children.length === 0);
-      if (loose.length > 0) out.push({ node: { ...n, children: loose }, title });
-      for (const c of n.children.filter((c) => c.children.length > 0))
-        consider(c, [...prefix, n.title]);
-      return;
-    }
-    out.push({ node: n, title });
-  };
-
-  for (const n of top) consider(n, []);
-  return out;
+  }
+  return best!;
 }
 
 function countLessons(n: TreeNode): number {
   return (n.kind === "lesson" ? 1 : 0) + n.children.reduce((s, c) => s + countLessons(c), 0);
 }
 
-/**
- * Lays out the curriculum as a grid of regions. Each region is a tidy tree in its own right; the
- * regions then wrap into rows, which keeps the whole map roughly screen-shaped instead of stretching
- * into one mile-wide strip as the curriculum grows.
- *
- * Prereq edges attach to the *first* rendered instance of each node id, so a bridge node drawn under
- * two parents still gets exactly one set of prereq links — and a prereq crossing regions is drawn
- * just like any other, which is exactly what it is.
- */
-export function layoutTree(roots: TreeNode[]): Layout {
-  const regions = islandsOf(roots);
-  const nodes: LaidOutNode[] = [];
-  const islands: Island[] = [];
+/** Sizes a subtree bottom-up: a container is exactly as big as its packed children plus its header. */
+function measure(node: TreeNode, depth: number): Box {
+  const L = level(depth);
+  const lessonCount = countLessons(node);
 
-  let rowX = 0;
-  let rowY = 0;
-  let rowH = 0;
-
-  for (const { node: region, title } of regions) {
-    const laid = place([region]);
-    const left = Math.min(...laid.map((n) => n.x - n.w / 2));
-    const right = Math.max(...laid.map((n) => n.x + n.w / 2));
-    const top = Math.min(...laid.map((n) => n.y - n.h / 2));
-    const bottom = Math.max(...laid.map((n) => n.y + n.h / 2));
-    const boxW = right - left + TREE.islandPad * 2;
-    const boxH = bottom - top + TREE.islandPad * 2 + TREE.islandHeader;
-
-    // Wrap to a new row once this region would push the row past its target width.
-    if (rowX > 0 && rowX + boxW > TREE.rowWidth) {
-      rowY += rowH + TREE.islandGapY;
-      rowX = 0;
-      rowH = 0;
-    }
-
-    const dx = rowX + TREE.islandPad - left;
-    const dy = rowY + TREE.islandPad + TREE.islandHeader - top;
-    for (const n of laid) {
-      n.x += dx;
-      n.y += dy;
-      nodes.push(n);
-    }
-    islands.push({
-      id: region.id,
-      title,
-      planned: region.planned,
-      lessonCount: countLessons(region),
-      x: rowX,
-      y: rowY,
-      w: boxW,
-      h: boxH,
-    });
-
-    rowX += boxW + TREE.islandGapX;
-    rowH = Math.max(rowH, boxH);
+  if (node.children.length === 0) {
+    // A card always reads one notch below the container holding it, so the bottom of the hierarchy
+    // stays distinguishable even where the depth scale has bottomed out.
+    const size = Math.max(11, Math.min(L.title - 1.5, TREE.leafTitleMax[node.kind]));
+    const inner = TREE.leafW - TREE.leafPadX * 2;
+    const lines = wrapTitle(node.title, Math.max(8, Math.floor(inner / (size * 0.52))));
+    const h = TREE.leafPadY * 2 + lines.length * TREE.leafLine + (node.number != null ? 14 : 0);
+    return {
+      node,
+      depth,
+      w: TREE.leafW,
+      h,
+      headerH: h,
+      lines,
+      titleSize: size,
+      tracking: 0,
+      pad: TREE.leafPadX,
+      lessonCount,
+      rows: [],
+    };
   }
 
-  if (nodes.length === 0)
-    return { nodes, edges: [], islands, minX: 0, minY: 0, width: 0, height: 0 };
+  const kids = node.children.map((c) => measure(c, depth + 1));
+  const { rows, w: innerW, h: innerH } = pack(kids, L.gap, aspectAt(depth));
 
-  const firstByIdKey = new Map<string, LaidOutNode>();
-  for (const n of nodes) if (!firstByIdKey.has(n.id)) firstByIdKey.set(n.id, n);
-  const byKey = new Map(nodes.map((n) => [n.key, n]));
+  // Cards in a row are levelled to the tallest *card*, so a row of leaves reads as one band of
+  // siblings instead of a ragged edge. Levelling against a container sibling instead would stretch
+  // a one-line card to the height of a whole subtree, so containers are excluded from both sides.
+  for (const row of rows) {
+    const leaves = row.filter((b) => b.rows.length === 0);
+    if (leaves.length < 2) continue;
+    const cardH = Math.max(...leaves.map((b) => b.h));
+    for (const b of leaves) {
+      b.h = cardH;
+      b.headerH = cardH;
+    }
+  }
+
+  // A container is never narrower than its own title plus the room the header meta needs.
+  const titleW = textWidth(node.title, L.title) + (depth === 0 ? 130 : 60);
+  const w = Math.max(innerW, titleW) + L.pad * 2;
+
+  return {
+    node,
+    depth,
+    w,
+    h: L.header + innerH + L.pad,
+    headerH: L.header,
+    lines: [node.title],
+    titleSize: L.title,
+    tracking: L.tracking,
+    pad: L.pad,
+    lessonCount,
+    rows,
+  };
+}
+
+/** Walks a measured box tree, emitting absolutely positioned nodes (parents first). */
+function position(
+  box: Box,
+  x: number,
+  y: number,
+  trail: string[],
+  parentKey: string | null,
+  out: LaidOutNode[],
+) {
+  const n = box.node;
+  const key = parentKey ? `${parentKey}/${n.id}` : n.id;
+
+  out.push({
+    key,
+    id: n.id,
+    title: n.title,
+    kind: n.kind,
+    role: n.role,
+    number: n.number,
+    hasContent: n.hasContent,
+    planned: n.planned,
+    prereqs: n.prereqs,
+    trail,
+    depth: box.depth,
+    isContainer: box.rows.length > 0,
+    lessonCount: box.lessonCount,
+    x,
+    y,
+    w: box.w,
+    h: box.h,
+    headerH: box.headerH,
+    lines: box.lines,
+    titleSize: box.titleSize,
+    tracking: box.tracking,
+  });
+
+  const gap = level(box.depth).gap;
+  let cy = y + box.headerH;
+  for (const row of box.rows) {
+    let cx = x + box.pad;
+    for (const child of row) {
+      position(child, cx, cy, [...trail, n.title], key, out);
+      cx += child.w + gap;
+    }
+    cy += Math.max(...row.map((b) => b.h)) + gap;
+  }
+}
+
+/** Where a prereq arrow attaches: a card's middle, a container's header strip. */
+function anchor(n: LaidOutNode) {
+  return { x: n.x + n.w / 2, y: n.isContainer ? n.y + n.headerH / 2 : n.y + n.h / 2 };
+}
+
+/**
+ * Prereq curve between two nodes anywhere on the map. It leaves and enters horizontally so it reads
+ * as a cross-link rather than part of the nesting, and bows outward proportionally to the gap.
+ */
+function prereqPath(from: LaidOutNode, to: LaidOutNode): string {
+  const a = anchor(from);
+  const b = anchor(to);
+  const leftToRight = a.x <= b.x;
+  const x1 = leftToRight ? from.x + from.w : from.x;
+  const x2 = leftToRight ? to.x : to.x + to.w;
+  const bow = Math.min(190, Math.max(50, Math.abs(x2 - x1) / 2));
+  return `M ${x1} ${a.y} C ${x1 + (leftToRight ? bow : -bow)} ${a.y}, ${
+    x2 - (leftToRight ? bow : -bow)
+  } ${b.y}, ${x2} ${b.y}`;
+}
+
+/**
+ * Course-order curve: leaves the bottom of one lesson and enters the top of the next, so the
+ * teaching sequence is distinguishable from a prereq link by its shape alone, before any colour.
+ */
+function orderPath(from: LaidOutNode, to: LaidOutNode): string {
+  const x1 = from.x + from.w / 2;
+  const y1 = from.y + from.h;
+  const x2 = to.x + to.w / 2;
+  const y2 = to.y;
+  const lift = Math.min(160, Math.max(40, Math.abs(y2 - y1) / 2 + Math.abs(x2 - x1) / 6));
+  return `M ${x1} ${y1} C ${x1} ${y1 + lift}, ${x2} ${y2 - lift}, ${x2} ${y2}`;
+}
+
+/**
+ * Lays out the whole curriculum as nested boxes.
+ *
+ * The root ("Math") is the outermost box and everything else sits inside it, so the single biggest
+ * container on the map is the subject itself. Its children are packed into rows, which keeps the
+ * map roughly screen-shaped rather than stretching into a mile-wide strip.
+ *
+ * Prereq and order edges attach to the *first* rendered instance of each node id, so a bridge node
+ * drawn under two parents still gets exactly one set of links.
+ */
+export function layoutTree(roots: TreeNode[]): Layout {
+  const boxes = roots.map((n) => measure(n, 0));
+
+  const nodes: LaidOutNode[] = [];
+  if (boxes.length === 0)
+    return { nodes, edges: [], order: [], minX: 0, minY: 0, width: 0, height: 0 };
+
+  const gap = LEVEL[0].gap;
+  const { rows } = pack(boxes, gap, aspectAt(0));
+  let y = 0;
+  for (const row of rows) {
+    let x = 0;
+    for (const box of row) {
+      position(box, x, y, [], null, nodes);
+      x += box.w + gap;
+    }
+    y += Math.max(...row.map((b) => b.h)) + gap;
+  }
+
+  const firstById = new Map<string, LaidOutNode>();
+  for (const n of nodes) if (!firstById.has(n.id)) firstById.set(n.id, n);
 
   const edges: LayoutEdge[] = [];
   for (const n of nodes) {
-    const parentKey = n.key.includes("/") ? n.key.slice(0, n.key.lastIndexOf("/")) : null;
-    const parent = parentKey ? byKey.get(parentKey) : undefined;
-    if (parent) edges.push({ kind: "branch", from: parent.key, to: n.key, d: branchPath(parent, n) });
-
-    if (firstByIdKey.get(n.id) !== n) continue; // bridge duplicate: prereqs already drawn
+    if (firstById.get(n.id) !== n) continue; // bridge duplicate: prereqs already drawn
     for (const p of n.prereqs) {
-      const src = firstByIdKey.get(p);
+      const src = firstById.get(p);
       if (src) edges.push({ kind: "prereq", from: src.key, to: n.key, d: prereqPath(src, n) });
     }
   }
 
-  // Bounds follow the cluster boxes: they already enclose every node.
-  const left = Math.min(...islands.map((i) => i.x));
-  const right = Math.max(...islands.map((i) => i.x + i.w));
-  const top = Math.min(...islands.map((i) => i.y));
-  const bottom = Math.max(...islands.map((i) => i.y + i.h));
+  // The teaching sequence: every numbered lesson, once, in curriculum order.
+  const sequence = [...firstById.values()]
+    .filter((n) => n.number != null)
+    .sort((a, b) => a.number! - b.number!);
+  for (let i = 1; i < sequence.length; i++)
+    edges.push({
+      kind: "order",
+      from: sequence[i - 1].key,
+      to: sequence[i].key,
+      d: orderPath(sequence[i - 1], sequence[i]),
+    });
+
+  const left = Math.min(...nodes.map((n) => n.x));
+  const right = Math.max(...nodes.map((n) => n.x + n.w));
+  const topY = Math.min(...nodes.map((n) => n.y));
+  const bottom = Math.max(...nodes.map((n) => n.y + n.h));
   return {
     nodes,
     edges,
-    islands,
+    order: sequence.map((n) => n.key),
     minX: left - TREE.padding,
-    minY: top - TREE.padding,
+    minY: topY - TREE.padding,
     width: right - left + TREE.padding * 2,
-    height: bottom - top + TREE.padding * 2,
+    height: bottom - topY + TREE.padding * 2,
   };
 }

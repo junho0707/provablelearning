@@ -17,7 +17,7 @@ export default function NotFound() {
             and pick up where you left off.
           </p>
           <Link
-            href="/courses"
+            href="/roadmap?view=courses"
             className="mt-8 inline-block rounded-lg bg-navy-900 px-6 py-3 font-semibold text-white hover:bg-navy-800"
           >
             Browse courses

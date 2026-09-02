@@ -1,9 +1,9 @@
 # 10 — Backend Design
 
-Status: **LIGHT (intentional)** · Detailed service/handler design lives in each `TASK-*`'s
-implementation notes. This file records the module→responsibility map, the correctness-critical
-patterns, and integration behavior. Modules: `06_ARCHITECTURE.md`; entities/RPCs:
-`07_DATA_MODEL.md`; contracts: `08_API_CONTRACTS.md`.
+Status: **LIGHT (intentional), refreshed 2026-08-14** against ADR-003/004/005 · Detailed
+service/handler design lives in each `TASK-*`'s implementation notes. This file records the
+module→responsibility map, the correctness-critical patterns, and integration behavior. Modules:
+`06_ARCHITECTURE.md`; entities/RPCs: `07_DATA_MODEL.md`; contracts: `08_API_CONTRACTS.md`.
 
 ## Modules → use cases
 
@@ -12,12 +12,12 @@ patterns, and integration behavior. Modules: `06_ARCHITECTURE.md`; entities/RPCs
 | `content` | build Learning Path, render lesson | in-repo MDX (ADR-001) |
 | `practice` | check answer (server), reveal free-response | `questions` |
 | `progress` | record attempt, mark/read progress | `question_attempts`, `lesson_progress` |
-| `accounts` | auth, roles, link+consent dependents | `profiles` (+ ADR-002) |
+| `accounts` | Google OAuth + magic link, profile CRUD, active-profile switching | `accounts` (auto-provisioned trigger), `learner_profiles` — no consent flow (INV-ACTOR-1) |
 | `credits` | balance, spend | `credit_ledger`, `book_session` RPC |
 | `billing` | checkout, process purchase | Stripe, `process_purchase` RPC, `stripe_events` |
 | `booking` | availability, book, cancel, calendar | `book_session`/`cancel_booking` RPCs, Google |
-| `notifications` | confirm, reminders, reset | email provider |
-| `admin` | authoring, availability, refunds, users | `refund_credit` RPC, `admin_logs` |
+| `notifications` | confirmation, reminders, receipt | email provider (Resend) |
+| `admin` | authoring, availability, refunds, users | `refund_credit` RPC, `audit_log` |
 
 ## Correctness-critical patterns (non-negotiable — NFR-SEC-002)
 
@@ -41,5 +41,5 @@ patterns, and integration behavior. Modules: `06_ARCHITECTURE.md`; entities/RPCs
 
 ## Observability & ops
 
-Money/booking/admin actions → `admin_logs` (NFR-OPS-002). Cron endpoints are secret-guarded.
+Money/booking/admin actions → `audit_log` (NFR-OPS-002). Cron endpoints are secret-guarded.
 Scheduled backups (NFR-OPS-003). Everything operable by one person (NFR-OPS-001).
