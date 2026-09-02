@@ -1,25 +1,19 @@
 import type { MetadataRoute } from "next";
-import { getAllLessons } from "@/lib/content/catalog";
 import { absoluteUrl } from "@/lib/site";
 
 /**
- * Crawlable index of the public Learning Path (NFR-PERF-003): landing, the courses index, and every
- * lesson page. Regenerated at build from the roadmap. Concept containers have no page, so they're
- * not listed.
+ * Content is **not public at launch** (`system/00-BUSINESS.md` §1), so there is no catalog to
+ * index — the sitemap lists only the pages a signed-out visitor can actually reach. Lessons and
+ * the roadmap return here when the catalog ships and restores the organic channel; the loop over
+ * `getAllLessons()` that used to live in this file is what to bring back.
+ *
+ * `AT-CONTENT-2` asserts no content route appears here.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const entries: MetadataRoute.Sitemap = [
-    { url: absoluteUrl("/"), changeFrequency: "monthly", priority: 1 },
-    { url: absoluteUrl("/courses"), changeFrequency: "weekly", priority: 0.9 },
+  return [
+    { url: absoluteUrl("/"), changeFrequency: "weekly", priority: 1 },
+    { url: absoluteUrl("/terms"), changeFrequency: "yearly", priority: 0.2 },
+    { url: absoluteUrl("/privacy"), changeFrequency: "yearly", priority: 0.2 },
+    { url: absoluteUrl("/refund-policy"), changeFrequency: "yearly", priority: 0.2 },
   ];
-
-  for (const lesson of getAllLessons()) {
-    entries.push({
-      url: absoluteUrl(`/courses/${lesson.slug}`),
-      changeFrequency: "monthly",
-      priority: 0.7,
-    });
-  }
-
-  return entries;
 }

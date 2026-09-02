@@ -3,6 +3,7 @@ import { SiteNav } from "@/components/site-nav";
 import { SignUpButton } from "@/components/auth/sign-up-button";
 import { ObfuscatedEmail } from "@/components/obfuscated-email";
 import { PRICING, formatPrice } from "@/lib/pricing";
+import { POLICY_COPY } from "@/lib/policy";
 import { createClient } from "@/lib/supabase/server";
 import { getPurchaseHistory } from "@/lib/credits/history";
 
@@ -46,24 +47,16 @@ const CREDIT_AUDIENCES = [
   },
 ];
 
-// spec/14 §15
+// `system/02-POLICIES.md` §2-§5. Every sentence comes from POLICY_COPY so the page cannot state a
+// rule the code doesn't enforce — the numbers live in one module and the drift test guards them.
 const SCHEDULING_RULES = [
   {
     title: "Booking window",
-    body: "Book up to 4 weeks ahead, with at least 24 hours' notice.",
+    body: `Book up to ${POLICY_COPY.horizon} ahead, with at least ${POLICY_COPY.minNotice}' notice. ${POLICY_COPY.release}`,
   },
-  {
-    title: "Cancel or reschedule",
-    body: "Free at 24 hours or more ahead. Inside 24 hours uses the credit — you can request it back, reviewed case by case.",
-  },
-  {
-    title: "Credits",
-    body: "Never expire.",
-  },
-  {
-    title: "No-show",
-    body: "15 minutes late counts as a no-show — you can request the credit back.",
-  },
+  { title: "Cancel or reschedule", body: POLICY_COPY.freeCancel },
+  { title: "Changed your mind late", body: POLICY_COPY.lateCancel },
+  { title: "Credits", body: POLICY_COPY.creditsNeverExpire },
 ];
 
 const CREDIT_PACKS: Array<{ sku: "credits_1" | "credits_2" | "credits_4" | "credits_8" }> = [

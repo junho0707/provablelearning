@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { SiteNav } from "@/components/site-nav";
 
-/** Global 404 — always links back into the Learning Path (AT-CONTENT-002). */
+/** Global 404. Content is not public (`system/00-BUSINESS.md` §1), so the only place to send
+ * someone is the marketing page — there is no catalog to browse. */
 export default function NotFound() {
   return (
     <div className="flex min-h-screen flex-col bg-[#f7f8fa]">
@@ -13,14 +14,13 @@ export default function NotFound() {
             We couldn&apos;t find that page
           </h1>
           <p className="mx-auto mt-3 max-w-md text-navy-700">
-            The lesson or page you&apos;re after doesn&apos;t exist. Head back to the Learning Path
-            and pick up where you left off.
+            That page doesn&apos;t exist. Head back to the start.
           </p>
           <Link
-            href="/roadmap?view=courses"
+            href="/"
             className="mt-8 inline-block rounded-lg bg-navy-900 px-6 py-3 font-semibold text-white hover:bg-navy-800"
           >
-            Browse courses
+            Back to home
           </Link>
         </div>
       </main>

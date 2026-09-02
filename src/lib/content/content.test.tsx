@@ -8,8 +8,6 @@ import {
   getLessonTrail,
 } from "./catalog";
 import { renderMdx } from "./mdx";
-import sitemap from "@/app/sitemap";
-import { generateMetadata } from "@/app/(content)/courses/[slug]/page";
 
 // Structure comes from roadmap/roadmap.json (ADR-002); lesson prose from content/<slug>.mdx.
 // `fractions-definition` is the authored fixture; the rest are scaffolded stubs.
@@ -88,28 +86,6 @@ describe("MDX + KaTeX server rendering (REQ-CONTENT-003, AT-CONTENT-001)", () =>
   });
 });
 
-describe("SEO surface (NFR-PERF-003, AT-CONTENT-003)", () => {
-  it("lists the roadmap and every lesson in the sitemap", () => {
-    const urls = sitemap().map((e) => e.url);
-    expect(urls.some((u) => u.endsWith("/roadmap"))).toBe(true);
-    expect(urls.some((u) => u.endsWith("/courses/fractions-definition"))).toBe(true);
-  });
-
-  it("omits the redirecting /courses index", () => {
-    expect(sitemap().map((e) => e.url).some((u) => u.endsWith("/courses"))).toBe(false);
-  });
-
-  it("exposes title/description/canonical metadata per lesson", async () => {
-    const meta = await generateMetadata({
-      params: Promise.resolve({ slug: "fractions-definition" }),
-    });
-    expect(meta.title).toBe("Fractions - Definition");
-    expect(meta.description).toBeTruthy();
-    expect(meta.alternates?.canonical).toBe("/courses/fractions-definition");
-  });
-
-  it("returns empty metadata for an unknown lesson", async () => {
-    const meta = await generateMetadata({ params: Promise.resolve({ slug: "nope" }) });
-    expect(meta.title).toBeUndefined();
-  });
-});
+// The SEO-surface tests that lived here covered the public lesson routes and their metadata.
+// Content is no longer public (ADR-007), so those routes are gone and the assertions with them.
+// `content-gate.test.ts` now guards the opposite property: that no content route comes back.
