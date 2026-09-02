@@ -16,6 +16,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <Link href="/admin/bookings" className="hover:text-navy-950">
           Bookings
         </Link>
+        <Link href="/admin/materials" className="hover:text-navy-950">
+          Materials
+        </Link>
         <Link href="/admin/availability" className="hover:text-navy-950">
           Availability
         </Link>
