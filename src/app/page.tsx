@@ -66,6 +66,28 @@ const CREDIT_PACKS: Array<{ sku: "credits_1" | "credits_2" | "credits_4" | "cred
   { sku: "credits_8" },
 ];
 
+/**
+ * The page is a stack of full-bleed panels butted directly against each other — no gutters, no
+ * radius, no shadows. The seam between two sections *is* the change of background colour, which is
+ * what gives the "poster boards attached together" reading. There are four panel templates and
+ * deliberately no fifth; the restraint in template count is where the minimalism comes from, not
+ * restraint in content.
+ *
+ * The one floating object on the page is the nav pill, which is why it is allowed blur and radius.
+ */
+const OFF_WHITE = "#faf9f7";
+
+/** Numbered section label. Small, wide-tracked, gold — the only place gold appears as text. */
+function Eyebrow({ index, children }: { index: string; children: React.ReactNode }) {
+  return (
+    <p className="mb-5 text-[0.6875rem] font-semibold uppercase tracking-[0.22em] text-gold-500">
+      <span className="text-gold-600/70">{index}</span>
+      <span className="px-2 text-gold-600/40">—</span>
+      {children}
+    </p>
+  );
+}
+
 export default async function Home() {
   const supabase = await createClient();
   const {
@@ -76,32 +98,61 @@ export default async function Home() {
     : false;
 
   return (
-    <main className="min-h-screen bg-[#f7f8fa]">
-      <SiteNav />
+    <main className="bg-white">
+      <SiteNav overlay />
 
-      {/* Hero */}
+      {/* ── Panel A — statement ─────────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-navy-950 text-white">
-        <div className="absolute inset-0 bg-gradient-to-br from-navy-900 via-navy-950 to-navy-900" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--navy-700)_0%,_transparent_50%)] opacity-40" />
+        {/* Texture in place of photography. A worked derivation set very large and very faint does
+            the job an image would, without stock photos of children at laptops. */}
+        <p
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-8 bottom-0 hidden select-none font-serif text-[7rem] italic leading-[1.15] text-white/[0.04] lg:block"
+        >
+          a² + b²
+          <br />
+          = c²
+        </p>
 
-        <div className="relative mx-auto flex max-w-[1120px] flex-col items-center px-5 pb-6 pt-14 text-center sm:px-8 sm:pb-6 sm:pt-14">
-          <h1 className="mb-14 max-w-3xl text-4xl font-extrabold leading-[1.1] tracking-[-0.02em] sm:text-5xl lg:text-[3.5rem]">
+        <div className="relative mx-auto flex min-h-[78vh] max-w-[1200px] flex-col justify-end px-6 pb-20 pt-40 sm:px-10">
+          <h1 className="max-w-[16ch] text-[clamp(2.75rem,7vw,5rem)] font-semibold leading-[0.95] tracking-[-0.03em]">
             Want to get better at math?
           </h1>
-          <p className="mb-6 text-sm font-bold uppercase tracking-widest text-gold-400">
-            Who it&apos;s for
-          </p>
-          <div className="mb-6 grid w-full max-w-4xl gap-4 sm:grid-cols-3">
+          <div className="mt-12 flex flex-col items-start gap-5 border-t border-white/15 pt-8 sm:flex-row sm:items-center sm:gap-10">
+            <SignUpButton
+              signedIn={Boolean(user)}
+              hasFirstSession={hasFirstSession}
+              className="bg-gold-500 px-8 py-4 text-[0.9375rem] font-semibold text-navy-950 hover:bg-gold-400"
+            />
+            {!hasFirstSession && (
+              <p className="text-[0.9375rem] text-navy-200">
+                Your first 1 hour session is{" "}
+                <span className="font-semibold text-white">{FIRST_SESSION_PRICE}</span>.
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Panel C — tile row ──────────────────────────────────────────────────────────────── */}
+      <section style={{ background: OFF_WHITE }} className="text-navy-950">
+        <div className="mx-auto max-w-[1200px] px-6 py-24 sm:px-10 sm:py-28">
+          <Eyebrow index="01">Who it&apos;s for</Eyebrow>
+          <h2 className="max-w-[24ch] text-[clamp(1.875rem,3.5vw,2.75rem)] font-semibold leading-[1.05] tracking-[-0.025em]">
+            Three reasons people start.
+          </h2>
+          {/* Cells are divided by hairlines, never by gaps — a gap would make them read as cards. */}
+          <div className="mt-14 grid border-t border-navy-950/10 sm:grid-cols-3">
             {IS_THIS_FOR_YOU.map((item, i) => (
               <div
                 key={item.title}
-                className="rounded-xl border border-white/20 bg-white/10 p-5 text-left backdrop-blur-sm"
+                className="border-b border-navy-950/10 py-8 sm:border-b-0 sm:border-r sm:px-8 sm:py-0 sm:first:pl-0 sm:last:border-r-0 sm:last:pr-0"
               >
-                <p className="mb-1.5 flex items-baseline gap-1.5">
-                  <span className="text-sm font-bold text-gold-400">{i + 1}.</span>
-                  <span className="font-semibold text-white">{item.title}</span>
+                <p className="mb-4 pt-0 text-[0.6875rem] font-semibold tracking-[0.18em] text-navy-950/35 sm:pt-8">
+                  {String(i + 1).padStart(2, "0")}
                 </p>
-                <ul className="list-disc space-y-1 pl-4 text-sm leading-relaxed text-navy-200">
+                <h3 className="mb-3 text-lg font-semibold tracking-[-0.01em]">{item.title}</h3>
+                <ul className="space-y-2 text-[0.9375rem] leading-relaxed text-navy-700">
                   {item.bullets.map((bullet) => (
                     <li key={bullet}>{bullet}</li>
                   ))}
@@ -109,96 +160,109 @@ export default async function Home() {
               </div>
             ))}
           </div>
-          <div className="flex flex-col items-center gap-4">
-            <SignUpButton
-              signedIn={Boolean(user)}
-              hasFirstSession={hasFirstSession}
-              className="rounded-lg bg-gold-500 px-10 py-4 text-base font-bold text-navy-950 shadow-[0_8px_24px_-8px_rgba(212,168,67,0.6)] hover:bg-gold-400"
-            />
-            {!hasFirstSession && (
-              <p className="rounded-lg border border-white/15 bg-white/5 px-5 py-2 text-sm text-navy-200">
-                Your first 1 hour session is <span className="font-bold text-white">{FIRST_SESSION_PRICE}</span>.
-              </p>
-            )}
-          </div>
         </div>
       </section>
 
-      {/* Credit sessions */}
-      <section className="mx-auto max-w-[1120px] px-5 py-20 sm:px-8">
-        <h2 className="mb-3 text-3xl font-extrabold tracking-[-0.01em] text-navy-950 sm:text-4xl">
-          After first session
-        </h2>
-        <p className="mb-10 text-lg text-navy-600">Keep going with 1 hour 1:1 credit sessions</p>
-
-        <h3 className="mb-6 text-lg font-bold text-navy-950">Who it&apos;s for</h3>
-        <div className="mb-12 grid grid-flow-col auto-cols-fr gap-6 overflow-x-auto">
-          {CREDIT_AUDIENCES.map((c) => (
-            <div
-              key={c.title}
-              className="min-w-[220px] rounded-xl border border-navy-100 bg-white p-6 shadow-[var(--shadow-card)]"
-            >
-              <h3 className="mb-2 text-lg font-bold text-navy-950">{c.title}</h3>
-              <p className="text-sm leading-relaxed text-navy-700">{c.body}</p>
-            </div>
-          ))}
+      {/* ── Panel B — split ─────────────────────────────────────────────────────────────────── */}
+      <section className="bg-navy-950 text-white">
+        <div className="mx-auto grid max-w-[1200px] gap-12 px-6 py-24 sm:px-10 sm:py-28 lg:grid-cols-12 lg:gap-16">
+          <div className="lg:col-span-5">
+            <Eyebrow index="02">After your first session</Eyebrow>
+            <h2 className="text-[clamp(1.875rem,3.5vw,2.75rem)] font-semibold leading-[1.05] tracking-[-0.025em]">
+              Keep going with 1&nbsp;hour 1:1 credit sessions.
+            </h2>
+          </div>
+          <dl className="lg:col-span-7">
+            {CREDIT_AUDIENCES.map((c) => (
+              <div
+                key={c.title}
+                className="grid gap-2 border-t border-white/15 py-6 last:border-b sm:grid-cols-[10rem_1fr] sm:gap-8"
+              >
+                <dt className="text-[0.9375rem] font-semibold">{c.title}</dt>
+                <dd className="text-[0.9375rem] leading-relaxed text-navy-200">{c.body}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
+      </section>
 
-        <div className="border-t border-navy-100 pt-10">
-          <h3 className="mb-6 text-lg font-bold text-navy-950">Pricing</h3>
-          <div className="mb-12 grid gap-4 sm:grid-cols-4">
+      {/* ── Panel D — data band ─────────────────────────────────────────────────────────────── */}
+      <section style={{ background: OFF_WHITE }} className="text-navy-950">
+        <div className="mx-auto max-w-[1200px] px-6 py-24 sm:px-10 sm:py-28">
+          <Eyebrow index="03">Pricing</Eyebrow>
+          <div className="grid border-t border-navy-950/10 sm:grid-cols-4">
             {CREDIT_PACKS.map(({ sku }) => (
               <div
                 key={sku}
-                className="rounded-xl border border-navy-100 bg-white p-6 text-center shadow-[var(--shadow-card)]"
+                className="flex items-baseline justify-between border-b border-navy-950/10 py-6 sm:block sm:border-b-0 sm:border-r sm:px-8 sm:py-10 sm:first:pl-0 sm:last:border-r-0"
               >
-                <p className="text-2xl font-extrabold text-navy-950">
+                <p className="text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-none tracking-[-0.03em] tabular-nums">
                   {formatPrice(PRICING[sku].priceCents)}
                 </p>
-                <p className="text-sm text-navy-600">
-                  {PRICING[sku].credits} session{PRICING[sku].credits > 1 ? "s" : ""}
-                </p>
-                {PRICING[sku].credits > 1 && (
-                  <p className="mt-1 text-xs text-navy-400">
-                    {formatPrice(PRICING[sku].priceCents / PRICING[sku].credits)} / session
+                <div className="text-right sm:mt-4 sm:text-left">
+                  <p className="text-[0.9375rem] text-navy-700">
+                    {PRICING[sku].credits} session{PRICING[sku].credits > 1 ? "s" : ""}
                   </p>
-                )}
+                  {PRICING[sku].credits > 1 && (
+                    <p className="mt-0.5 text-[0.8125rem] tabular-nums text-navy-950/40">
+                      {formatPrice(PRICING[sku].priceCents / PRICING[sku].credits)} / session
+                    </p>
+                  )}
+                </div>
               </div>
             ))}
           </div>
         </div>
+      </section>
 
-        <div className="mb-12 border-t border-navy-100 pt-10">
-          <h3 className="mb-6 text-lg font-bold text-navy-950">Scheduling</h3>
-          <div className="grid grid-flow-col auto-cols-fr gap-6 overflow-x-auto">
+      {/* ── Panel C — tile row ──────────────────────────────────────────────────────────────── */}
+      <section className="border-t border-navy-950/10 bg-white text-navy-950">
+        <div className="mx-auto max-w-[1200px] px-6 py-24 sm:px-10 sm:py-28">
+          <Eyebrow index="04">Scheduling</Eyebrow>
+          <div className="grid border-t border-navy-950/10 sm:grid-cols-2 lg:grid-cols-4">
             {SCHEDULING_RULES.map((rule) => (
               <div
                 key={rule.title}
-                className="min-w-[220px] rounded-xl border border-navy-100 bg-white p-6 shadow-[var(--shadow-card)]"
+                className="border-b border-navy-950/10 py-8 sm:px-8 lg:border-b-0 lg:border-r lg:first:pl-0 lg:last:border-r-0 lg:last:pr-0 sm:first:pl-0"
               >
-                <h4 className="mb-2 text-lg font-bold text-navy-950">{rule.title}</h4>
-                <p className="text-sm leading-relaxed text-navy-700">{rule.body}</p>
+                <h3 className="mb-3 text-lg font-semibold tracking-[-0.01em]">{rule.title}</h3>
+                <p className="text-[0.9375rem] leading-relaxed text-navy-700">{rule.body}</p>
               </div>
             ))}
           </div>
         </div>
-
-        <p className="text-sm text-navy-600">
-          Questions? Email <ObfuscatedEmail />
-        </p>
       </section>
 
-      <footer className="border-t border-navy-100 bg-white">
-        <div className="mx-auto flex max-w-[1120px] flex-wrap items-center justify-between gap-4 px-5 py-8 text-sm text-navy-500 sm:px-8">
+      {/* ── Panel A — statement (close) ─────────────────────────────────────────────────────── */}
+      <section className="bg-navy-950 text-white">
+        <div className="mx-auto max-w-[1200px] px-6 py-24 sm:px-10 sm:py-28">
+          <h2 className="max-w-[18ch] text-[clamp(1.875rem,4vw,3.25rem)] font-semibold leading-[1.02] tracking-[-0.03em]">
+            Start with one hour.
+          </h2>
+          <div className="mt-12 flex flex-col items-start gap-5 border-t border-white/15 pt-8 sm:flex-row sm:items-center sm:gap-10">
+            <SignUpButton
+              signedIn={Boolean(user)}
+              hasFirstSession={hasFirstSession}
+              className="bg-gold-500 px-8 py-4 text-[0.9375rem] font-semibold text-navy-950 hover:bg-gold-400"
+            />
+            <p className="text-[0.9375rem] text-navy-200">
+              Questions? Email <ObfuscatedEmail />
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <footer className="bg-navy-950 text-navy-300">
+        <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-4 border-t border-white/10 px-6 py-8 text-[0.8125rem] sm:px-10">
           <span>© Provable Learning</span>
-          <nav className="flex gap-4">
-            <Link href="/terms" className="hover:text-navy-800">
+          <nav className="flex gap-6">
+            <Link href="/terms" className="hover:text-white">
               Terms
             </Link>
-            <Link href="/privacy" className="hover:text-navy-800">
+            <Link href="/privacy" className="hover:text-white">
               Privacy
             </Link>
-            <Link href="/refund-policy" className="hover:text-navy-800">
+            <Link href="/refund-policy" className="hover:text-white">
               Refunds
             </Link>
           </nav>
