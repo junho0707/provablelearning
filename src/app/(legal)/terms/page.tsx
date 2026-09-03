@@ -1,51 +1,73 @@
+import { POLICY_COPY, SESSION_MINUTES, NO_SHOW_AFTER_MINUTES } from "@/lib/policy";
+import { PRICING, formatPrice } from "@/lib/pricing";
+
 export const metadata = { title: "Terms of Service" };
 
 /**
- * TASK-OPS-001 (spec/14 §17: "Terms of Service, Privacy Policy, and a refund policy page, written
- * and linked"). The substantive content below reflects how the product actually works today; the
- * bracketed fields are business facts (legal entity name, address, governing jurisdiction) this
- * codebase has no source of truth for and must not guess — fill them in before this page is
- * treated as binding, then remove this comment.
+ * `AT-OPS-3`. Every number here is imported rather than typed, so a policy change cannot leave the
+ * binding text asserting the old one — the drift that matters most on a page like this.
+ *
+ * Rewritten for the ADR-007 model. The previous version described free public content, one First
+ * Session per customer, a 24-hour window, and learner profiles with no credentials of their own —
+ * all four are now the opposite of the truth.
  */
 export default function TermsPage() {
   return (
     <main className="mx-auto max-w-2xl px-5 py-16 text-sm leading-relaxed text-navy-800">
       <h1 className="mb-6 text-2xl font-extrabold tracking-tight text-navy-950">Terms of Service</h1>
-      <p className="mb-6 text-navy-500">Last updated: [DATE]</p>
+      <p className="mb-6 text-navy-500">Last updated: September 2, 2026</p>
 
       <p className="mb-4">
         These Terms govern your use of Provable Learning (the &quot;Service&quot;), operated by
-        [LEGAL ENTITY NAME] (&quot;we,&quot; &quot;us&quot;). By using the Service you agree to
+        Provable Learning LLC (&quot;we,&quot; &quot;us&quot;). By using the Service you agree to
         these Terms.
       </p>
 
       <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">What the Service is</h2>
       <p className="mb-4">
-        Every lesson on Provable Learning is free and requires no account. An account is only
-        needed to save your progress across visits, purchase a First Session or credit pack, and
-        book 1:1 tutoring sessions.
+        One-to-one online math tutoring: {SESSION_MINUTES}-minute sessions with a tutor, preparation
+        beforehand, and written materials afterwards. You buy a First Session for a student at{" "}
+        {formatPrice(PRICING.first_session.priceCents)}, and afterwards buy credits and book with
+        them.
       </p>
 
       <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">Accounts</h2>
       <p className="mb-4">
-        Sign-in is by Google OAuth or email magic link — there are no passwords. One account per
-        buyer; you may add learner profiles beneath your account for anyone you&apos;re managing
-        instruction for. Learner profiles carry no separate login credentials.
+        The account holder (&quot;you&quot;) signs in with Google or an email magic link — there are
+        no passwords on your account. You add a student for each person you are arranging tutoring
+        for.
+      </p>
+      <p className="mb-4">
+        Students get their own sign-in, with a username and password that you set and can change at
+        any time. A student&apos;s sign-in reaches only their own sessions, preparation, and
+        materials. It can never reach billing, credits, booking, or messages — those are yours
+        alone, and that boundary is enforced by our systems, not only by what each screen shows.
       </p>
 
       <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">Purchases and credits</h2>
       <p className="mb-4">
-        The First Session is a one-time, one-per-customer purchase. Credit packs are one-time
-        purchases; credits never expire and are spent one per booked 60-minute session. All
-        payments are processed by Stripe; we do not store your card details.
+        The First Session is a one-time purchase <strong>per student</strong> — each student you add
+        may have one. Credit packs are one-time purchases;{" "}
+        {POLICY_COPY.creditsNeverExpire.toLowerCase()} and are spent one per booked session. All
+        payments are processed by Stripe; we do not see or store your card details.
       </p>
 
       <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">Booking, cancellation, and no-shows</h2>
       <p className="mb-4">
-        Sessions require at least 24 hours&apos; notice to book, cancel, or reschedule without
-        losing the credit. Cancelling or rescheduling 24 hours or more before a session is free;
-        cancelling later, or not attending, uses the credit. If you believe a no-show was recorded
-        in error, you may request a credit return, reviewed case by case.
+        Sessions may be booked up to {POLICY_COPY.horizon} ahead, and no later than{" "}
+        {POLICY_COPY.minNotice} before they start. {POLICY_COPY.release}
+      </p>
+      <p className="mb-4">
+        {POLICY_COPY.freeCancel} {POLICY_COPY.lateCancel} Arriving more than{" "}
+        {NO_SHOW_AFTER_MINUTES} minutes late counts as a missed session and draws on the same
+        allowance. We review each request and decide case by case; approval is not automatic.
+      </p>
+
+      <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">What we owe you around a session</h2>
+      <p className="mb-4">
+        {POLICY_COPY.materials} A session goes ahead whether or not the student completed their
+        preparation — nothing about the preparation is a condition of receiving the session you paid
+        for.
       </p>
 
       <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">Refunds</h2>
@@ -54,17 +76,21 @@ export default function TermsPage() {
         self-serve refund flow; refunds are handled case by case.
       </p>
 
-      <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">Minors</h2>
+      <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">Children</h2>
       <p className="mb-4">
-        Learner profiles have no login credentials of their own — a buyer&apos;s account is the
-        only account involved, regardless of who the learner is.
+        Only an adult may hold an account. By adding a student and paying, you confirm you are that
+        student&apos;s parent or legal guardian, or are otherwise authorised to consent on their
+        behalf, and you consent to our collecting the information described in our{" "}
+        <a href="/privacy" className="underline">Privacy Policy</a> from that student. You can
+        withdraw that consent, or delete a student and everything they have submitted, at any time
+        from your account.
       </p>
 
       <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">Governing law</h2>
-      <p className="mb-4">These Terms are governed by the laws of [JURISDICTION].</p>
+      <p className="mb-4">These Terms are governed by the laws of the State of Georgia, United States.</p>
 
       <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">Contact</h2>
-      <p>Questions about these Terms: [CONTACT EMAIL].</p>
+      <p>Questions about these Terms: admin@provablelearning.com.</p>
     </main>
   );
 }
