@@ -13,10 +13,10 @@ export type CheckoutResult =
 
 const creditsSkuSchema = z.enum(["credits_1", "credits_2", "credits_4", "credits_8"]);
 
-/** Credit-pack checkout (F3). Packs top up a shared wallet, so they name no student. */
+/** Bundle checkout (F3). Bundles top up a shared wallet, so they name no student. */
 export async function createCreditsCheckout(input: { sku: string }): Promise<CheckoutResult> {
   const parsed = creditsSkuSchema.safeParse(input.sku);
-  if (!parsed.success) return { ok: false, code: "malformed", message: "Unknown credit pack." };
+  if (!parsed.success) return { ok: false, code: "malformed", message: "Unknown bundle." };
 
   const supabase = await createClient();
   const {
@@ -31,21 +31,30 @@ const firstSessionSchema = z.object({
   profileId: z.string().uuid(),
   purpose: z.string().trim().min(1).max(80),
   subPurpose: z.string().trim().max(80).optional().nullable(),
+  startsAt: z.string().datetime(),
+  specifics: z.string().trim().max(2000).optional().nullable(),
 });
 
 /**
  * First Session checkout (F4). **Per student, not per account** (ADR-007 §4) — the student is
  * chosen before payment, both because the offer belongs to them and because the purchase is what
  * records parental consent for the household.
+ *
+ * The **time** is chosen before payment too (ADR-009) and rides along in the Stripe session's
+ * metadata, so the webhook that records the purchase also books the session. Nothing holds the slot
+ * through checkout; if it is gone by the time the webhook lands, the buyer keeps the paid
+ * entitlement and spends it on `/book`.
  */
 export async function createFirstSessionCheckout(input: {
   profileId: string;
   purpose: string;
   subPurpose?: string | null;
+  startsAt: string;
+  specifics?: string | null;
 }): Promise<CheckoutResult> {
   const parsed = firstSessionSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, code: "malformed", message: "Pick a student and what the session is for." };
+    return { ok: false, code: "malformed", message: "Pick a student, a time, and what the session is for." };
   }
   if (!validSubPurpose(parsed.data.purpose, parsed.data.subPurpose)) {
     return { ok: false, code: "malformed", message: "Say which test you're preparing for." };
@@ -78,7 +87,7 @@ export async function createFirstSessionCheckout(input: {
     return {
       ok: false,
       code: "already_purchased",
-      message: "This student has already used their first session — credit packs are next.",
+      message: "This student has already used their first session — bundles are next.",
     };
   }
 
@@ -89,6 +98,8 @@ export async function createFirstSessionCheckout(input: {
     purpose: parsed.data.purpose,
     subPurpose: parsed.data.subPurpose ?? null,
     profileId: parsed.data.profileId,
+    startsAt: parsed.data.startsAt,
+    specifics: parsed.data.specifics ?? null,
   });
 }
 
@@ -99,9 +110,13 @@ async function startCheckout(input: {
   purpose?: string;
   subPurpose?: string | null;
   profileId?: string;
+  startsAt?: string;
+  specifics?: string | null;
 }): Promise<CheckoutResult> {
   const stripe = stripeClient();
-  const returnPath = input.sku === "first_session" ? "/first-session" : "/credits";
+  // A paid First Session is already booked by the time the buyer is back, so the dashboard — where
+  // that session now sits — is the only page that can honestly answer "did it work?".
+  const returnPath = input.sku === "first_session" ? "/dashboard" : "/credits";
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
@@ -113,6 +128,8 @@ async function startCheckout(input: {
       ...(input.purpose ? { purpose: input.purpose } : {}),
       ...(input.subPurpose ? { sub_purpose: input.subPurpose } : {}),
       ...(input.profileId ? { profile_id: input.profileId } : {}),
+      ...(input.startsAt ? { starts_at: input.startsAt } : {}),
+      ...(input.specifics ? { specifics: input.specifics } : {}),
     },
     success_url: `${SITE_URL}${returnPath}?purchase=success`,
     cancel_url: `${SITE_URL}${returnPath}?purchase=cancelled`,

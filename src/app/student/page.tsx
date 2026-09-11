@@ -1,7 +1,8 @@
-import Link from "next/link";
 import { requireStudent } from "@/lib/auth/session";
 import { listStudentSessions } from "@/lib/sessions/student";
 import { labelFor } from "@/lib/accounts/purposes";
+import { PrepareModal } from "@/components/student/prepare-modal";
+import { BTN, H1, H2, NOTICE } from "@/lib/ui";
 
 export const metadata = { title: "Your work" };
 
@@ -17,8 +18,15 @@ function when(iso: string) {
 
 /**
  * The student's home screen — and their only notification channel, since students are never
- * emailed (`system/02-POLICIES.md` §11). Anything they need to know surfaces here, which is why
- * the page leads with what is waiting rather than with a calendar.
+ * emailed (`system/02-POLICIES.md` §11).
+ *
+ * One block per upcoming session, holding everything about it: when it is, how to join, and what
+ * the tutor still needs to know. The prep used to be a separate list at the top of the page, which
+ * meant a student with two sessions booked read two "tell your tutor" rows and had to match each
+ * one back to a date further down.
+ *
+ * What is waiting is marked by a gold left rule, the one colour the site spends on "this is for
+ * you" — the same accent the landing gives its offer band.
  */
 export default async function StudentHome() {
   const student = await requireStudent();
@@ -28,97 +36,70 @@ export default async function StudentHome() {
   const upcoming = sessions.filter(
     (s) => s.status === "booked" && new Date(s.startsAt).getTime() > now,
   );
-  const needsPrep = upcoming.filter((s) => !s.preparationComplete);
-  const ready = sessions.filter((s) => s.materialsReady);
 
   return (
-    <main className="mx-auto max-w-[880px] px-5 py-12">
-      <h1 className="text-3xl font-extrabold tracking-tight text-navy-950">
-        Hi {student.name.split(" ")[0]}
-      </h1>
+    <main className="mx-auto max-w-[880px] px-6 py-16 sm:px-10">
+      <h1 className={H1}>Hi {student.name.split(" ")[0]}</h1>
 
-      {upcoming.length === 0 && ready.length === 0 && (
-        <section className="mt-8 rounded-xl border border-navy-100 bg-white p-8 text-center shadow-[var(--shadow-card)]">
-          <p className="text-lg font-semibold text-navy-950">Nothing to do right now</p>
-          <p className="mx-auto mt-2 max-w-md text-navy-700">
-            When a session is booked for you, whatever you need to do beforehand will show up here.
-          </p>
-        </section>
-      )}
-
-      {needsPrep.length > 0 && (
-        <section className="mt-8">
-          <h2 className="mb-3 text-lg font-bold text-navy-950">Before your session</h2>
-          <div className="flex flex-col gap-3">
-            {needsPrep.map((session) => (
-              <Link
-                key={session.bookingId}
-                href={`/student/prepare/${session.bookingId}`}
-                className="block rounded-xl border border-gold-300 bg-gold-50 p-5 transition hover:border-gold-400"
-              >
-                <p className="font-bold text-navy-950">Tell your tutor what to prepare</p>
-                <p className="mt-1 text-sm text-navy-700">
-                  For your session on {when(session.startsAt)}
-                  {session.purpose ? ` · ${labelFor(session.purpose)}` : ""}
-                </p>
-                <p className="mt-2 text-sm font-semibold text-navy-900">Start →</p>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {ready.length > 0 && (
-        <section className="mt-8">
-          <h2 className="mb-3 text-lg font-bold text-navy-950">Your materials</h2>
-          <div className="flex flex-col gap-3">
-            {ready.map((session) => (
-              <Link
-                key={session.bookingId}
-                href={`/student/materials/${session.bookingId}`}
-                className="block rounded-xl border border-navy-100 bg-white p-5 shadow-[var(--shadow-card)] transition hover:border-navy-300"
-              >
-                <p className="font-bold text-navy-950">
-                  What to work on next
-                  {session.purpose ? ` — ${labelFor(session.purpose)}` : ""}
-                </p>
-                <p className="mt-1 text-sm text-navy-700">
-                  From your session on {when(session.startsAt)}
-                </p>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {upcoming.length > 0 && (
-        <section className="mt-8">
-          <h2 className="mb-3 text-lg font-bold text-navy-950">Coming up</h2>
-          <div className="flex flex-col gap-3">
+      {upcoming.length === 0 ? (
+        <p className={`mt-10 ${NOTICE} text-center`}>
+          <strong className="font-semibold text-navy-950">Nothing to do right now.</strong> When a
+          session is booked for you, whatever you need to do beforehand will show up here.
+        </p>
+      ) : (
+        <section className="mt-12">
+          <h2 className={`mb-6 ${H2}`}>Coming up</h2>
+          <div className="flex flex-col gap-5">
             {upcoming.map((session) => (
-              <div
-                key={session.bookingId}
-                className="rounded-xl border border-navy-100 bg-white p-5 shadow-[var(--shadow-card)]"
-              >
-                <p className="font-bold text-navy-950">{when(session.startsAt)}</p>
-                <p className="mt-1 text-sm text-navy-700">
-                  60 minutes
-                  {session.purpose ? ` · ${labelFor(session.purpose)}` : ""}
-                  {session.preparationComplete ? " · you're all set" : ""}
-                </p>
-                {session.meetUrl ? (
-                  <a
-                    href={session.meetUrl}
-                    className="mt-3 inline-block rounded-lg bg-navy-900 px-4 py-2 text-sm font-semibold text-white hover:bg-navy-800"
-                  >
-                    Join the session
-                  </a>
-                ) : (
-                  <p className="mt-3 text-sm text-navy-600">
-                    The joining link will appear here before the session.
-                  </p>
-                )}
-              </div>
+              <article key={session.bookingId} className="border border-navy-950/10 bg-white">
+                <div className="flex flex-wrap items-start justify-between gap-4 p-5">
+                  <div>
+                    <p className="text-[0.9375rem] font-semibold text-navy-950">
+                      {when(session.startsAt)}
+                    </p>
+                    <p className="mt-1 text-[0.875rem] text-navy-700">
+                      60 minutes
+                      {session.purpose ? ` · ${labelFor(session.purpose)}` : ""}
+                    </p>
+                  </div>
+                  {session.meetUrl ? (
+                    <a href={session.meetUrl} className={BTN}>
+                      Join the session
+                    </a>
+                  ) : (
+                    <p className="text-[0.875rem] text-navy-950/55">
+                      The joining link will appear here before the session.
+                    </p>
+                  )}
+                </div>
+
+                <div className="border-t border-navy-950/10">
+                  <PrepareModal
+                    bookingId={session.bookingId}
+                    title="Tell your tutor what to prepare"
+                    trigger={
+                      session.preparationComplete ? (
+                        <span className="block px-5 py-4 text-[0.875rem] text-navy-700 hover:bg-navy-50">
+                          <strong className="font-semibold text-navy-950">You&apos;re all set.</strong>{" "}
+                          Change what you told your tutor →
+                        </span>
+                      ) : (
+                        <span className="block border-l-2 border-gold-500 bg-gold-100 px-5 py-4 hover:bg-gold-200">
+                          <span className="block text-[0.9375rem] font-semibold text-navy-950">
+                            Tell your tutor what to prepare
+                          </span>
+                          <span className="mt-1 block text-[0.875rem] text-navy-800">
+                            A few questions, so your hour is ready for you.
+                          </span>
+                          <span className="mt-3 block text-[0.875rem] font-semibold text-navy-950">
+                            Start →
+                          </span>
+                        </span>
+                      )
+                    }
+                  />
+                </div>
+              </article>
             ))}
           </div>
         </section>

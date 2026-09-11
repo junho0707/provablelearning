@@ -13,9 +13,13 @@ export const metadata = { title: "Terms of Service" };
  */
 export default function TermsPage() {
   return (
-    <main className="mx-auto max-w-2xl px-5 py-16 text-sm leading-relaxed text-navy-800">
-      <h1 className="mb-6 text-2xl font-extrabold tracking-tight text-navy-950">Terms of Service</h1>
-      <p className="mb-6 text-navy-500">Last updated: September 2, 2026</p>
+    <main style={{ background: "#faf9f7" }} className="text-navy-800">
+      <div className="mx-auto max-w-2xl px-6 py-24 text-[0.9375rem] leading-relaxed sm:px-10 sm:py-28">
+      <h1 className="text-[clamp(1.875rem,3.5vw,2.75rem)] font-semibold tracking-[-0.025em] text-navy-950">
+          Terms of Service
+        </h1>
+        <p className="mt-3 text-[0.8125rem] text-navy-950/50">Last updated: September 2, 2026</p>
+        <div className="mt-10 border-t border-navy-950/10" />
 
       <p className="mb-4">
         These Terms govern your use of Provable Learning (the &quot;Service&quot;), operated by
@@ -23,7 +27,7 @@ export default function TermsPage() {
         these Terms.
       </p>
 
-      <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">What the Service is</h2>
+      <h2 className="mb-3 mt-10 border-t border-navy-950/10 pt-8 text-lg font-semibold tracking-[-0.01em] text-navy-950">What the Service is</h2>
       <p className="mb-4">
         One-to-one online math tutoring: {SESSION_MINUTES}-minute sessions with a tutor, preparation
         beforehand, and written materials afterwards. You buy a First Session for a student at{" "}
@@ -31,7 +35,7 @@ export default function TermsPage() {
         them.
       </p>
 
-      <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">Accounts</h2>
+      <h2 className="mb-3 mt-10 border-t border-navy-950/10 pt-8 text-lg font-semibold tracking-[-0.01em] text-navy-950">Accounts</h2>
       <p className="mb-4">
         The account holder (&quot;you&quot;) signs in with Google or an email magic link — there are
         no passwords on your account. You add a student for each person you are arranging tutoring
@@ -44,15 +48,15 @@ export default function TermsPage() {
         alone, and that boundary is enforced by our systems, not only by what each screen shows.
       </p>
 
-      <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">Purchases and credits</h2>
+      <h2 className="mb-3 mt-10 border-t border-navy-950/10 pt-8 text-lg font-semibold tracking-[-0.01em] text-navy-950">Purchases and credits</h2>
       <p className="mb-4">
         The First Session is a one-time purchase <strong>per student</strong> — each student you add
-        may have one. Credit packs are one-time purchases;{" "}
+        may have one. Bundles are one-time purchases;{" "}
         {POLICY_COPY.creditsNeverExpire.toLowerCase()} and are spent one per booked session. All
         payments are processed by Stripe; we do not see or store your card details.
       </p>
 
-      <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">Booking, cancellation, and no-shows</h2>
+      <h2 className="mb-3 mt-10 border-t border-navy-950/10 pt-8 text-lg font-semibold tracking-[-0.01em] text-navy-950">Booking, cancellation, and no-shows</h2>
       <p className="mb-4">
         Sessions may be booked up to {POLICY_COPY.horizon} ahead, and no later than{" "}
         {POLICY_COPY.minNotice} before they start. {POLICY_COPY.release}
@@ -63,20 +67,20 @@ export default function TermsPage() {
         allowance. We review each request and decide case by case; approval is not automatic.
       </p>
 
-      <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">What we owe you around a session</h2>
+      <h2 className="mb-3 mt-10 border-t border-navy-950/10 pt-8 text-lg font-semibold tracking-[-0.01em] text-navy-950">What we owe you around a session</h2>
       <p className="mb-4">
         {POLICY_COPY.materials} A session goes ahead whether or not the student completed their
         preparation — nothing about the preparation is a condition of receiving the session you paid
         for.
       </p>
 
-      <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">Refunds</h2>
+      <h2 className="mb-3 mt-10 border-t border-navy-950/10 pt-8 text-lg font-semibold tracking-[-0.01em] text-navy-950">Refunds</h2>
       <p className="mb-4">
         See our <a href="/refund-policy" className="underline">Refund Policy</a>. There is no
         self-serve refund flow; refunds are handled case by case.
       </p>
 
-      <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">Children</h2>
+      <h2 className="mb-3 mt-10 border-t border-navy-950/10 pt-8 text-lg font-semibold tracking-[-0.01em] text-navy-950">Children</h2>
       <p className="mb-4">
         Only an adult may hold an account. By adding a student and paying, you confirm you are that
         student&apos;s parent or legal guardian, or are otherwise authorised to consent on their
@@ -86,11 +90,12 @@ export default function TermsPage() {
         from your account.
       </p>
 
-      <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">Governing law</h2>
+      <h2 className="mb-3 mt-10 border-t border-navy-950/10 pt-8 text-lg font-semibold tracking-[-0.01em] text-navy-950">Governing law</h2>
       <p className="mb-4">These Terms are governed by the laws of the State of Georgia, United States.</p>
 
-      <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">Contact</h2>
+      <h2 className="mb-3 mt-10 border-t border-navy-950/10 pt-8 text-lg font-semibold tracking-[-0.01em] text-navy-950">Contact</h2>
       <p>Questions about these Terms: admin@provablelearning.com.</p>
+      </div>
     </main>
   );
 }

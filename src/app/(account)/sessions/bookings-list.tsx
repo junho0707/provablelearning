@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cancelBooking, requestCreditReturn } from "@/lib/booking/manage";
 import type { MyBooking } from "@/lib/booking/history";
+import { BTN_QUIET, EYEBROW, INPUT, LABEL } from "@/lib/ui";
 
 const STATUS_LABEL: Record<MyBooking["status"], string> = {
   booked: "Upcoming",
@@ -19,15 +20,13 @@ export function BookingsList({ bookings }: { bookings: MyBooking[] }) {
   const past = bookings.filter((b) => !upcoming.includes(b));
 
   return (
-    <div className="grid gap-8 lg:grid-cols-2">
+    <div className="grid gap-10 lg:grid-cols-2 lg:gap-16">
       <section>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-widest text-navy-400">
-          Upcoming
-        </h3>
+        <h3 className={`mb-4 ${EYEBROW}`}>Upcoming</h3>
         {upcoming.length === 0 ? (
-          <p className="text-sm text-navy-500">No upcoming sessions.</p>
+          <p className="text-[0.875rem] text-navy-950/45">No upcoming sessions.</p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="border-t border-navy-950/10">
             {upcoming.map((b) => (
               <BookingRow key={b.id} booking={b} />
             ))}
@@ -37,8 +36,8 @@ export function BookingsList({ bookings }: { bookings: MyBooking[] }) {
 
       {past.length > 0 && (
         <section>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-widest text-navy-400">Past</h3>
-          <ul className="space-y-3">
+          <h3 className={`mb-4 ${EYEBROW}`}>Past</h3>
+          <ul className="border-t border-navy-950/10">
             {past.map((b) => (
               <BookingRow key={b.id} booking={b} />
             ))}
@@ -78,29 +77,28 @@ function BookingRow({ booking }: { booking: MyBooking }) {
   }
 
   return (
-    <li className="rounded-xl border border-navy-100 bg-white p-5 text-sm shadow-[var(--shadow-card)]">
-      <div className="flex items-center justify-between">
+    <li className="border-b border-navy-950/10 py-5 text-[0.9375rem]">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="font-semibold text-navy-900">{new Date(booking.startsAt).toLocaleString()}</p>
-          <p className="text-navy-500">
+          <p className="font-semibold text-navy-950">{new Date(booking.startsAt).toLocaleString()}</p>
+          <p className="mt-0.5 text-[0.875rem] text-navy-950/55">
             {booking.profileName} · {STATUS_LABEL[booking.status]}
           </p>
         </div>
-        {booking.status === "booked" && booking.meetUrl && (
-          <a href={booking.meetUrl} className="text-sm font-semibold text-navy-700 underline">
-            Join
-          </a>
-        )}
       </div>
 
       {canCancel && (
-        <button onClick={cancel} disabled={pending} className="mt-2 text-sm font-semibold text-error underline disabled:opacity-40">
+        <button
+          onClick={cancel}
+          disabled={pending}
+          className="mt-3 text-[0.875rem] font-semibold text-[var(--error)] hover:underline disabled:opacity-40"
+        >
           Cancel
         </button>
       )}
 
       {booking.canRequestReturn && !returnRequested && !reasonOpen && (
-        <button onClick={() => setReasonOpen(true)} className="mt-2 text-sm font-semibold text-navy-700 underline">
+        <button onClick={() => setReasonOpen(true)} className={`mt-3 ${BTN_QUIET}`}>
           Ask for the credit back
         </button>
       )}
@@ -108,19 +106,21 @@ function BookingRow({ booking }: { booking: MyBooking }) {
       {/* F10 step 6: past the cap, no request is offered at all and the buyer is told why, rather
           than being allowed to write a note that could never be granted. */}
       {booking.creditBurned && !booking.canRequestReturn && booking.returnRequestStatus === null && (
-        <p className="mt-2 text-navy-500">
+        <p className="mt-3 text-[0.875rem] leading-relaxed text-navy-950/55">
           This one used the credit. You&apos;ve already had both credit returns for this student this
           month, so it can&apos;t be returned.
         </p>
       )}
 
       {reasonOpen && !returnRequested && (
-        <div className="mt-2">
-          <label htmlFor={`reason-${booking.id}`} className="block text-navy-700">
+        <div className="mt-3">
+          <label htmlFor={`reason-${booking.id}`} className={`block ${LABEL}`}>
             What happened? Every request is reviewed.{" "}
-            {booking.allowanceRemaining === 1
-              ? "This is your last credit return for this student this month."
-              : `${booking.allowanceRemaining} credit returns left for this student this month.`}
+            <span className="font-normal text-navy-700">
+              {booking.allowanceRemaining === 1
+                ? "This is your last credit return for this student this month."
+                : `${booking.allowanceRemaining} credit returns left for this student this month.`}
+            </span>
           </label>
           <textarea
             id={`reason-${booking.id}`}
@@ -128,12 +128,12 @@ function BookingRow({ booking }: { booking: MyBooking }) {
             onChange={(e) => setReason(e.target.value)}
             maxLength={500}
             rows={3}
-            className="mt-1 w-full rounded-lg border border-navy-200 px-3 py-2 text-sm outline-none focus:border-navy-400"
+            className={`mt-2 ${INPUT}`}
           />
           <button
             onClick={requestReturn}
             disabled={pending || !reason.trim()}
-            className="mt-1 text-sm font-semibold text-navy-700 underline disabled:opacity-40"
+            className={`mt-2 ${BTN_QUIET}`}
           >
             {pending ? "Sending…" : "Send request"}
           </button>
@@ -141,21 +141,24 @@ function BookingRow({ booking }: { booking: MyBooking }) {
       )}
 
       {(returnRequested || booking.returnRequestStatus === "pending") && (
-        <p className="mt-2 text-navy-500">Request sent — the tutor will review it.</p>
+        <p className="mt-3 text-[0.875rem] text-navy-950/55">
+          Request sent — the tutor will review it.
+        </p>
       )}
       {booking.returnRequestStatus === "approved" && (
-        <p className="mt-2 text-navy-500">Credit returned.</p>
+        <p className="mt-3 text-[0.875rem] text-navy-950/55">Credit returned.</p>
       )}
       {booking.returnRequestStatus === "denied" && !returnRequested && (
-        <p className="mt-2 text-navy-500">Request reviewed — the credit wasn&apos;t returned.</p>
+        <p className="mt-3 text-[0.875rem] text-navy-950/55">
+          Request reviewed — the credit wasn&apos;t returned.
+        </p>
       )}
 
       {error && (
-        <p role="alert" className="mt-2 text-sm font-medium text-error">
+        <p role="alert" className="mt-3 text-[0.875rem] font-medium text-[var(--error)]">
           {error}
         </p>
       )}
     </li>
   );
 }
-

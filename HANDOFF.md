@@ -31,10 +31,10 @@ failure stops you before you have wasted the setup after it.
 
 ### Step 0 — make a stack exist
 
-1. **Apply migrations `0017`–`0023`** to the target Supabase project (`mlhlugfzzsigraqcxgmh` — *not*
-   the ref the CLI links to by default; confirm before pushing). `0001`–`0016` are already there.
-   Nothing after R0 has ever run against a database, so expect this step itself to find things.
-2. Fill `.env.local` per `SETUP.md` §3: Supabase, Stripe **test** keys, Google, Resend, `CRON_SECRET`.
+1. ~~**Apply migrations `0017`–`0024`**~~ — **done.** `mlhlugfzzsigraqcxgmh` is at `0024`; the CLI
+   is linked to it and `supabase db push` reaches it. `0024` only replaces functions, so preflight
+   asks the database for the window rather than looking for a table.
+2. ~~Fill `.env.local` per `SETUP.md` §3~~ — **done.** `npm run preflight` passes on all of it.
 3. Give your own account `accounts.is_admin = true` — you are the tutor as well as the owner.
 4. Set one weekly availability rule on `/admin/availability`, far enough ahead to be bookable.
 
@@ -62,7 +62,7 @@ Prove the permission model before anything is riding on it.
 
 11. Book with a purpose, specifics, and continue-vs-new-topic. Check the Meet link arrives and the
     tutor's `/admin/bookings/[id]` shows all four (`AT-BOOK-8`).
-12. Try a slot under 6 hours out → refused (`AT-BOOK-3`). Cancel a booking and confirm the freed
+12. Try a slot under 2 hours out → refused (`AT-BOOK-3`). Cancel a booking and confirm the freed
     slot reappears and stays bookable to the 1-hour floor (`AT-BOOK-4`).
 
 ### Step 4 — the session itself (`AT-PRE`, `AT-POST`)
@@ -154,7 +154,7 @@ there, and withdrawing one stops it being served without destroying answers alre
 booking marking the freed instant — puts a session in the buyer's own list that they never had.
 
 **`listFirstSessionEligible` and `listUnusedFirstSessions` are opposite sets.** Eligible = has not
-bought one, still being offered $49. Unused = bought, not yet booked. Confusing them either gives
+bought one, still being offered $25. Unused = bought, not yet booked. Confusing them either gives
 away a paid session or hides one already paid for.
 
 **The webhook must not throw.** `activateStudentLogins` is wrapped in try/catch on purpose: a
@@ -178,7 +178,9 @@ idea that may return. Do not route to it; do not delete it.
 ## 5. The honesty problem
 
 **Nothing in this codebase has been exercised against a real database, Stripe, Google, or Resend.**
-There is no Docker in this environment. Migrations `0017`–`0023` **have not been applied anywhere**.
+There is no Docker in this environment, so **the test suite still touches no Postgres** — but the
+hosted database is now real and current (`0024`), and every credential is live, so the checks below
+are finally *runnable*. None has been run.
 
 Treat the test suite accordingly:
 
@@ -199,15 +201,15 @@ work it in.
    consent design, and twelve questions. **Do not open to real under-13 users before this.** Q2
    (does the card payment qualify as verifiable parental consent?) and Q3 (is parent-entered child
    data already collection?) can both change the build.
-2. **Apply migrations 0017–0023** to the target Supabase project (`mlhlugfzzsigraqcxgmh`, which is
-   *not* the ref the CLI links to by default).
+2. ~~**Apply migrations 0017–0024**~~ — done. What remains here is the **live**-mode counterpart of
+   the test-mode Stripe cutover: ADR-008's $25 price exists in test mode only.
 3. **Live Stripe products**, Resend DNS, legal pages including the kids-specific disclosure, apex
    DNS cutover.
 
 ## 7. Accepted risks — argued already, do not re-litigate
 
 - **No organic acquisition channel at launch.** Content is hidden, so paid ads and social carry
-  everything and neither compounds. The $49 tripwire's economics depend on a CAC nobody has measured.
+  everything and neither compounds. The $25 tripwire's economics depend on a CAC nobody has measured.
 - **Post-session materials are hand-authored**, so throughput is capped by the owner's writing time.
   This is the first thing that breaks if the business works.
 - **Under-13 support carries legal exposure** that a lawyer has not yet reviewed.

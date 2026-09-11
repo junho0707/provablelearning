@@ -49,5 +49,7 @@ export async function signInStudent(
 export async function signOutStudent() {
   const supabase = await createClient();
   await supabase.auth.signOut();
-  redirect("/student/login");
+  // The public landing, the same place signing out lands a buyer. `/student/login` stranded them
+  // on a form whose only exit was signing back in.
+  redirect("/");
 }

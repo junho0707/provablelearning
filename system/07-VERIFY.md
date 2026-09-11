@@ -11,10 +11,11 @@ Checks marked **[db]** must be proven against a real database, not a unit test. 
 
 - [ ] `AT-AUTH-1` Buyer signs in with Google; account row is auto-provisioned; lands on the dashboard. **[live]**
 - [ ] `AT-AUTH-2` Buyer signs in with a magic link on the same email as their Google identity → **one** account, not two. **[live]**
-- [ ] `AT-AUTH-3` No password field exists anywhere in the buyer sign-in path.
+- [ ] `AT-AUTH-3` Buyer sign-in is email-first: an address with no password is sent a link, an address with one is asked for it, and the buyer is never asked to choose between them. **[live]**
 - [ ] `AT-AUTH-4` Buyer sets a student's username and password; the student signs in at `/student/login`. **[db]**
 - [ ] `AT-AUTH-5` A student cannot reset their own password; the buyer can, from their dashboard. **[db]**
 - [ ] `AT-AUTH-6` **No email of any kind is sent to a student, and no student email address exists anywhere in the schema** (`INV-AUTH-2`). **[live]**
+- [ ] `AT-AUTH-7` A buyer who set a password and forgot it gets back in: **Forgot password?** sends a link despite the password on file, and that link lands on set-a-password. A password can never lock a buyer out. **[live]**
 
 ## AT-COPPA — consent (F2, F4, F13)
 
@@ -37,6 +38,8 @@ Checks marked **[db]** must be proven against a real database, not a unit test. 
 - [ ] `AT-MONEY-2` A replayed Stripe webhook grants nothing twice (`INV-MONEY-3`). **[live]**
 - [ ] `AT-MONEY-3` Each student can buy a First Session **once**; a second attempt for the same student is refused **by the database** (`INV-FIRST-1`). **[db]**
 - [ ] `AT-MONEY-4` A second student on the same account **can** buy their own First Session. **[db]**
+- [ ] `AT-MONEY-5` A First Session checkout carries the chosen slot, and paying **books it** — the session is on the dashboard when the buyer returns, with no second step (ADR-009). **[live]**
+- [ ] `AT-MONEY-6` Returning from Stripe before the webhook lands shows "payment received / processing" on `/dashboard` and `/credits`, never a stale balance stated as fact. **[live]**
 - [ ] `AT-MONEY-5` A student added later unlocks a First Session at that point.
 - [ ] `AT-MONEY-6` Prices rendered on every surface match `src/lib/pricing.ts` and `00-BUSINESS.md`.
 
@@ -44,12 +47,13 @@ Checks marked **[db]** must be proven against a real database, not a unit test. 
 
 - [ ] `AT-BOOK-1` Booking spends a credit and reserves the slot atomically; neither can happen alone (`INV-MONEY-1`). **[db]**
 - [ ] `AT-BOOK-2` Two simultaneous bookings for one slot → exactly one succeeds, the other is told the slot was taken and **spends no credit** (`INV-BOOK-1`). **[db]**
-- [ ] `AT-BOOK-3` A booking starting in less than 6 hours is refused (`INV-BOOK-3`). **[db]**
+- [ ] `AT-BOOK-3` A booking starting in less than 2 hours is refused (`INV-BOOK-3`). **[db]**
 - [ ] `AT-BOOK-4` A slot released by a cancellation is bookable until **1 hour** before start, and refused after (`INV-BOOK-3`). **[db]**
 - [ ] `AT-BOOK-5` The horizon is 4 weeks and a new week appears on Monday, not daily.
 - [ ] `AT-BOOK-6` Slots display in the viewer's browser time zone and survive a DST boundary correctly.
 - [ ] `AT-BOOK-7` A Calendar API failure leaves a **valid booking with a null `meet_url`** on the repair queue — never a rolled-back booking (`INV-BOOK-2`). **[live]**
 - [ ] `AT-BOOK-8` Booking captures student, purpose, specifics, and continue-vs-new-topic, and all four reach the tutor's view.
+- [ ] `AT-BOOK-9` If the slot picked at First Session checkout is taken before the webhook lands, the purchase stands as an unspent entitlement, the webhook still returns 200, and the buyer can book it on `/book`. **[db]**
 - [ ] `AT-BOOK-9` A First Session booking consumes the entitlement and spends **no** wallet credit. **[db]**
 
 ## AT-PRE — pre-session (F6)

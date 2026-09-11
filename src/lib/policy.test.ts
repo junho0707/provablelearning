@@ -27,11 +27,11 @@ describe("policy constants match system/02-POLICIES.md", () => {
     expect(POLICIES).toContain("**60-minute**");
   });
 
-  it("minimum notice is 6 hours, and equals the free-cancellation window", () => {
-    expect(MIN_NOTICE_MS).toBe(6 * 60 * 60 * 1000);
+  it("minimum notice is 2 hours, and equals the free-cancellation window", () => {
+    expect(MIN_NOTICE_MS).toBe(2 * 60 * 60 * 1000);
     expect(FREE_CANCEL_MS).toBe(MIN_NOTICE_MS);
-    expect(POLICIES).toContain("**Minimum notice: 6 hours.**");
-    expect(POLICIES).toContain("**≥6 hours before**");
+    expect(POLICIES).toContain("**Minimum notice: 2 hours.**");
+    expect(POLICIES).toContain("**≥2 hours before**");
   });
 
   it("a released slot stays bookable until 1 hour before", () => {

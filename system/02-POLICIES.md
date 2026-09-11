@@ -17,9 +17,9 @@ an update to the flow it governs.
 - **Availability horizon: 4 weeks.**
 - **Release cadence: weekly batch.** Every **Monday**, the fifth week out unlocks. The horizon does
   not creep forward daily — it steps.
-- **Minimum notice: 6 hours.** A session may not be booked to start sooner than 6 hours from now.
+- **Minimum notice: 2 hours.** A session may not be booked to start sooner than 2 hours from now.
 - **Exception — released slots:** when a booking is cancelled, its slot returns to the open pool and
-  may be re-booked **until 1 hour before** the session start. This is the only case where the 6-hour
+  may be re-booked **until 1 hour before** the session start. This is the only case where the 2-hour
   minimum does not apply; the slot already exists on the calendar, so the operator loses nothing by
   letting it be reclaimed late.
 - Booking **spends a credit atomically** in a single database transaction with the slot reservation.
@@ -31,10 +31,10 @@ an update to the flow it governs.
 
 | When | Credit | Path |
 |---|---|---|
-| **≥6 hours before** | **Returned immediately** | Self-serve, no note, no review, no cap. |
-| **<6 hours before** | **Burned** | Buyer may submit a note; operator reviews; counts against the cap. |
+| **≥2 hours before** | **Returned immediately** | Self-serve, no note, no review, no cap. |
+| **<2 hours before** | **Burned** | Buyer may submit a note; operator reviews; counts against the cap. |
 
-Rescheduling ≥6 hours ahead **moves the booking and leaves the ledger untouched** — it is not a
+Rescheduling ≥2 hours ahead **moves the booking and leaves the ledger untouched** — it is not a
 cancel-and-rebook pair. Implementing it as refund + respend would show up in the ledger and could be
 used to dodge the notice rule.
 

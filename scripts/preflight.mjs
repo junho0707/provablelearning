@@ -34,6 +34,11 @@ async function request(url, options) {
   }
 }
 
+/** The window the app states, read from the same file every surface imports it from. */
+const MIN_NOTICE_MS = Number(
+  /export const MIN_NOTICE_MS = (\d+) \* HOUR_MS/.exec(fs.readFileSync("src/lib/policy.ts", "utf8"))[1],
+) * 3600_000;
+
 const results = [];
 const ok = (name, detail) => results.push({ state: "ok", name, detail });
 const bad = (name, detail) => results.push({ state: "bad", name, detail });
@@ -50,14 +55,29 @@ async function checkSupabase() {
   const res = await request(`${url}/rest/v1/messages?select=id&limit=1`, {
     headers: { apikey: key, Authorization: `Bearer ${key}` },
   });
-  if (res.ok) return ok("Supabase", `${new URL(url).hostname} — schema through 0023`);
-  bad("Supabase", `${res.status} — migrations may not be applied`);
+  if (!res.ok) return bad("Supabase", `${res.status} — migrations may not be applied`);
+  ok("Supabase", `${new URL(url).hostname} — schema through 0023`);
+
+  // 0024 only *replaces* functions, so no table's existence reveals whether it landed. Ask the
+  // database what the window actually is: a stale 6 hours here means the walkthrough would verify
+  // a rule the code no longer states (`INV-BOOK-3`).
+  const notice = await request(`${url}/rest/v1/rpc/slot_min_notice`, {
+    method: "POST",
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_starts_at: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString() }),
+  });
+  if (!notice.ok) return bad("Booking window", `slot_min_notice unavailable (${notice.status}) — 0024 may not be applied`);
+  const hours = Number(String(await notice.json()).split(":")[0]);
+  if (hours * 3600_000 !== MIN_NOTICE_MS) {
+    return bad("Booking window", `database enforces ${hours}h, policy.ts says ${MIN_NOTICE_MS / 3600_000}h`);
+  }
+  ok("Booking window", `${hours}h, matching policy.ts`);
 }
 
 // --- Stripe -----------------------------------------------------------------------------------
 
 const PRICES = {
-  STRIPE_PRICE_FIRST_SESSION: 4900,
+  STRIPE_PRICE_FIRST_SESSION: 2500,
   STRIPE_PRICE_CREDITS_1: 7500,
   STRIPE_PRICE_CREDITS_2: 12000,
   STRIPE_PRICE_CREDITS_4: 20000,

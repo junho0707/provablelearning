@@ -36,7 +36,7 @@ type FailureCode = Exclude<BookSessionResult, { ok: true }>["code"];
 const ERROR_MESSAGES: Record<string, { code: FailureCode; message: string }> = {
   invalid_profile: { code: "invalid_profile", message: "That student isn't yours." },
   slot_taken: { code: "slot_taken", message: "That time was just booked. Pick another." },
-  insufficient_credits: { code: "insufficient_credits", message: "Not enough credits — buy a pack first." },
+  insufficient_credits: { code: "insufficient_credits", message: "Not enough credits — buy a bundle first." },
   not_authenticated: { code: "denied", message: "Sign in required." },
   purpose_required: { code: "malformed", message: "Say what the session is for." },
   too_soon: { code: "too_soon", message: "That time is too close now. Pick a later one." },

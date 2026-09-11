@@ -35,7 +35,7 @@ export const SUB_PURPOSE_LABEL: Record<string, string> = {
   help_understanding: "Help understanding a topic",
   get_ahead: "Getting ahead",
   review_learned: "Reviewing what we've covered",
-  test_quiz_prep: "Prepping for a test or quiz",
+  test_quiz_prep: "Preparing for a test or quiz",
 };
 
 /**

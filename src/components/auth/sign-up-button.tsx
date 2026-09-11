@@ -1,15 +1,14 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { SignInModal } from "@/components/auth/sign-in-modal";
+import { SignInPopover } from "@/components/auth/sign-in-popover";
 
 const FIRST_SESSION_PATH = "/first-session";
 
 /**
- * Hero CTA. Signed out it opens the sign-in modal rather than navigating away, then lands the
- * visitor on the first-session flow. Once the first session is bought, the CTA becomes "Book a
- * session" instead.
+ * Hero CTA. Signed out it opens the sign-in options anchored under itself rather than navigating
+ * away, then lands the visitor on the first-session flow. Once the first session is bought, the
+ * CTA becomes "Book a session" instead.
  */
 export function SignUpButton({
   signedIn,
@@ -20,8 +19,6 @@ export function SignUpButton({
   hasFirstSession: boolean;
   className: string;
 }) {
-  const [open, setOpen] = useState(false);
-
   if (signedIn) {
     return hasFirstSession ? (
       <Link href="/sessions" className={className}>
@@ -35,11 +32,10 @@ export function SignUpButton({
   }
 
   return (
-    <>
-      <button type="button" onClick={() => setOpen(true)} className={className}>
-        Sign up for your first session
-      </button>
-      <SignInModal open={open} onClose={() => setOpen(false)} redirectTo={FIRST_SESSION_PATH} />
-    </>
+    <SignInPopover
+      label="Sign up for your first session"
+      className={className}
+      redirectTo={FIRST_SESSION_PATH}
+    />
   );
 }

@@ -20,7 +20,7 @@ export const PRICING: Record<SkuId, PricingSku> = {
   first_session: {
     id: "first_session",
     name: "First Session",
-    priceCents: 4900,
+    priceCents: 2500,
     credits: 0,
     stripePriceEnvVar: "STRIPE_PRICE_FIRST_SESSION",
   },
@@ -54,10 +54,29 @@ export const PRICING: Record<SkuId, PricingSku> = {
   },
 };
 
-/** `$49` or `$60.50` — cents formatted as dollars, no trailing `.00`. */
+/** `$25` or `$60.50` — cents formatted as dollars, no trailing `.00`. */
 export function formatPrice(cents: number): string {
   const dollars = (cents / 100).toFixed(2);
   return `$${dollars.replace(/\.00$/, "")}`;
+}
+
+/**
+ * What one session costs inside a bundle. The bundles get cheaper per session as they get bigger,
+ * which is the whole argument for buying a bigger one — and it is invisible unless it is divided
+ * out, because $350 next to $75 reads as expensive.
+ */
+export function perCreditCents(sku: SkuId): number {
+  const { priceCents, credits } = PRICING[sku];
+  return credits > 0 ? Math.round(priceCents / credits) : priceCents;
+}
+
+/**
+ * How much cheaper a bundle is per session than buying one at a time. Derived, never typed: a
+ * price change moves the saving with it rather than leaving a stale percentage on the page.
+ */
+export function savingPercent(sku: SkuId): number {
+  const single = perCreditCents("credits_1");
+  return Math.round(((single - perCreditCents(sku)) / single) * 100);
 }
 
 /** The live Stripe price id for a SKU, read from env. Throws if unset — checkout must not silently misprice. */

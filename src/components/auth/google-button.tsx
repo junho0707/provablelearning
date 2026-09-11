@@ -12,8 +12,16 @@ import { createClient } from "@/lib/supabase/client";
  * Flow: open a blank popup synchronously (so browsers don't treat it as a blocked pop-up), fetch
  * the OAuth URL, point the popup at it. `/auth/callback?popup=1` renders a page that posts a
  * message back to this window and closes itself; we react to that message.
+ *
+ * Because the popup cannot redirect the opener, this is the only place that decides where a Google
+ * sign-in lands. Refreshing alone left the buyer on whatever page they started from — signing in
+ * from the landing put them back on the landing, looking at a marketing page for a product they
+ * had just signed into.
  */
-export function GoogleButton({ onSuccess }: { onSuccess?: () => void } = {}) {
+export function GoogleButton({
+  onSuccess,
+  redirectTo = "/dashboard",
+}: { onSuccess?: () => void; redirectTo?: string } = {}) {
   const router = useRouter();
   const popupRef = useRef<Window | null>(null);
 
@@ -23,13 +31,14 @@ export function GoogleButton({ onSuccess }: { onSuccess?: () => void } = {}) {
       if (event.data?.type !== "oauth-complete") return;
       popupRef.current = null;
       if (event.data.ok) {
-        router.refresh();
         onSuccess?.();
+        router.push(redirectTo);
+        router.refresh();
       }
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [router, onSuccess]);
+  }, [router, onSuccess, redirectTo]);
 
   async function handleClick() {
     const width = 480;
@@ -63,7 +72,7 @@ export function GoogleButton({ onSuccess }: { onSuccess?: () => void } = {}) {
     <button
       type="button"
       onClick={handleClick}
-      className="flex w-full items-center justify-center gap-2 rounded-lg border border-navy-200 bg-white px-4 py-2.5 text-sm font-semibold text-navy-900 hover:bg-navy-50"
+      className="flex w-full items-center justify-center gap-2 border border-navy-950/15 bg-white px-4 py-2.5 text-[0.875rem] font-semibold text-navy-950 hover:border-navy-950"
     >
       <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
         <path

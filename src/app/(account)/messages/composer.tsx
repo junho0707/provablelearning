@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { sendMessage } from "@/lib/messages/thread";
+import { BTN_LG, INPUT, NOTICE_ERROR } from "@/lib/ui";
 
 export function Composer() {
   const router = useRouter();
@@ -21,28 +22,30 @@ export function Composer() {
   }
 
   return (
-    <div className="mt-8 flex flex-col gap-3">
-      <textarea
-        className="min-h-28 w-full rounded-lg border border-navy-200 px-3 py-2.5 text-navy-950 outline-none focus:border-navy-400"
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        maxLength={4000}
-        placeholder="Write to your tutor…"
-      />
-      {error && (
-        <p role="alert" className="rounded-lg bg-[var(--error-light)] px-3 py-2 text-sm text-[var(--error)]">
-          {error}
-        </p>
-      )}
-      <div>
-        <button
-          type="button"
-          onClick={send}
-          disabled={pending || body.trim().length === 0}
-          className="rounded-lg bg-navy-900 px-6 py-3 font-semibold text-white hover:bg-navy-800 disabled:opacity-60"
-        >
-          {pending ? "Sending…" : "Send"}
-        </button>
+    <div className="mt-10 border-t border-navy-950/10 pt-8">
+      <div className="flex flex-col gap-4">
+        <textarea
+          className={`${INPUT} min-h-28`}
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          maxLength={4000}
+          placeholder="Write to your tutor…"
+        />
+        {error && (
+          <p role="alert" className={NOTICE_ERROR}>
+            {error}
+          </p>
+        )}
+        <div>
+          <button
+            type="button"
+            onClick={send}
+            disabled={pending || body.trim().length === 0}
+            className={BTN_LG}
+          >
+            {pending ? "Sending…" : "Send"}
+          </button>
+        </div>
       </div>
     </div>
   );

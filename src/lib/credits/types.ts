@@ -4,7 +4,6 @@ export type Purchase = {
   id: string;
   sku: SkuId;
   amountCents: number;
-  goal: "strengths" | "test_prep" | "class_help" | null;
   createdAt: string;
 };
 
