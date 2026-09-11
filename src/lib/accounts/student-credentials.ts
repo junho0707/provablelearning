@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidateStudentSurfaces } from "./revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { credentialsInputSchema, usernameSchema, studentPasswordSchema } from "./types";
@@ -112,6 +113,7 @@ export async function setStudentCredentials(input: {
     return { ok: false, code: "username_taken", message: "That username is taken." };
   }
 
+  revalidateStudentSurfaces();
   return { ok: true };
 }
 

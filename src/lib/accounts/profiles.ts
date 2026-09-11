@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { revalidateStudentSurfaces } from "./revalidate";
 import {
   profileInputSchema,
   validCourseNode,
@@ -103,6 +104,7 @@ export async function createProfile(input: ProfileInput): Promise<ProfileResult>
     .single();
 
   if (error || !data) return { ok: false, code: "denied", message: "Could not add that student." };
+  revalidateStudentSurfaces();
   return { ok: true, profile: toProfile(data as ProfileRow) };
 }
 
@@ -128,5 +130,6 @@ export async function updateProfile(
 
   if (error) return { ok: false, code: "denied", message: "Could not update that student." };
   if (!data) return { ok: false, code: "not_found", message: "Student not found." };
+  revalidateStudentSurfaces();
   return { ok: true, profile: toProfile(data as ProfileRow) };
 }

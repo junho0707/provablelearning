@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidateStudentSurfaces } from "./revalidate";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { deactivateStudentLogin } from "./student-credentials";
@@ -90,6 +91,7 @@ export async function revokeConsentForStudent(profileId: string): Promise<Consen
   // The database flag denies access on its own; the auth-level ban stops a session being minted at
   // all. Both, because one is the boundary and the other is the door.
   if (profile.auth_user_id) await deactivateStudentLogin(profile.auth_user_id as string);
+  revalidateStudentSurfaces();
   return { ok: true };
 }
 
@@ -124,6 +126,7 @@ export async function deleteStudent(profileId: string): Promise<ConsentActionRes
   if (profile.auth_user_id) {
     await admin.auth.admin.deleteUser(profile.auth_user_id as string);
   }
+  revalidateStudentSurfaces();
   return { ok: true };
 }
 
