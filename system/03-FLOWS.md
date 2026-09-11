@@ -10,17 +10,26 @@ restated here — they live in `02-POLICIES.md`; flows reference them.
 **Actor:** visitor → buyer.
 
 1. Visitor arrives from a paid ad or social post, landing on the marketing page. The page presents
-   the First Session offer at $49 (against $75), the purpose options in the buyer's own language, and
+   the First Session offer at $25 (against $75), the purpose options in the buyer's own language, and
    how sessions work.
 2. There is **no public roadmap or lesson catalog** to browse (`00-BUSINESS.md` §1). The only path
    forward is to sign up.
-3. Visitor chooses **Continue with Google** or **email magic link**. No password is ever offered.
-4. On first successful sign-in an account is provisioned automatically and the buyer lands on the
+3. Visitor chooses **Continue with Google**, or enters an email address. The email path is
+   **email-first**: the address alone decides the second step, because only the server knows which
+   method that address has. An address with a password is asked for it; an address without one is
+   sent a **magic link**. The visitor is never asked to remember which they used.
+4. A magic-link arrival with no password set is offered the chance to **set one**, so the next visit
+   can be a password visit. Offering it is never a gate — skipping is allowed and the link keeps
+   working. Google arrivals are not offered a password: that identity is their sign-in method.
+5. On first successful sign-in an account is provisioned automatically and the buyer lands on the
    **dashboard**, which is empty except for a single prompt: **add your first student**.
 
 **Failure paths**
 - OAuth popup blocked or abandoned → return to the sign-in page with the magic-link option intact.
 - Magic link expired or reused → plain message, offer to resend.
+- **Password forgotten** → **Forgot password?** on the password step sends a magic link regardless
+  of the password on file, and that link lands on **set a password** rather than the dashboard. A
+  password must never be able to lock a buyer out of their own account.
 - Same person signs in with Google and later with a magic link on the same email → **one account**,
   identities linked. Never two accounts.
 
@@ -31,7 +40,9 @@ restated here — they live in `02-POLICIES.md`; flows reference them.
 **Actor:** buyer.
 
 1. From the dashboard prompt, the buyer creates a student: **name, current math class, primary
-   purpose, secondary purpose**, and **a username and password** for that student.
+   purpose, secondary purpose**, and **a username and password** for that student. The sign-in is
+   **required, not a later step** — a student without one cannot do their pre-session work or see
+   anything booked for them, so a half-made student is of no use to anybody.
 2. Purposes are chosen from the presets in `02-POLICIES.md` §7, with free text permitted for
    anything not listed.
 3. The buyer may add **as many students as they like**, at any time.
@@ -43,7 +54,9 @@ restated here — they live in `02-POLICIES.md`; flows reference them.
 to sign in before then is told their account is not active yet.
 
 **Failure paths**
-- Username already taken → rejected at entry with a suggestion.
+- Username already taken → **nothing is created**. Because the sign-in is part of adding the
+  student, the profile is rolled back and the form stays open on what the buyer typed, rather than
+  leaving a student row they have to go back and finish.
 - Buyer removes a student → all of that student's data is deleted per the retention rule; sessions
   already delivered are removed from the buyer's view.
 
@@ -76,10 +89,13 @@ to sign in before then is told their account is not active yet.
    same offer is claimable from **Credits & billing**. Both entry points lead to the same checkout.
 2. The offer is **per student** — each student has their own, unclaimed until used. Adding a new
    student later unlocks a new one.
-3. Buyer picks the student and the **purpose** for the session, then pays $49.
-4. On payment, that student gains a **First Session entitlement** — not a wallet credit.
-5. Buyer proceeds to booking (F5). Booking a First Session consumes the entitlement and **spends no
-   credit**.
+3. Buyer picks the student, the **purpose**, any specifics, and **the time** — the same calendar F5
+   uses, on the same 2-hour floor and 4-week horizon — then pays $25 (ADR-009).
+4. On payment, that student gains a **First Session entitlement** — not a wallet credit — and the
+   webhook books the chosen slot against it in the same handler that records the purchase. Booking
+   a First Session **spends no credit**.
+5. Buyer returns to the dashboard, which states that the payment is processing until the booking
+   appears.
 6. **Consent:** this payment is the verifiable-parental-consent event. On success, that student's
    login activates (`06-AUTH-AND-COPPA.md`).
 
@@ -87,6 +103,10 @@ to sign in before then is told their account is not active yet.
 - Buyer attempts a second First Session for the same student → blocked, with the credit packs
   offered instead. Enforced in the database, not just hidden in the UI.
 - Payment fails → no entitlement, promo stays claimable.
+- **The slot is taken between checkout and the webhook** — nothing holds it through payment. The
+  purchase stands as an unspent entitlement and the buyer books it on F5 the ordinary way. The
+  booking failing never fails the webhook: a 500 makes Stripe retry a payment that already
+  succeeded.
 
 ---
 
@@ -116,7 +136,7 @@ to sign in before then is told their account is not active yet.
 - Insufficient credits → checkout offered inline; no partial booking.
 - **Google Calendar fails** → the booking still stands with **no Meet link**, and it lands on the
   admin repair queue. A Google outage must never roll back a paid booking.
-- Booking inside the 6-hour minimum → rejected, unless the slot was released by a cancellation, in
+- Booking inside the 2-hour minimum → rejected, unless the slot was released by a cancellation, in
   which case it is bookable until 1 hour before.
 
 ---
@@ -190,9 +210,9 @@ to sign in before then is told their account is not active yet.
 **Actor:** buyer.
 
 1. From the dashboard or the sessions list, the buyer cancels or reschedules a booking.
-2. **≥6 hours before start:** self-serve and free. A cancellation **returns the credit immediately**;
+2. **≥2 hours before start:** self-serve and free. A cancellation **returns the credit immediately**;
    a reschedule **moves the booking and leaves the ledger untouched**.
-3. **<6 hours before start:** the credit is **burned**. The buyer is shown how many credit returns
+3. **<2 hours before start:** the credit is **burned**. The buyer is shown how many credit returns
    remain this calendar month for that student and may submit a note → F10.
 4. A cancelled slot **returns to the open pool** and may be re-booked by anyone **until 1 hour before**
    its start.

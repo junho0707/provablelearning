@@ -10,10 +10,9 @@ export type MyBooking = {
   subPurpose: string | null;
   specifics: string | null;
   status: "booked" | "cancelled" | "completed" | "no_show";
-  meetUrl: string | null;
   profileName: string;
   /** Mirrors `request_credit_return`'s own test, so the UI never offers a button the RPC rejects. */
-  /** The credit was spent and not returned — a no-show, or a cancellation inside 6 hours. */
+  /** The credit was spent and not returned — a no-show, or a cancellation inside the minimum notice. */
   creditBurned: boolean;
   canRequestReturn: boolean;
   returnRequestStatus: "pending" | "approved" | "denied" | null;
@@ -26,7 +25,7 @@ export async function getMyBookings(): Promise<MyBooking[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("bookings")
-    .select("id, profile_id, starts_at, status, meet_url, purpose, sub_purpose, specifics, learner_profiles(name)")
+    .select("id, profile_id, starts_at, status, purpose, sub_purpose, specifics, learner_profiles(name)")
     .order("starts_at", { ascending: false });
   if (error || !data) return [];
 
@@ -67,7 +66,6 @@ export async function getMyBookings(): Promise<MyBooking[]> {
       subPurpose: row.sub_purpose ?? null,
       specifics: row.specifics ?? null,
       status: row.status,
-      meetUrl: row.meet_url,
       profileName,
       creditBurned,
       // Mirrors `request_credit_return` exactly, so the UI never offers a button the RPC rejects

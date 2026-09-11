@@ -1,6 +1,6 @@
 # STATUS
 
-**Project:** Provable Learning — 1:1 math tutoring. First Session ($49, per student) + credit packs.
+**Project:** Provable Learning — 1:1 math tutoring. First Session ($25, per student) + credit packs.
 **Branch:** `main`.
 **Truth:** [`system/`](system/README.md), decided 2026-09-02 by **ADR-007**. `spec/` and `docs/` are
 superseded and kept only as decision history.
@@ -24,10 +24,12 @@ The reconciliation plan is [`system/08-BUILD-PLAN.md`](system/08-BUILD-PLAN.md),
 **Every stage with a code deliverable is code-complete.** 325 tests passing, `next build` clean
 (38 routes), `tsc --noEmit` clean.
 
-**Nothing has been live-verified.** This environment has no Docker and no real Stripe/Google/Resend
-credentials, and **migrations 0017–0023 have not been applied to any database.** Every `[db]` and
-`[live]` check in [`system/07-VERIFY.md`](system/07-VERIFY.md) is genuinely unproven — including for
-code called "done" above.
+**The stack now exists, but nothing has been live-verified.** Migrations `0017`–`0024` are applied
+to `mlhlugfzzsigraqcxgmh`, and `npm run preflight` passes on every credential — Supabase, Stripe
+test mode, Google, Resend, cron. What has *not* happened is anyone walking a flow through it: every
+`[db]` and `[live]` check in [`system/07-VERIFY.md`](system/07-VERIFY.md) is still unproven,
+including for code called "done" above. There is no Docker here, so the test suite still exercises
+no Postgres.
 
 ## What R0–R7 changed
 
@@ -43,7 +45,7 @@ code called "done" above.
 - **R2** — migration `0018`: First Session is per student. `process_purchase` records consent in the
   same transaction as the purchase; the webhook then unbans that household's student logins. The
   separate "First Session flow" is gone — it is an ordinary booking that happens to be prepaid.
-- **R3** — migration `0019`: bookings carry purpose/sub-purpose/specifics/topic-mode. 6-hour notice
+- **R3** — migration `0019`: bookings carry purpose/sub-purpose/specifics/topic-mode. 2-hour notice (`0024`)
   and free cancellation, 1-hour floor for slots freed by a cancellation (`released_slots`),
   Monday-stepped horizon. `/book` is the booking form; `/sessions` is the list.
 - **R4** — migration `0020`: the product itself. `pre_session_submissions`, `session_uploads`,
@@ -66,4 +68,5 @@ code called "done" above.
 
 **Walk the flows against a real stack.** That is R8, and almost none of it is code. Read
 [`HANDOFF.md`](HANDOFF.md) §2 — it is an ordered walkthrough, starting with applying migrations
-`0017`–`0023`, and it names which `system/07-VERIFY.md` check each step proves.
+`0017`–`0024` (**done** — Step 0 is complete), and it names which `system/07-VERIFY.md` check each
+step proves. Start at Step 1, the buyer/student boundary.

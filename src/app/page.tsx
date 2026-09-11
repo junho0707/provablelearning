@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { ContactLink } from "@/components/contact-link";
+import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
 import { SignUpButton } from "@/components/auth/sign-up-button";
-import { ObfuscatedEmail } from "@/components/obfuscated-email";
 import { PRICING, formatPrice } from "@/lib/pricing";
 import { POLICY_COPY } from "@/lib/policy";
+import { PURPOSES, PURPOSE_LABEL, type Purpose } from "@/lib/accounts/purposes";
 import { createClient } from "@/lib/supabase/server";
 import { getPurchaseHistory } from "@/lib/credits/history";
 
@@ -13,53 +15,86 @@ const FIRST_SESSION_PRICE = formatPrice(PRICING.first_session.priceCents);
 const IS_THIS_FOR_YOU = [
   {
     title: "School year math help",
-    bullets: ["Stay on top of what your class is covering", "Prepare for quizzes and tests"],
+    bullets: [
+      "Review what you've already learned",
+      "Preview what's coming next",
+      "Prepare for quizzes and tests",
+    ],
   },
   {
     title: "Math diagnostics",
-    bullets: ["Figure out your strengths and weaknesses", "Also great for test prep — SAT, PSAT, ACT"],
+    bullets: [
+      "Figure out your strengths and weaknesses",
+      "For test prep — SAT, PSAT, ACT",
+      "Or for math up to where you are now",
+    ],
   },
   {
     title: "Real understanding",
     bullets: [
-      "Build the conceptual understanding that makes math click",
-      "For good, not just for the next test",
+      "Focus on conceptual understanding",
+      "School subjects, math up to where you are, or special topics I'll guide you through",
     ],
   },
 ];
 
-const CREDIT_AUDIENCES = [
-  {
-    title: "School year",
-    body: "Stay on top of what's being taught, week to week.",
-  },
-  {
-    title: "Test prep",
-    body: "Learn at your own pace with a guide, then check in — SAT, PSAT, ACT.",
-  },
-  {
-    title: "Math gap filler",
-    body: "After your first session, work through the gaps at your own pace, with check-ins.",
-  },
-  {
-    title: "Real understanding",
-    body: "Build real conceptual understanding at your own pace, with check-ins along the way.",
-  },
-];
+/**
+ * What a later session can be for. The **terms** are the live purpose vocabulary from
+ * `lib/accounts/purposes.ts` — the same values the booking form asks and stores — so the page
+ * cannot advertise a category the product doesn't offer. Only these one-liners are page copy; the
+ * sub-purposes are folded into them rather than listed, because listing every option made the panel
+ * unreadable.
+ */
+const PURPOSE_BLURB: Record<Purpose, string> = {
+  school: "Understanding a topic, getting ahead, reviewing, or preparing for a test.",
+  test_prep: "SAT, PSAT or ACT. Work at your own pace, then check in.",
+  math_diagnostic: "Find where the gaps are, then work through them.",
+};
 
 // `system/02-POLICIES.md` §2-§5. Every sentence comes from POLICY_COPY so the page cannot state a
 // rule the code doesn't enforce — the numbers live in one module and the drift test guards them.
 const SCHEDULING_RULES = [
   {
     title: "Booking window",
-    body: `Book up to ${POLICY_COPY.horizon} ahead, with at least ${POLICY_COPY.minNotice}' notice. ${POLICY_COPY.release}`,
+    bullets: [
+      `Book up to ${POLICY_COPY.horizon} ahead.`,
+      `At least ${POLICY_COPY.minNotice}' notice.`,
+      POLICY_COPY.release,
+    ],
   },
-  { title: "Cancel or reschedule", body: POLICY_COPY.freeCancel },
-  { title: "Changed your mind late", body: POLICY_COPY.lateCancel },
-  { title: "Credits", body: POLICY_COPY.creditsNeverExpire },
+  {
+    title: "Cancel or reschedule",
+    bullets: [
+      POLICY_COPY.freeCancelBullet,
+      POLICY_COPY.lateCancelBullet,
+      POLICY_COPY.lateCancelCapBullet,
+    ],
+  },
+  { title: "Credits", bullets: [POLICY_COPY.creditsNeverExpire] },
 ];
 
-const CREDIT_PACKS: Array<{ sku: "credits_1" | "credits_2" | "credits_4" | "credits_8" }> = [
+/** The two kinds of login and what each can do. `system/01-ACTORS.md` and `06-AUTH-AND-COPPA.md`. */
+const ACCOUNT_KINDS = [
+  {
+    title: "Parent account",
+    bullets: [
+      "Signs in with Google or email",
+      "Buys credits and First Sessions",
+      "Books, cancels, and messages the tutor",
+      "Sets up a sign-in for each student",
+    ],
+  },
+  {
+    title: "Student account",
+    bullets: [
+      "Set up by the parent — username and password",
+      "Prepares for sessions and views materials",
+      "No billing, no booking, no email ever sent to it",
+    ],
+  },
+];
+
+const BUNDLES: Array<{ sku: "credits_1" | "credits_2" | "credits_4" | "credits_8" }> = [
   { sku: "credits_1" },
   { sku: "credits_2" },
   { sku: "credits_4" },
@@ -68,23 +103,53 @@ const CREDIT_PACKS: Array<{ sku: "credits_1" | "credits_2" | "credits_4" | "cred
 
 /**
  * The page is a stack of full-bleed panels butted directly against each other — no gutters, no
- * radius, no shadows. The seam between two sections *is* the change of background colour, which is
- * what gives the "poster boards attached together" reading. There are four panel templates and
- * deliberately no fifth; the restraint in template count is where the minimalism comes from, not
- * restraint in content.
+ * radius, no shadows.
  *
- * The one floating object on the page is the nav pill, which is why it is allowed blur and radius.
+ * **Navy bookends a light body.** The hero opens on navy and the closing CTA lands on navy; every
+ * panel between them shares the off-white ground and is separated from its neighbour by its own
+ * padding. Brand navy therefore marks the two moments that are about the decision — arriving and
+ * signing up — and never interrupts the reading in between.
+ *
+ * **The only horizontal rules are the ones bounding a grid.** A separate seam between sections put
+ * a second rule a few rem above each grid's own, which read as a stray line rather than a divide.
+ *
+ * **A new section goes inside the light body.** Giving it its own ground would break the bookend
+ * into a stripe.
+ *
+ * The gold strip is outside the sequence — a rule laid across the stack, not a band of it.
  */
 const OFF_WHITE = "#faf9f7";
 
-/** Numbered section label. Small, wide-tracked, gold — the only place gold appears as text. */
-function Eyebrow({ index, children }: { index: string; children: React.ReactNode }) {
+/**
+ * Kicker. Small, wide-tracked — it is **not** a heading, and only ever sits above one (or, in the
+ * hero, below the h1 it belongs to). A section whose label has no headline under it uses
+ * `SectionTitle` instead; sizing a kicker up to stand in for a headline is what it must not do.
+ *
+ * On the navy bookends navy is invisible, so `dark` swaps it for gold — the only brand colour that
+ * reads on that ground, and the only place gold appears as text.
+ */
+function Eyebrow({ children, dark = false }: { children: React.ReactNode; dark?: boolean }) {
   return (
-    <p className="mb-5 text-[0.6875rem] font-semibold uppercase tracking-[0.22em] text-gold-500">
-      <span className="text-gold-600/70">{index}</span>
-      <span className="px-2 text-gold-600/40">—</span>
+    <p
+      className={`mb-5 text-[0.6875rem] font-semibold uppercase tracking-[0.22em] ${
+        dark ? "text-gold-500" : "text-navy-950"
+      }`}
+    >
       {children}
     </p>
+  );
+}
+
+/**
+ * A section's own heading, for the panels that label themselves in a word and have no headline to
+ * kick off. It is a real `h2`, so the `h3`s inside those grids sit under a heading rather than
+ * under nothing. Smaller than the headline in the split panel — one word does not need that size.
+ */
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="mb-8 text-[clamp(1.5rem,2.4vw,2rem)] font-semibold leading-tight tracking-[-0.025em]">
+      {children}
+    </h2>
   );
 }
 
@@ -97,62 +162,38 @@ export default async function Home() {
     ? (await getPurchaseHistory()).some((p) => p.sku === "first_session")
     : false;
 
+  const ctaWith = (className: string) => (
+    <SignUpButton signedIn={Boolean(user)} hasFirstSession={hasFirstSession} className={className} />
+  );
+
   return (
     <main className="bg-white">
-      <SiteNav overlay />
+      <SiteNav />
 
-      {/* ── Panel A — statement ─────────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-navy-950 text-white">
-        {/* Texture in place of photography. A worked derivation set very large and very faint does
-            the job an image would, without stock photos of children at laptops. */}
-        <p
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-8 bottom-0 hidden select-none font-serif text-[7rem] italic leading-[1.15] text-white/[0.04] lg:block"
-        >
-          a² + b²
-          <br />
-          = c²
-        </p>
-
-        <div className="relative mx-auto flex min-h-[78vh] max-w-[1200px] flex-col justify-end px-6 pb-20 pt-40 sm:px-10">
-          <h1 className="max-w-[16ch] text-[clamp(2.75rem,7vw,5rem)] font-semibold leading-[0.95] tracking-[-0.03em]">
-            Want to get better at math?
-          </h1>
-          <div className="mt-12 flex flex-col items-start gap-5 border-t border-white/15 pt-8 sm:flex-row sm:items-center sm:gap-10">
-            <SignUpButton
-              signedIn={Boolean(user)}
-              hasFirstSession={hasFirstSession}
-              className="bg-gold-500 px-8 py-4 text-[0.9375rem] font-semibold text-navy-950 hover:bg-gold-400"
-            />
-            {!hasFirstSession && (
-              <p className="text-[0.9375rem] text-navy-200">
-                Your first 1 hour session is{" "}
-                <span className="font-semibold text-white">{FIRST_SESSION_PRICE}</span>.
-              </p>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Panel C — tile row ──────────────────────────────────────────────────────────────── */}
-      <section style={{ background: OFF_WHITE }} className="text-navy-950">
+      {/* ── Bookend (navy) — the statement, carrying who it's for ──────────────────────────── */}
+      <section className="bg-navy-950 text-white">
         <div className="mx-auto max-w-[1200px] px-6 py-24 sm:px-10 sm:py-28">
-          <Eyebrow index="01">Who it&apos;s for</Eyebrow>
-          <h2 className="max-w-[24ch] text-[clamp(1.875rem,3.5vw,2.75rem)] font-semibold leading-[1.05] tracking-[-0.025em]">
-            Three reasons people start.
-          </h2>
-          {/* Cells are divided by hairlines, never by gaps — a gap would make them read as cards. */}
-          <div className="mt-14 grid border-t border-navy-950/10 sm:grid-cols-3">
+          <h1 className="text-center text-[clamp(2.25rem,5.6vw,4.5rem)] font-semibold leading-[1.02] tracking-[-0.03em]">
+            Need Math Help?
+          </h1>
+
+          <div className="mt-14 text-center">
+            <Eyebrow dark>Who it&apos;s for</Eyebrow>
+          </div>
+          {/* `border-y`, not `border-t` alone: the vertical rules then meet a horizontal line at
+              both ends instead of stopping in open space. Cells are divided by hairlines, never by
+              gaps — a gap would make them read as cards. */}
+          <div className="grid border-y border-white/15 sm:grid-cols-3">
             {IS_THIS_FOR_YOU.map((item, i) => (
               <div
                 key={item.title}
-                className="border-b border-navy-950/10 py-8 sm:border-b-0 sm:border-r sm:px-8 sm:py-0 sm:first:pl-0 sm:last:border-r-0 sm:last:pr-0"
+                className="border-b border-white/15 py-8 last:border-b-0 sm:border-b-0 sm:border-r sm:px-8 sm:py-10 sm:first:pl-0 sm:last:border-r-0 sm:last:pr-0"
               >
-                <p className="mb-4 pt-0 text-[0.6875rem] font-semibold tracking-[0.18em] text-navy-950/35 sm:pt-8">
+                <p className="mb-4 text-[0.6875rem] font-semibold tracking-[0.18em] text-white/35">
                   {String(i + 1).padStart(2, "0")}
                 </p>
-                <h3 className="mb-3 text-lg font-semibold tracking-[-0.01em]">{item.title}</h3>
-                <ul className="space-y-2 text-[0.9375rem] leading-relaxed text-navy-700">
+                <h2 className="mb-3 text-lg font-semibold tracking-[-0.01em]">{item.title}</h2>
+                <ul className="list-disc space-y-2 pl-4 text-[0.9375rem] leading-relaxed text-navy-200 marker:text-white/40">
                   {item.bullets.map((bullet) => (
                     <li key={bullet}>{bullet}</li>
                   ))}
@@ -163,38 +204,67 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ── Panel B — split ─────────────────────────────────────────────────────────────────── */}
-      <section className="bg-navy-950 text-white">
-        <div className="mx-auto grid max-w-[1200px] gap-12 px-6 py-24 sm:px-10 sm:py-28 lg:grid-cols-12 lg:gap-16">
+      {/* ── Banner — outside the alternation ────────────────────────────────────────────────── */}
+      <section className="bg-gold-500 text-navy-950">
+        <div className="mx-auto flex max-w-[1200px] flex-col items-center gap-5 px-6 py-12 text-center sm:px-10">
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.22em] text-navy-950/55">
+            Limited time
+          </p>
+          <p className="text-[clamp(1.5rem,3.5vw,2.25rem)] font-semibold leading-none tracking-[-0.025em]">
+            First session <span className="tabular-nums">{FIRST_SESSION_PRICE}</span>
+          </p>
+          {ctaWith(
+            "inline-block bg-navy-950 px-7 py-3.5 text-[0.9375rem] font-semibold text-white hover:bg-navy-800",
+          )}
+        </div>
+      </section>
+
+      {/* ── Body — what later sessions are for. First panel of the light body: the gold strip is
+             its seam, so it takes no hairline. ──────────────────────────────────────────────── */}
+      <section style={{ background: OFF_WHITE }} className="text-navy-950">
+        <div className="mx-auto grid max-w-[1200px] gap-12 px-6 py-12 sm:px-10 sm:py-16 lg:grid-cols-12 lg:gap-16">
           <div className="lg:col-span-5">
-            <Eyebrow index="02">After your first session</Eyebrow>
+            <Eyebrow>After your first session</Eyebrow>
             <h2 className="text-[clamp(1.875rem,3.5vw,2.75rem)] font-semibold leading-[1.05] tracking-[-0.025em]">
               Keep going with 1&nbsp;hour 1:1 credit sessions.
             </h2>
           </div>
           <dl className="lg:col-span-7">
-            {CREDIT_AUDIENCES.map((c) => (
+            {PURPOSES.map((purpose) => (
               <div
-                key={c.title}
-                className="grid gap-2 border-t border-white/15 py-6 last:border-b sm:grid-cols-[10rem_1fr] sm:gap-8"
+                key={purpose}
+                className="grid gap-2 border-t border-navy-950/10 py-6 last:border-b sm:grid-cols-[11rem_1fr] sm:gap-8"
               >
-                <dt className="text-[0.9375rem] font-semibold">{c.title}</dt>
-                <dd className="text-[0.9375rem] leading-relaxed text-navy-200">{c.body}</dd>
+                <dt className="text-[0.9375rem] font-semibold">{PURPOSE_LABEL[purpose]}</dt>
+                <dd className="text-[0.9375rem] leading-relaxed text-navy-700">
+                  {PURPOSE_BLURB[purpose]}
+                </dd>
               </div>
             ))}
           </dl>
         </div>
       </section>
 
-      {/* ── Panel D — data band ─────────────────────────────────────────────────────────────── */}
+      {/* ── Body — pricing ─────────────────────────────────────────────────────────────────── */}
       <section style={{ background: OFF_WHITE }} className="text-navy-950">
-        <div className="mx-auto max-w-[1200px] px-6 py-24 sm:px-10 sm:py-28">
-          <Eyebrow index="03">Pricing</Eyebrow>
-          <div className="grid border-t border-navy-950/10 sm:grid-cols-4">
-            {CREDIT_PACKS.map(({ sku }) => (
+        <div className="mx-auto max-w-[1200px] px-6 py-12 sm:px-10 sm:py-16">
+          <SectionTitle>Pricing</SectionTitle>
+          <div className="grid border-y border-navy-950/10 sm:grid-cols-5">
+            {/* The First Session leads the row so the $25 -> $75 step is read here, not inferred.
+                gold-600, not gold-500: the 500 is drawn for navy and goes muddy on off-white. */}
+            <div className="flex items-baseline justify-between border-b border-navy-950/10 py-6 last:border-b-0 sm:block sm:border-b-0 sm:border-r sm:px-8 sm:py-10 sm:first:pl-0 sm:last:border-r-0">
+              <p className="text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-none tracking-[-0.03em] tabular-nums text-gold-600">
+                {formatPrice(PRICING.first_session.priceCents)}
+              </p>
+              <div className="text-right sm:mt-4 sm:text-left">
+                <p className="text-[0.9375rem] text-navy-700">First session</p>
+                <p className="mt-0.5 text-[0.8125rem] text-navy-950/40">one per student</p>
+              </div>
+            </div>
+            {BUNDLES.map(({ sku }) => (
               <div
                 key={sku}
-                className="flex items-baseline justify-between border-b border-navy-950/10 py-6 sm:block sm:border-b-0 sm:border-r sm:px-8 sm:py-10 sm:first:pl-0 sm:last:border-r-0"
+                className="flex items-baseline justify-between border-b border-navy-950/10 py-6 last:border-b-0 sm:block sm:border-b-0 sm:border-r sm:px-8 sm:py-10 sm:first:pl-0 sm:last:border-r-0"
               >
                 <p className="text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-none tracking-[-0.03em] tabular-nums">
                   {formatPrice(PRICING[sku].priceCents)}
@@ -215,59 +285,77 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ── Panel C — tile row ──────────────────────────────────────────────────────────────── */}
-      <section className="border-t border-navy-950/10 bg-white text-navy-950">
-        <div className="mx-auto max-w-[1200px] px-6 py-24 sm:px-10 sm:py-28">
-          <Eyebrow index="04">Scheduling</Eyebrow>
-          <div className="grid border-t border-navy-950/10 sm:grid-cols-2 lg:grid-cols-4">
+      {/* ── Body — scheduling ──────────────────────────────────────────────────────────────── */}
+      <section style={{ background: OFF_WHITE }} className="text-navy-950">
+        <div className="mx-auto max-w-[1200px] px-6 py-12 sm:px-10 sm:py-16">
+          <SectionTitle>Scheduling</SectionTitle>
+          <div className="grid border-y border-navy-950/10 sm:grid-cols-3">
             {SCHEDULING_RULES.map((rule) => (
               <div
                 key={rule.title}
-                className="border-b border-navy-950/10 py-8 sm:px-8 lg:border-b-0 lg:border-r lg:first:pl-0 lg:last:border-r-0 lg:last:pr-0 sm:first:pl-0"
+                className="border-b border-navy-950/10 py-8 last:border-b-0 sm:border-b-0 sm:border-r sm:px-8 sm:py-10 sm:first:pl-0 sm:last:border-r-0 sm:last:pr-0"
               >
                 <h3 className="mb-3 text-lg font-semibold tracking-[-0.01em]">{rule.title}</h3>
-                <p className="text-[0.9375rem] leading-relaxed text-navy-700">{rule.body}</p>
+                <ul className="list-disc space-y-2 pl-4 text-[0.9375rem] leading-relaxed text-navy-700 marker:text-navy-950/30">
+                  {rule.bullets.map((bullet) => (
+                    <li key={bullet}>{bullet}</li>
+                  ))}
+                </ul>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── Panel A — statement (close) ─────────────────────────────────────────────────────── */}
+      {/* ── Body — accounts ────────────────────────────────────────────────────────────────── */}
+      <section style={{ background: OFF_WHITE }} className="text-navy-950">
+        <div className="mx-auto max-w-[1200px] px-6 py-12 sm:px-10 sm:py-16">
+          <SectionTitle>Accounts</SectionTitle>
+          <div className="grid border-y border-navy-950/10 sm:grid-cols-2">
+            {ACCOUNT_KINDS.map((kind) => (
+              <div
+                key={kind.title}
+                className="border-b border-navy-950/10 py-8 last:border-b-0 sm:border-b-0 sm:border-r sm:px-8 sm:py-10 sm:first:pl-0 sm:last:border-r-0 sm:last:pr-0"
+              >
+                <h3 className="mb-3 text-lg font-semibold tracking-[-0.01em]">{kind.title}</h3>
+                <ul className="list-disc space-y-2 pl-4 text-[0.9375rem] leading-relaxed text-navy-700 marker:text-navy-950/30">
+                  {kind.bullets.map((bullet) => (
+                    <li key={bullet}>{bullet}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <p className="mt-8 text-[0.8125rem] text-navy-950/45">
+            More in the{" "}
+            <Link href="/privacy" className="underline hover:text-navy-950">
+              privacy policy
+            </Link>
+            .
+          </p>
+        </div>
+      </section>
+
+      {/* ── Bookend (navy) — the close. Pairs with the hero: navy marks arriving and signing up,
+             and nothing between them. It runs straight into the navy footer, which reads as one
+             foot to the page rather than as another band. ───────────────────────────────────── */}
       <section className="bg-navy-950 text-white">
-        <div className="mx-auto max-w-[1200px] px-6 py-24 sm:px-10 sm:py-28">
-          <h2 className="max-w-[18ch] text-[clamp(1.875rem,4vw,3.25rem)] font-semibold leading-[1.02] tracking-[-0.03em]">
-            Start with one hour.
+        <div className="mx-auto max-w-[1200px] px-6 py-24 text-center sm:px-10 sm:py-28">
+          <h2 className="mx-auto max-w-[20ch] text-[clamp(1.875rem,4vw,3.25rem)] font-semibold leading-[1.02] tracking-[-0.03em]">
+            Try one session.
           </h2>
-          <div className="mt-12 flex flex-col items-start gap-5 border-t border-white/15 pt-8 sm:flex-row sm:items-center sm:gap-10">
-            <SignUpButton
-              signedIn={Boolean(user)}
-              hasFirstSession={hasFirstSession}
-              className="bg-gold-500 px-8 py-4 text-[0.9375rem] font-semibold text-navy-950 hover:bg-gold-400"
-            />
-            <p className="text-[0.9375rem] text-navy-200">
-              Questions? Email <ObfuscatedEmail />
-            </p>
+          <div className="mt-10">
+            {ctaWith(
+              "inline-block bg-gold-500 px-8 py-4 text-[0.9375rem] font-semibold text-navy-950 hover:bg-gold-400",
+            )}
+          </div>
+          <div className="mt-6">
+            <ContactLink />
           </div>
         </div>
       </section>
 
-      <footer className="bg-navy-950 text-navy-300">
-        <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-4 border-t border-white/10 px-6 py-8 text-[0.8125rem] sm:px-10">
-          <span>© Provable Learning</span>
-          <nav className="flex gap-6">
-            <Link href="/terms" className="hover:text-white">
-              Terms
-            </Link>
-            <Link href="/privacy" className="hover:text-white">
-              Privacy
-            </Link>
-            <Link href="/refund-policy" className="hover:text-white">
-              Refunds
-            </Link>
-          </nav>
-        </div>
-      </footer>
+      <SiteFooter />
     </main>
   );
 }

@@ -7,6 +7,7 @@ import {
   SUB_PURPOSE_LABEL,
   type Purpose,
 } from "@/lib/accounts/purposes";
+import { INPUT, LABEL } from "@/lib/ui";
 
 /**
  * What a session is for. Used at both moments the question is asked — buying a First Session (F4)
@@ -14,14 +15,14 @@ import {
  *
  * The purpose selects the whole downstream shape of the session (`system/02-POLICIES.md` §7): what
  * the student is asked for beforehand, and what the tutor delivers afterwards. It is not a label.
+ *
+ * The options are a hairline-divided stack rather than three gapped cards, and the chosen one is
+ * marked by a filled left rule — selection is drawn with ink, matching the slot picker beside it.
  */
 
-const cardClass =
-  "flex w-full flex-col items-start rounded-lg border px-4 py-3 text-left transition hover:border-navy-400";
-
 const PURPOSE_HINT: Record<Purpose, string> = {
-  test_prep: "PSAT, SAT or ACT — we'll start with a short diagnostic.",
-  school: "Keeping up, getting ahead, or prepping for something specific.",
+  test_prep: "PSAT, SAT or ACT.",
+  school: "Keeping up, getting ahead, or preparing for quizzes or tests.",
   math_diagnostic: "Find the gaps and work out what to fix first.",
 };
 
@@ -39,38 +40,44 @@ export function PurposePicker({
   const subOptions: readonly string[] = value.purpose ? SUB_PURPOSES[value.purpose] : [];
 
   return (
-    <div className="flex flex-col gap-4">
-      <fieldset className="flex flex-col gap-2">
-        <legend className="mb-2 text-sm font-semibold text-navy-900">
-          What&apos;s this session for?
-        </legend>
-        {PURPOSES.map((purpose) => {
-          const selected = value.purpose === purpose;
-          return (
-            <button
-              key={purpose}
-              type="button"
-              aria-pressed={selected}
-              onClick={() => onChange({ purpose, subPurpose: null })}
-              className={`${cardClass} ${
-                selected ? "border-navy-500 bg-navy-50" : "border-navy-200 bg-white"
-              }`}
-            >
-              <span className="text-sm font-bold text-navy-950">{PURPOSE_LABEL[purpose]}</span>
-              <span className="mt-0.5 text-sm text-navy-600">{PURPOSE_HINT[purpose]}</span>
-            </button>
-          );
-        })}
+    <div className="flex flex-col gap-5">
+      <fieldset>
+        <legend className={`mb-3 ${LABEL}`}>What&apos;s this session for?</legend>
+        <div className="border-t border-navy-950/10">
+          {PURPOSES.map((purpose) => {
+            const selected = value.purpose === purpose;
+            return (
+              <button
+                key={purpose}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => onChange({ purpose, subPurpose: null })}
+                className={`flex w-full flex-col items-start border-b border-l-2 border-navy-950/10 px-4 py-3.5 text-left ${
+                  selected
+                    ? "border-l-navy-950 bg-white"
+                    : "border-l-transparent hover:border-l-navy-950/25"
+                }`}
+              >
+                <span className="text-[0.9375rem] font-semibold text-navy-950">
+                  {PURPOSE_LABEL[purpose]}
+                </span>
+                <span className="mt-0.5 text-[0.875rem] text-navy-700">
+                  {PURPOSE_HINT[purpose]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </fieldset>
 
       {subOptions.length > 0 && (
         <label className="flex flex-col gap-2">
-          <span className="text-sm font-semibold text-navy-900">
+          <span className={LABEL}>
             {value.purpose === "test_prep" ? "Which test?" : "Which of these fits best?"}
           </span>
           <select
             id={`${idPrefix}-sub`}
-            className="w-full rounded-lg border border-navy-200 px-3 py-2 text-sm outline-none focus:border-navy-400"
+            className={INPUT}
             value={value.subPurpose ?? ""}
             onChange={(e) => onChange({ ...value, subPurpose: e.target.value || null })}
           >

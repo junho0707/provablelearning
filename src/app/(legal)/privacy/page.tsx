@@ -12,9 +12,13 @@ export const metadata = { title: "Privacy Policy" };
  */
 export default function PrivacyPage() {
   return (
-    <main className="mx-auto max-w-2xl px-5 py-16 text-sm leading-relaxed text-navy-800">
-      <h1 className="mb-6 text-2xl font-extrabold tracking-tight text-navy-950">Privacy Policy</h1>
-      <p className="mb-6 text-navy-500">Last updated: September 2, 2026</p>
+    <main style={{ background: "#faf9f7" }} className="text-navy-800">
+      <div className="mx-auto max-w-2xl px-6 py-24 text-[0.9375rem] leading-relaxed sm:px-10 sm:py-28">
+      <h1 className="text-[clamp(1.875rem,3.5vw,2.75rem)] font-semibold tracking-[-0.025em] text-navy-950">
+          Privacy Policy
+        </h1>
+        <p className="mt-3 text-[0.8125rem] text-navy-950/50">Last updated: September 2, 2026</p>
+        <div className="mt-10 border-t border-navy-950/10" />
 
       <p className="mb-4">
         This policy describes what Provable Learning (&quot;we,&quot; &quot;us&quot;), operated by
@@ -22,8 +26,8 @@ export default function PrivacyPage() {
         holder who pays, and the student who is taught — and we collect different things about each.
       </p>
 
-      <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">What we collect from the account holder</h2>
-      <ul className="mb-4 list-disc space-y-1 pl-5">
+      <h2 className="mb-3 mt-10 border-t border-navy-950/10 pt-8 text-lg font-semibold tracking-[-0.01em] text-navy-950">What we collect from the account holder</h2>
+      <ul className="mb-4 list-disc space-y-1 pl-5 marker:text-navy-950/30">
         <li>Your email address, from Google sign-in or the email you use for a magic link.</li>
         <li>An optional phone number, only if you give one, used solely for the tutor&apos;s manual
           session-reminder texts.</li>
@@ -33,8 +37,8 @@ export default function PrivacyPage() {
         <li>Messages you send us.</li>
       </ul>
 
-      <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">What we collect from a student</h2>
-      <ul className="mb-4 list-disc space-y-1 pl-5">
+      <h2 className="mb-3 mt-10 border-t border-navy-950/10 pt-8 text-lg font-semibold tracking-[-0.01em] text-navy-950">What we collect from a student</h2>
+      <ul className="mb-4 list-disc space-y-1 pl-5 marker:text-navy-950/30">
         <li>The name, grade, and math class <em>you</em> enter for them.</li>
         <li>A username and password that you set. <strong>We never collect a student&apos;s email
           address or phone number</strong> — their sign-in identity is not an email address, and no
@@ -51,7 +55,7 @@ export default function PrivacyPage() {
         holder&apos;s, and not anyone else&apos;s.
       </p>
 
-      <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">Children under 13</h2>
+      <h2 className="mb-3 mt-10 border-t border-navy-950/10 pt-8 text-lg font-semibold tracking-[-0.01em] text-navy-950">Children under 13</h2>
       <p className="mb-4">
         Provable Learning is bought by adults and used by students, some of whom are under 13. We do
         not knowingly collect anything from a child except through their parent or guardian, and a
@@ -64,7 +68,7 @@ export default function PrivacyPage() {
         teach them.
       </p>
       <p className="mb-4">As the parent or guardian, you may at any time:</p>
-      <ul className="mb-4 list-disc space-y-1 pl-5">
+      <ul className="mb-4 list-disc space-y-1 pl-5 marker:text-navy-950/30">
         <li>review everything your student has submitted;</li>
         <li>withdraw consent, which immediately deactivates their sign-in and stops any further
           collection;</li>
@@ -76,8 +80,8 @@ export default function PrivacyPage() {
         admin@provablelearning.com.
       </p>
 
-      <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">Who else sees it</h2>
-      <ul className="mb-4 list-disc space-y-1 pl-5">
+      <h2 className="mb-3 mt-10 border-t border-navy-950/10 pt-8 text-lg font-semibold tracking-[-0.01em] text-navy-950">Who else sees it</h2>
+      <ul className="mb-4 list-disc space-y-1 pl-5 marker:text-navy-950/30">
         <li><strong>Supabase</strong> hosts our database, file storage, and sign-in.</li>
         <li><strong>Vercel</strong> hosts and serves the site.</li>
         <li><strong>Stripe</strong> processes payments; we never see or store your card details.</li>
@@ -90,13 +94,13 @@ export default function PrivacyPage() {
       </ul>
       <p className="mb-4">We do not sell your data.</p>
 
-      <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">SMS</h2>
+      <h2 className="mb-3 mt-10 border-t border-navy-950/10 pt-8 text-lg font-semibold tracking-[-0.01em] text-navy-950">SMS</h2>
       <p className="mb-4">
         We do not use an SMS platform. If you give a phone number, the tutor may text you a session
         reminder personally — there is no automated texting, and we never text a student.
       </p>
 
-      <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">Data retention and deletion</h2>
+      <h2 className="mb-3 mt-10 border-t border-navy-950/10 pt-8 text-lg font-semibold tracking-[-0.01em] text-navy-950">Data retention and deletion</h2>
       <p className="mb-4">
         We keep account and booking records for as long as your account is active. Deleting a student
         or closing your account removes the associated records, including uploaded files, within{" "}
@@ -104,8 +108,9 @@ export default function PrivacyPage() {
         admin@provablelearning.com.
       </p>
 
-      <h2 className="mb-2 mt-8 text-lg font-bold text-navy-950">Contact</h2>
+      <h2 className="mb-3 mt-10 border-t border-navy-950/10 pt-8 text-lg font-semibold tracking-[-0.01em] text-navy-950">Contact</h2>
       <p>Questions about this policy: admin@provablelearning.com.</p>
+      </div>
     </main>
   );
 }

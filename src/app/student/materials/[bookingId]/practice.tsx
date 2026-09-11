@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { answerMaterialItem } from "@/lib/sessions/materials";
 import type { MaterialItemView } from "@/lib/sessions/materials";
+import { BTN, H2, INPUT } from "@/lib/ui";
 
 type Outcome = { correct: boolean; explanation: string | null };
 
@@ -18,14 +19,14 @@ export function Practice({ items }: { items: MaterialItemView[] }) {
   if (items.length === 0) return null;
 
   return (
-    <section className="mt-10 border-t border-navy-100 pt-8">
-      <h2 className="mb-1 text-xl font-bold text-navy-950">Practice</h2>
-      <p className="mb-6 text-navy-700">
+    <section className="mt-10 border-t border-navy-950/10 pt-8">
+      <h2 className={`mb-2 ${H2}`}>Practice</h2>
+      <p className="mb-8 text-[0.9375rem] leading-relaxed text-navy-700">
         Work through these when you&apos;re ready. Your tutor can see how you got on.
       </p>
-      <ol className="flex flex-col gap-4">
+      <ol className="border-t border-navy-950/10">
         {items.map((item, index) => (
-          <li key={item.id}>
+          <li key={item.id} className="border-b border-navy-950/10 py-6">
             <Question item={item} number={index + 1} />
           </li>
         ))}
@@ -52,14 +53,14 @@ function Question({ item, number }: { item: MaterialItemView; number: number }) 
   }
 
   return (
-    <div className="rounded-xl border border-navy-100 bg-white p-5 shadow-[var(--shadow-card)]">
-      <p className="font-semibold text-navy-950">
+    <div>
+      <p className="text-[0.9375rem] font-semibold text-navy-950">
         {number}. {item.prompt}
       </p>
 
-      <div className="mt-3 flex flex-wrap items-center gap-3">
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <input
-          className="min-w-48 flex-1 rounded-lg border border-navy-200 px-3 py-2 outline-none focus:border-navy-400"
+          className={`${INPUT} min-w-48 flex-1`}
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
           placeholder="Your answer"
@@ -67,30 +68,27 @@ function Question({ item, number }: { item: MaterialItemView; number: number }) 
             if (e.key === "Enter") submit();
           }}
         />
-        <button
-          type="button"
-          onClick={submit}
-          disabled={pending || !answer.trim()}
-          className="rounded-lg bg-navy-900 px-4 py-2 text-sm font-semibold text-white hover:bg-navy-800 disabled:opacity-60"
-        >
+        <button type="button" onClick={submit} disabled={pending || !answer.trim()} className={BTN}>
           {outcome ? "Try again" : "Check"}
         </button>
       </div>
 
-      {error && <p className="mt-3 text-sm text-[var(--error)]">{error}</p>}
+      {error && <p className="mt-3 text-[0.875rem] text-[var(--error)]">{error}</p>}
 
       {outcome && (
         <div
-          className={`mt-3 rounded-lg px-3 py-2 text-sm ${
+          className={`mt-4 border-l-2 px-4 py-3 text-[0.875rem] ${
             outcome.correct
-              ? "bg-[var(--success-light)] text-[var(--success)]"
-              : "bg-[var(--warning-light)] text-[#8a5a00]"
+              ? "border-[var(--success)] bg-[var(--success-light)] text-[var(--success)]"
+              : "border-[var(--warning)] bg-[var(--warning-light)] text-[#8a5a00]"
           }`}
         >
           <p className="font-semibold">
             {outcome.correct ? "That's it." : "Not quite — have another go."}
           </p>
-          {outcome.explanation && <p className="mt-1 text-navy-800">{outcome.explanation}</p>}
+          {outcome.explanation && (
+            <p className="mt-1.5 leading-relaxed text-navy-800">{outcome.explanation}</p>
+          )}
         </div>
       )}
     </div>

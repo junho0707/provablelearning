@@ -11,7 +11,7 @@ type ExceptionRow = { date: string; kind: "blackout" | "extra"; start_time: stri
 /**
  * Open future slots in UTC — the client renders them in the visitor's browser time zone.
  *
- * The window is **≥6h out** (or ≥1h for a slot freed by a cancellation) and no later than the
+ * The window is **≥2h out** (or ≥1h for a slot freed by a cancellation) and no later than the
  * Monday-stepped 4-week horizon (`system/02-POLICIES.md` §2). Excluding taken instants here is a
  * display convenience, not the source of truth — `book_session`'s advisory lock plus the partial
  * unique index is what actually prevents a double-book (AT-BOOK-002), and it re-checks the window
@@ -37,7 +37,7 @@ export async function getOpenAvailability(): Promise<string[]> {
     ]);
   const takenInstants = new Set((bookingRows ?? []).map((b) => new Date(b.starts_at).getTime()));
   // Slots someone else gave back. They keep a shorter floor, so they can still appear inside the
-  // ordinary 6-hour cutoff (INV-BOOK-3).
+  // ordinary 2-hour cutoff (INV-BOOK-3).
   const released = new Set((releasedRows ?? []).map((r) => new Date(r.starts_at).getTime()));
 
   const rules: AvailabilityRule[] = ((ruleRows ?? []) as RuleRow[]).map((r) => ({

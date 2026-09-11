@@ -9,7 +9,7 @@ import { createCreditsCheckout, createFirstSessionCheckout } from "./checkout";
 describe("createCreditsCheckout — validation short-circuit", () => {
   it("rejects an unknown sku before touching Supabase or Stripe", async () => {
     const result = await createCreditsCheckout({ sku: "not_a_real_sku" });
-    expect(result).toEqual({ ok: false, code: "malformed", message: "Unknown credit pack." });
+    expect(result).toEqual({ ok: false, code: "malformed", message: "Unknown bundle." });
   });
 
   it("rejects the first_session sku on the credits endpoint", async () => {
@@ -20,25 +20,37 @@ describe("createCreditsCheckout — validation short-circuit", () => {
 
 describe("createFirstSessionCheckout — validation short-circuit", () => {
   const profileId = "00000000-0000-4000-8000-000000000001";
+  const startsAt = "2099-01-05T15:00:00.000Z";
 
   it("rejects a profileId that isn't a uuid, before touching Supabase or Stripe", async () => {
-    const result = await createFirstSessionCheckout({ profileId: "p1", purpose: "school" });
+    const result = await createFirstSessionCheckout({ profileId: "p1", purpose: "school", startsAt });
     expect(result).toEqual({
       ok: false,
       code: "malformed",
-      message: "Pick a student and what the session is for.",
+      message: "Pick a student, a time, and what the session is for.",
+    });
+  });
+
+  // The slot is chosen before payment (ADR-009), so a checkout with no time is a request that
+  // could only produce a purchase nobody booked.
+  it("rejects a missing time", async () => {
+    const result = await createFirstSessionCheckout({ profileId, purpose: "school", startsAt: "" });
+    expect(result).toEqual({
+      ok: false,
+      code: "malformed",
+      message: "Pick a student, a time, and what the session is for.",
     });
   });
 
   it("rejects a missing purpose", async () => {
-    const result = await createFirstSessionCheckout({ profileId, purpose: "" });
+    const result = await createFirstSessionCheckout({ profileId, purpose: "", startsAt });
     expect(result.ok).toBe(false);
   });
 
   // Test prep is the one purpose that must name a sub-purpose: "SAT" and "ACT" shape different
   // sessions, and a diagnostic cannot be selected without knowing which (system/02-POLICIES.md §7).
   it("rejects test prep with no test named", async () => {
-    const result = await createFirstSessionCheckout({ profileId, purpose: "test_prep" });
+    const result = await createFirstSessionCheckout({ profileId, purpose: "test_prep", startsAt });
     expect(result).toEqual({
       ok: false,
       code: "malformed",

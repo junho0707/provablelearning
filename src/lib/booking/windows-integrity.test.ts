@@ -7,14 +7,24 @@ const sql = fs.readFileSync(
   "utf8",
 );
 
+/**
+ * 0019 is applied, so the window change lives in its own migration and these three functions are
+ * replaced there. Structural assertions still read 0019; anything asserting the *window* must read
+ * whichever migration defines it last, or it goes on proving a number nothing enforces.
+ */
+const sqlWindows = fs.readFileSync(
+  path.join(process.cwd(), "supabase/migrations/0024_notice_window.sql"),
+  "utf8",
+);
+
 /** SQL-text checks for ADR-007 §5/§6/§8. Live equivalents are `AT-BOOK-3/4/5` and `AT-CANCEL-*`. */
 
-describe("INV-BOOK-3: 6-hour floor, 1-hour floor for released slots", () => {
+describe("INV-BOOK-3: 2-hour floor, 1-hour floor for released slots", () => {
   it("slot_min_notice returns 1 hour only for a released slot", () => {
-    const fn = sql.slice(sql.indexOf("create function slot_min_notice"));
+    const fn = sqlWindows.slice(sqlWindows.indexOf("create or replace function slot_min_notice"));
     expect(fn).toMatch(/from released_slots where starts_at = p_starts_at/);
     expect(fn).toMatch(/then interval '1 hour'/);
-    expect(fn).toMatch(/else interval '6 hours'/);
+    expect(fn).toMatch(/else interval '2 hours'/);
   });
 
   it("both booking functions check the floor through slot_min_notice, not a literal", () => {
@@ -43,9 +53,9 @@ describe("cancellation returns the hour to the calendar", () => {
     expect(fn).toMatch(/insert into released_slots \(starts_at\)/);
   });
 
-  it("cancel_booking refunds at 6 hours, not 24", () => {
-    const fn = sql.slice(sql.indexOf("create or replace function cancel_booking"));
-    expect(fn).toMatch(/starts_at - now\(\) >= interval '6 hours'/);
+  it("cancel_booking refunds at 2 hours, not 6 or 24", () => {
+    const fn = sqlWindows.slice(sqlWindows.indexOf("create or replace function cancel_booking"));
+    expect(fn).toMatch(/starts_at - now\(\) >= interval '2 hours'/);
     expect(fn).not.toMatch(/interval '24 hours'/);
   });
 
@@ -76,9 +86,9 @@ describe("reschedule still never touches the ledger", () => {
     expect(fn).toMatch(/delete from released_slots where starts_at = p_new_starts_at/);
   });
 
-  it("requires 6 hours' notice on the existing booking", () => {
-    const fn = sql.slice(sql.indexOf("create or replace function reschedule_booking"));
-    expect(fn).toMatch(/v_booking\.starts_at - now\(\) < interval '6 hours'/);
+  it("requires 2 hours' notice on the existing booking", () => {
+    const fn = sqlWindows.slice(sqlWindows.indexOf("create or replace function reschedule_booking"));
+    expect(fn).toMatch(/v_booking\.starts_at - now\(\) < interval '2 hours'/);
   });
 });
 

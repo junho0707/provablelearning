@@ -11,9 +11,7 @@ import {
 } from "@/lib/sessions/student";
 import { UPLOAD_EXTENSIONS } from "@/lib/policy";
 import { DiagnosticQuestions } from "./diagnostic";
-
-const inputClass =
-  "w-full rounded-lg border border-navy-200 px-3 py-2.5 text-navy-950 outline-none focus:border-navy-400";
+import { BTN_LG, BTN_SECONDARY, INPUT, LABEL, NOTICE_ERROR, NOTICE_OK } from "@/lib/ui";
 
 /**
  * Pre-session preparation (F6). Which fields appear is decided by `preSessionShape` from the
@@ -22,8 +20,12 @@ const inputClass =
  *
  * Nothing here blocks: the student can leave at any point, the session still happens, and what
  * they did fill in reaches the tutor.
+ *
+ * `onRefresh` re-pulls the view this form was handed. Uploads and diagnostic answers are owned by
+ * the server, so after one changes, `router.refresh()` alone updates only the page *behind* the
+ * dialog — the list of attachments in here would keep showing the old set.
  */
-export function PrepareForm({ view }: { view: PreSessionView }) {
+export function PrepareForm({ view, onRefresh }: { view: PreSessionView; onRefresh?: () => void }) {
   const router = useRouter();
   const { shape, values, uploads } = view;
 
@@ -51,6 +53,7 @@ export function PrepareForm({ view }: { view: PreSessionView }) {
       if (!result.ok) return setError(result.message);
       setStatus(result.complete ? "Saved — your tutor has everything they need." : "Saved.");
       router.refresh();
+      onRefresh?.();
     });
   }
 
@@ -61,6 +64,7 @@ export function PrepareForm({ view }: { view: PreSessionView }) {
       if (!result.ok) return setError(result.message);
       setLink("");
       router.refresh();
+      onRefresh?.();
     });
   }
 
@@ -72,6 +76,7 @@ export function PrepareForm({ view }: { view: PreSessionView }) {
       if (!result.ok) return setError(result.message);
       if (fileRef.current) fileRef.current.value = "";
       router.refresh();
+      onRefresh?.();
     });
   }
 
@@ -79,6 +84,7 @@ export function PrepareForm({ view }: { view: PreSessionView }) {
     start(async () => {
       await removeSessionUpload(id);
       router.refresh();
+      onRefresh?.();
     });
   }
 
@@ -86,26 +92,26 @@ export function PrepareForm({ view }: { view: PreSessionView }) {
     <div className="flex flex-col gap-6">
       {shape.fields.includes("topic") && (
         <label className="flex flex-col gap-2">
-          <span className="font-semibold text-navy-900">{shape.topicLabel}</span>
-          <input className={inputClass} value={topic} onChange={(e) => setTopic(e.target.value)} />
+          <span className={LABEL}>{shape.topicLabel}</span>
+          <input className={INPUT} value={topic} onChange={(e) => setTopic(e.target.value)} />
         </label>
       )}
 
       {shape.fields.includes("classes") && (
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="flex flex-col gap-2">
-            <span className="font-semibold text-navy-900">What math are you taking now?</span>
+            <span className={LABEL}>What math are you taking now?</span>
             <input
-              className={inputClass}
+              className={INPUT}
               value={currentClass}
               onChange={(e) => setCurrentClass(e.target.value)}
               placeholder="e.g. Algebra 1"
             />
           </label>
           <label className="flex flex-col gap-2">
-            <span className="font-semibold text-navy-900">And before that?</span>
+            <span className={LABEL}>And before that?</span>
             <input
-              className={inputClass}
+              className={INPUT}
               value={previousClass}
               onChange={(e) => setPreviousClass(e.target.value)}
               placeholder="e.g. Pre-Algebra"
@@ -122,9 +128,9 @@ export function PrepareForm({ view }: { view: PreSessionView }) {
 
       {shape.fields.includes("notes") && (
         <label className="flex flex-col gap-2">
-          <span className="font-semibold text-navy-900">What&apos;s giving you trouble?</span>
+          <span className={LABEL}>What&apos;s giving you trouble?</span>
           <textarea
-            className={`${inputClass} min-h-32`}
+            className={`${INPUT} min-h-32`}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             maxLength={4000}
@@ -135,16 +141,16 @@ export function PrepareForm({ view }: { view: PreSessionView }) {
 
       {shape.fields.includes("uploads") && (
         <div className="flex flex-col gap-3">
-          <span className="font-semibold text-navy-900">
-            Anything to share? <span className="font-normal text-navy-500">(optional)</span>
+          <span className={LABEL}>
+            Anything to share? <span className="font-normal text-navy-950/45">(optional)</span>
           </span>
 
           {uploads.length > 0 && (
-            <ul className="flex flex-col gap-2">
+            <ul className="border-t border-navy-950/10">
               {uploads.map((upload) => (
                 <li
                   key={upload.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-navy-100 bg-white px-3 py-2 text-sm"
+                  className="flex items-center justify-between gap-3 border-b border-navy-950/10 py-2.5 text-[0.875rem]"
                 >
                   <span className="truncate text-navy-800">
                     {upload.linkUrl ? `Link — ${upload.fileName}` : upload.fileName}
@@ -152,7 +158,7 @@ export function PrepareForm({ view }: { view: PreSessionView }) {
                   <button
                     type="button"
                     onClick={() => remove(upload.id)}
-                    className="shrink-0 font-semibold text-navy-500 hover:text-[var(--error)]"
+                    className="shrink-0 font-semibold text-navy-950/45 hover:text-[var(--error)]"
                   >
                     Remove
                   </button>
@@ -167,20 +173,16 @@ export function PrepareForm({ view }: { view: PreSessionView }) {
               type="file"
               name="file"
               accept={UPLOAD_EXTENSIONS.join(",")}
-              className="text-sm text-navy-700 file:mr-3 file:rounded-lg file:border-0 file:bg-navy-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-navy-900"
+              className="text-[0.875rem] text-navy-700 file:mr-3 file:border-0 file:bg-navy-100 file:px-3 file:py-2 file:text-[0.875rem] file:font-semibold file:text-navy-950"
             />
-            <button
-              type="submit"
-              disabled={pending}
-              className="rounded-lg border border-navy-200 px-4 py-2 text-sm font-semibold text-navy-800 hover:border-navy-400 disabled:opacity-60"
-            >
+            <button type="submit" disabled={pending} className={BTN_SECONDARY}>
               Attach
             </button>
           </form>
 
           <div className="flex flex-wrap items-center gap-3">
             <input
-              className={`${inputClass} max-w-md flex-1`}
+              className={`${INPUT} max-w-md flex-1`}
               value={link}
               onChange={(e) => setLink(e.target.value)}
               placeholder="…or paste a Google Docs link"
@@ -189,36 +191,27 @@ export function PrepareForm({ view }: { view: PreSessionView }) {
               type="button"
               onClick={attachLink}
               disabled={pending || !link}
-              className="rounded-lg border border-navy-200 px-4 py-2 text-sm font-semibold text-navy-800 hover:border-navy-400 disabled:opacity-60"
+              className={BTN_SECONDARY}
             >
               Add link
             </button>
           </div>
 
-          <p className="text-sm text-navy-600">
+          <p className="text-[0.875rem] text-navy-950/55">
             We accept {UPLOAD_EXTENSIONS.join(", ")} files.
           </p>
         </div>
       )}
 
       {error && (
-        <p role="alert" className="rounded-lg bg-[var(--error-light)] px-3 py-2 text-sm text-[var(--error)]">
+        <p role="alert" className={NOTICE_ERROR}>
           {error}
         </p>
       )}
-      {status && (
-        <p className="rounded-lg bg-[var(--success-light)] px-3 py-2 text-sm text-[var(--success)]">
-          {status}
-        </p>
-      )}
+      {status && <p className={NOTICE_OK}>{status}</p>}
 
       <div>
-        <button
-          type="button"
-          onClick={save}
-          disabled={pending}
-          className="rounded-lg bg-navy-900 px-6 py-3 font-semibold text-white hover:bg-navy-800 disabled:opacity-60"
-        >
+        <button type="button" onClick={save} disabled={pending} className={BTN_LG}>
           {pending ? "Saving…" : "Save"}
         </button>
       </div>

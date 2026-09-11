@@ -5,6 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { PRICING, type SkuId } from "@/lib/pricing";
 import { sendReceipt } from "@/lib/notify/email";
 import { activateStudentLogins } from "@/lib/accounts/student-credentials";
+import { attachCalendarEvent } from "@/lib/booking/calendar";
+import { sendBookingConfirmationEmail } from "@/lib/notify/booking";
 
 /**
  * TASK-BILLING-001. The trusted credit/purchase trigger — `08_API_CONTRACTS.md`. Must verify the
@@ -38,6 +40,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   const purpose = session.metadata?.purpose ?? null;
   const subPurpose = session.metadata?.sub_purpose ?? null;
   const profileId = session.metadata?.profile_id ?? null;
+  const startsAt = session.metadata?.starts_at ?? null;
+  const specifics = session.metadata?.specifics ?? null;
 
   if (!accountId || !sku || !(sku in PRICING)) {
     // Malformed metadata should never happen from our own checkout session creation, but a
@@ -72,6 +76,35 @@ export async function POST(request: Request): Promise<NextResponse> {
       await activateStudentLogins(accountId);
     } catch {
       // Deliberately swallowed: the DB flag is already set, so this is recoverable state.
+    }
+  }
+
+  // The buyer chose the time before paying (ADR-009), so paying is what books it. Nothing held the
+  // slot through checkout, so it can be gone; that is a recoverable state, not a failure — the
+  // purchase stands as an unspent entitlement the buyer spends on `/book`. Like the activation
+  // above, this never blocks the 200: a 500 makes Stripe retry a payment that already succeeded.
+  if (processed && sku === "first_session" && startsAt && profileId) {
+    try {
+      const { data: purchase } = await admin
+        .from("purchases")
+        .select("id")
+        .eq("stripe_session_id", session.id)
+        .maybeSingle();
+      if (purchase) {
+        const { data: bookingId } = await admin.rpc("book_first_session_for_account", {
+          p_account_id: accountId,
+          p_profile_id: profileId,
+          p_starts_at: startsAt,
+          p_purchase_id: purchase.id,
+          p_specifics: specifics,
+        });
+        if (bookingId) {
+          await attachCalendarEvent(bookingId as string);
+          await sendBookingConfirmationEmail(bookingId as string);
+        }
+      }
+    } catch {
+      // Deliberately swallowed — see above. The entitlement is still spendable on `/book`.
     }
   }
 

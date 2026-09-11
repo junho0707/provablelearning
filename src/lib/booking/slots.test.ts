@@ -99,16 +99,16 @@ describe("generateSlots — exceptions", () => {
   });
 });
 
-describe("isBookable — 6h notice, Monday-stepped 4-week horizon (AT-BOOK-003/4/5)", () => {
+describe("isBookable — 2h notice, Monday-stepped 4-week horizon (AT-BOOK-003/4/5)", () => {
   // 2026-06-01 is a Monday, so the horizon is measured from this very day.
   const now = new Date("2026-06-01T00:00:00Z");
 
-  it("rejects a slot inside the 6h minimum notice", () => {
-    expect(isBookable(new Date("2026-06-01T05:00:00Z"), now)).toBe(false);
+  it("rejects a slot inside the 2h minimum notice", () => {
+    expect(isBookable(new Date("2026-06-01T01:00:00Z"), now)).toBe(false);
   });
 
-  it("accepts a slot exactly at the 6h boundary", () => {
-    expect(isBookable(new Date("2026-06-01T06:00:00Z"), now)).toBe(true);
+  it("accepts a slot exactly at the 2h boundary", () => {
+    expect(isBookable(new Date("2026-06-01T02:00:00Z"), now)).toBe(true);
   });
 
   it("accepts a slot within the 4-week horizon", () => {
@@ -127,8 +127,8 @@ describe("isBookable — 6h notice, Monday-stepped 4-week horizon (AT-BOOK-003/4
 describe("isBookable — a released slot keeps a 1h floor (INV-BOOK-3, AT-BOOK-004)", () => {
   const now = new Date("2026-06-01T00:00:00Z");
 
-  it("accepts a released slot inside the ordinary 6h floor", () => {
-    const slot = new Date("2026-06-01T02:00:00Z");
+  it("accepts a released slot inside the ordinary 2h floor", () => {
+    const slot = new Date("2026-06-01T01:30:00Z");
     expect(isBookable(slot, now)).toBe(false);
     expect(isBookable(slot, now, { released: true })).toBe(true);
   });

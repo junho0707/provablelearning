@@ -41,3 +41,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 *.swp
+
+# Local dev server log and Windows download markers
+dev.out
+*:Zone.Identifier

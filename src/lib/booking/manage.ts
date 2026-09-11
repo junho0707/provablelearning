@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { POLICY_COPY } from "@/lib/policy";
 import { cancelCalendarEvent, updateCalendarEventTime } from "./calendar";
 
 export type CancelResult = { ok: true; refunded: boolean } | { ok: false; code: "denied" | "not_found" | "invalid_state" | "malformed"; message: string };
@@ -40,15 +41,15 @@ export async function cancelBooking(input: { bookingId: string }): Promise<Cance
 const RESCHEDULE_ERRORS: Record<string, { code: Exclude<RescheduleResult, { ok: true }>["code"]; message: string }> = {
   not_found: { code: "not_found", message: "Booking not found." },
   invalid_state: { code: "invalid_state", message: "That booking can no longer be changed." },
-  too_late: { code: "too_late", message: "Rescheduling needs at least 6 hours' notice — cancel instead." },
+  too_late: { code: "too_late", message: `Rescheduling needs at least ${POLICY_COPY.minNotice}' notice — cancel instead.` },
   slot_taken: { code: "slot_taken", message: "That time was just taken. Pick another." },
   new_slot_not_bookable: {
     code: "too_late",
-    message: "Pick a time at least 6 hours out and inside the booking window.",
+    message: `Pick a time at least ${POLICY_COPY.minNotice} out and inside the booking window.`,
   },
 };
 
-/** Reschedule (F9). Offered ≥6h before the current start, enforced in `reschedule_booking`, and it never touches the ledger. */
+/** Reschedule (F9). Offered ≥ the minimum notice before the current start, enforced in `reschedule_booking`, and it never touches the ledger. */
 export async function rescheduleBooking(input: { bookingId: string; newSlot: string }): Promise<RescheduleResult> {
   const schema = z.object({ bookingId: z.string().uuid(), newSlot: z.string().datetime() });
   const parsed = schema.safeParse(input);
@@ -82,7 +83,7 @@ export async function rescheduleBooking(input: { bookingId: string; newSlot: str
 
 /**
  * Ask for a burned credit back (F10). Valid for any booking the caller owns whose credit was
- * burned — a `no_show`, or a cancellation made inside 6 hours. Eligibility, the
+ * burned — a `no_show`, or a cancellation made inside the minimum notice. Eligibility, the
  * one-live-appeal-per-booking rule, and the 2-per-calendar-month cap are all enforced in
  * `request_credit_return`, not here.
  */

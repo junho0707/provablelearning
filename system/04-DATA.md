@@ -16,7 +16,7 @@ application code alone. Application-layer checks are conveniences; the database 
 | `INV-MONEY-3` | A Stripe event is applied at most once, keyed on its event id. |
 | `INV-BOOK-1` | At most one active booking may exist per slot. |
 | `INV-BOOK-2` | `meet_url` is nullable; a Calendar failure leaves a valid booking with no link. |
-| `INV-BOOK-3` | A booking may not start sooner than 6 hours from creation, unless its slot was released by a cancellation, in which case the floor is 1 hour. |
+| `INV-BOOK-3` | A booking may not start sooner than 2 hours from creation, unless its slot was released by a cancellation, in which case the floor is 1 hour. |
 | `INV-CREDIT-1` | A booking's credit can be returned at most once. |
 | `INV-CREDIT-2` | Approved credit returns for one student within one calendar month never exceed 2. |
 | `INV-FIRST-1` | Each student has at most one First Session entitlement, ever. |
@@ -129,7 +129,7 @@ current schema covers them.
 ### Required changes
 
 - **Eligibility** today is "the credit was burned" — a `no_show`, or a `cancelled` booking with no
-  `cancel_refund` ledger row — computed against a **24-hour** rule. The window becomes **6 hours**.
+  `cancel_refund` ledger row — computed against a **24-hour** rule. The window becomes **2 hours** (`0019`, narrowed by `0024`).
 - **The 2-per-calendar-month cap is not implemented at all** (`INV-CREDIT-2`). It must be enforced
   **per student**, combined across late cancellations and no-shows, in the approval function — not in
   the admin UI. An approval that would be the third in a month must be refused by the database.

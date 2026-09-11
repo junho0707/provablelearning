@@ -8,6 +8,7 @@ import { getMyBookings } from "@/lib/booking/history";
 import { getBalance } from "@/lib/credits/balance";
 import { POLICY_COPY } from "@/lib/policy";
 import { BookingForm } from "./booking-form";
+import { BTN_LG, H1 } from "@/lib/ui";
 
 export const metadata = { title: "Book a session" };
 
@@ -31,13 +32,12 @@ export default async function BookPage({
 
   if (profiles.length === 0) {
     return (
-      <main className="mx-auto max-w-lg px-5 py-20 text-center">
-        <h1 className="text-2xl font-extrabold tracking-tight text-navy-950">Book a session</h1>
-        <p className="mt-3 text-navy-700">Add a student first — a session is booked for someone.</p>
-        <Link
-          href="/account"
-          className="mt-6 inline-block rounded-lg bg-navy-900 px-5 py-2.5 font-semibold text-white hover:bg-navy-800"
-        >
+      <main className="mx-auto max-w-[560px] px-6 py-24 text-center sm:px-10">
+        <h1 className={H1}>Book a session</h1>
+        <p className="mt-4 text-[0.9375rem] leading-relaxed text-navy-700">
+          Add a student first — a session is booked for someone.
+        </p>
+        <Link href="/account" className={`mt-10 ${BTN_LG}`}>
           Add a student
         </Link>
       </main>
@@ -61,28 +61,19 @@ export default async function BookPage({
   }));
 
   return (
-    <main className="mx-auto max-w-[720px] px-5 py-16 sm:px-8">
-      <h1 className="text-3xl font-extrabold tracking-[-0.01em] text-navy-950">Book a session</h1>
-      <p className="mb-10 mt-2 text-navy-600">
+    <main className="mx-auto max-w-[720px] px-6 py-16 sm:px-10">
+      <h1 className={H1}>Book a session</h1>
+      <p className="mt-3 text-[0.9375rem] leading-relaxed text-navy-700">
         60 minutes, 1:1. {POLICY_COPY.release} {POLICY_COPY.freeCancel}
       </p>
-
-      {balance < 1 && students.every((s) => !s.hasFirstSession) && (
-        <p className="mb-8 rounded-lg border border-navy-200 bg-white px-4 py-3 text-sm text-navy-800">
-          You have no credits left.{" "}
-          <Link href="/credits" className="font-semibold underline">
-            Buy a pack
-          </Link>{" "}
-          to book.
-        </p>
-      )}
-
-      <BookingForm
-        slots={slots}
-        students={students}
-        balance={balance}
-        initialStudentId={params.student}
-      />
+      <div className="mt-10">
+        <BookingForm
+          slots={slots}
+          students={students}
+          balance={balance}
+          initialStudentId={params.student}
+        />
+      </div>
     </main>
   );
 }

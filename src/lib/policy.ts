@@ -14,10 +14,10 @@ const DAY_MS = 24 * HOUR_MS;
 export const SESSION_MINUTES = 60;
 
 /**
- * Minimum notice to book (`02-POLICIES.md` §2). Six hours, matching the free-cancellation window
+ * Minimum notice to book (`02-POLICIES.md` §2). Two hours, matching the free-cancellation window
  * so one number governs both ends of the same decision.
  */
-export const MIN_NOTICE_MS = 6 * HOUR_MS;
+export const MIN_NOTICE_MS = 2 * HOUR_MS;
 
 /**
  * A slot freed by a cancellation may be reclaimed later than the normal floor — it is already on
@@ -63,16 +63,26 @@ export const UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
 /** Student-submitted data is deleted this long after deletion, revocation, or closure. */
 export const RETENTION_DAYS = 30;
 
+/** Spelled once so the prose and the bullet forms below cannot disagree about the window. */
+const MIN_NOTICE_TEXT = `${MIN_NOTICE_MS / HOUR_MS} hours`;
+
 /** Buyer-facing phrasings, so page copy never restates a number the code owns. */
 export const POLICY_COPY = {
-  minNotice: "6 hours",
+  minNotice: MIN_NOTICE_TEXT,
   horizon: "4 weeks",
-  release: "New times open every Monday.",
-  freeCancel: "Free to cancel or reschedule 6 or more hours ahead — the credit comes back.",
-  lateCancel:
-    "Inside 6 hours the credit is used. Tell us what happened and we'll review it — up to 2 credit returns per student each month.",
+  release: "Every Monday, the fifth week out opens.",
+  freeCancel: `Free to cancel or reschedule ${MIN_NOTICE_TEXT} or more ahead — the credit comes back.`,
+  lateCancel: `Inside ${MIN_NOTICE_TEXT} the credit is used. Tell us what happened and we'll review it — up to ${CREDIT_RETURNS_PER_MONTH} credit returns per student each month.`,
   noShow:
     "15 minutes late counts as a missed session. Tell us what happened and we'll review it — it counts toward the same 2 per month.",
   creditsNeverExpire: "Credits never expire.",
+
+  /**
+   * Terse variants for the marketing page's bullet lists. The prose forms above stay as they are
+   * because the legal pages read them as sentences; these say the same rules in fewer words.
+   */
+  freeCancelBullet: `${MIN_NOTICE_TEXT}+ before the session: free, and the credit comes back.`,
+  lateCancelBullet: `Inside ${MIN_NOTICE_TEXT} of the session: send a note and we'll refund the credit — up to ${CREDIT_RETURNS_PER_MONTH} times a month.`,
+  lateCancelCapBullet: `Beyond that, the credit is used.`,
   materials: "Your written materials arrive within 24 hours of the session.",
 } as const;

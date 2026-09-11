@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans } from "next/font/google";
+import { Outfit } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { SITE_URL } from "@/lib/site";
 
-const ibmPlexSans = IBM_Plex_Sans({
-  variable: "--font-plex",
+// Outfit is the wordmark's typeface, so the page and the logo share one voice. It ships as a
+// variable font — no `weight` list, every weight from 100–900 comes out of the single file.
+const outfit = Outfit({
+  variable: "--font-outfit",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -27,7 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${ibmPlexSans.variable} antialiased overflow-x-hidden`}>
+      <body className={`${outfit.variable} antialiased overflow-x-hidden`}>
         {children}
         <Analytics />
       </body>

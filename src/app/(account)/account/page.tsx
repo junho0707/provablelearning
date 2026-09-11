@@ -6,6 +6,7 @@ import { courses } from "@/lib/content/roadmap";
 import { StudentManager } from "./student-manager";
 import { PhoneSetting } from "./phone-setting";
 import { RETENTION_DAYS } from "@/lib/policy";
+import { BODY, H1, H2 } from "@/lib/ui";
 
 export const metadata = { title: "Account" };
 
@@ -24,68 +25,67 @@ export default async function AccountPage() {
   ]);
 
   return (
-    <main>
-      <section className="mx-auto max-w-[1120px] px-5 py-20 sm:px-8">
-        <h1 className="mb-12 text-3xl font-extrabold tracking-[-0.01em] text-navy-950 sm:text-4xl">
-          Account
-        </h1>
+    <main className="mx-auto max-w-[1200px] px-6 py-16 sm:px-10">
+      <h1 className={H1}>Account</h1>
 
-        <div className="mb-12">
-          <h2 className="mb-2 text-2xl font-bold tracking-[-0.01em] text-navy-950">Students</h2>
-          <p className="mb-8 text-navy-600">
-            Add who&apos;s learning — you, your kid, or both. Each student gets their own sign-in for
-            session prep and materials. They can never see billing or book a session.
+      <section className="mt-12 border-t border-navy-950/10 pt-10">
+        <h2 className={`mb-8 ${H2}`}>Students</h2>
+        <StudentManager profiles={profiles} courseOptions={courses()} />
+      </section>
+
+      <section className="mt-12 border-t border-navy-950/10 pt-10">
+        <h2 className={`mb-3 ${H2}`}>Privacy &amp; consent</h2>
+        <div className="max-w-[68ch]">
+          <p className={`mb-4 ${BODY}`}>
+            Because students can be under 13, the law requires a parent&apos;s permission before we
+            collect anything from them directly. Your first purchase is that permission — paying by
+            card is how we confirm you&apos;re the adult on the account.
           </p>
-          <StudentManager profiles={profiles} courseOptions={courses()} />
+          <p className={BODY}>
+            Afterwards, each student&apos;s row above has two controls.{" "}
+            <strong className="font-semibold text-navy-950">Withdraw consent</strong> closes that
+            student&apos;s sign-in and stops any further collection.{" "}
+            <strong className="font-semibold text-navy-950">Delete</strong> erases everything we
+            hold about them within {RETENTION_DAYS} days.
+          </p>
         </div>
 
-        <div className="mb-12 border-t border-navy-100 pt-10">
-          <h2 className="mb-2 text-2xl font-bold tracking-[-0.01em] text-navy-950">
-            Privacy &amp; consent
-          </h2>
-          <p className="mb-6 text-navy-600">
-            You control what we hold about each student. Withdrawing consent turns off their sign-in
-            and stops any further collection; deleting removes everything within {RETENTION_DAYS}{" "}
-            days. Both are on each student&apos;s row above.
-          </p>
+        <div className="mt-8 border border-navy-950/10 bg-white p-6">
+          {consent.granted ? (
+            <p className="text-[0.9375rem] leading-relaxed text-navy-800">
+              <strong className="font-semibold text-navy-950">Permission on file</strong> since{" "}
+              {new Date(consent.grantedAt!).toLocaleDateString()}, recorded when you completed your
+              first purchase. Your students can sign in.
+            </p>
+          ) : (
+            <p className="text-[0.9375rem] leading-relaxed text-navy-800">
+              <strong className="font-semibold text-navy-950">No permission on file yet</strong>, so
+              no student can sign in — even once you&apos;ve given them a username and password. Your
+              first purchase records it and opens their sign-ins straight away.
+            </p>
+          )}
 
-          <div className="rounded-xl border border-navy-100 bg-white p-6 shadow-[var(--shadow-card)]">
-            {consent.granted ? (
-              <p className="text-navy-800">
-                Consent on file since{" "}
-                <strong>{new Date(consent.grantedAt!).toLocaleDateString()}</strong>, given when you
-                completed your first purchase.
-              </p>
-            ) : (
-              <p className="text-navy-800">
-                No consent recorded yet. Student sign-ins stay closed until your first purchase,
-                which is what records it.
-              </p>
-            )}
-
-            {consent.events.length > 0 && (
-              <ul className="mt-4 flex flex-col gap-1.5 border-t border-navy-100 pt-4 text-sm text-navy-600">
-                {consent.events.map((event, i) => (
-                  <li key={i}>
-                    {new Date(event.at).toLocaleString()} — consent {event.event}
-                    {event.mechanism === "stripe_payment" ? " by card payment" : ""}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          {consent.events.length > 0 && (
+            <ul className="mt-5 flex flex-col gap-1.5 border-t border-navy-950/10 pt-5 text-[0.875rem] text-navy-950/55">
+              {consent.events.map((event, i) => (
+                <li key={i}>
+                  {new Date(event.at).toLocaleString()} — consent {event.event}
+                  {event.mechanism === "stripe_payment" ? " by card payment" : ""}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
+      </section>
 
-        <div className="border-t border-navy-100 pt-10">
-          <h2 className="mb-2 text-2xl font-bold tracking-[-0.01em] text-navy-950">
-            Contact number
-          </h2>
-          <p className="mb-8 text-navy-600">
-            Session reminders go to your email. Add a number only if you&apos;d rather get them by
-            text.
-          </p>
-          <PhoneSetting currentPhone={account?.phone ?? null} />
-        </div>
+      <section className="mt-12 border-t border-navy-950/10 pt-10">
+        <h2 className={`mb-3 ${H2}`}>Contact number</h2>
+        <p className={`mb-8 max-w-[68ch] ${BODY}`}>
+          We email you a reminder before every session. If you&apos;d rather get it as a text
+          message, add a mobile number here — otherwise leave this blank and we&apos;ll stick to
+          email.
+        </p>
+        <PhoneSetting currentPhone={account?.phone ?? null} />
       </section>
     </main>
   );
