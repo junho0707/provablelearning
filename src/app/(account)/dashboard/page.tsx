@@ -83,6 +83,19 @@ export default async function DashboardPage({
   const claimable = new Set(eligibleFirstSessions.map((s) => s.profileId));
   const firstSessionPrice = formatPrice(PRICING.first_session.priceCents);
 
+  /**
+   * What a student's row is actually asking the buyer to do. Exactly one of these is true at a
+   * time, and the row leads with it: the First Session is still on offer, it is paid for and
+   * waiting to be booked, it is spent and the wallet is empty, or there are credits to spend.
+   * "Book a session" alone was a dead end for the first two and the third — the booking form
+   * turns away anyone without a credit, and nothing said where to get one.
+   */
+  function rowState(profileId: string) {
+    if (claimable.has(profileId)) return "claim";
+    if (prepaid.has(profileId)) return "prepaid";
+    return balance === 0 ? "needs-credits" : "ready";
+  }
+
   if (profiles.length === 0) {
     return (
       <main className="mx-auto max-w-[720px] px-6 py-24 text-center sm:px-10">
@@ -140,14 +153,19 @@ export default async function DashboardPage({
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {claimable.has(profile.id) && (
+                {rowState(profile.id) === "claim" && (
                   <Link href="/first-session" className={BTN}>
                     Claim first session · {firstSessionPrice}
                   </Link>
                 )}
+                {rowState(profile.id) === "needs-credits" && (
+                  <Link href="/credits" className={BTN}>
+                    Buy credits
+                  </Link>
+                )}
                 <Link
                   href={`/book?student=${profile.id}`}
-                  className={claimable.has(profile.id) ? BTN_SECONDARY : BTN}
+                  className={rowState(profile.id) === "ready" ? BTN : BTN_SECONDARY}
                 >
                   Book a session
                 </Link>
@@ -180,13 +198,25 @@ export default async function DashboardPage({
               </p>
             )}
 
-            {claimable.has(profile.id) && (
+            {rowState(profile.id) === "claim" && (
               <p className={`mt-5 ${NOTICE_GOLD}`}>
                 <strong className="font-semibold text-navy-950">
                   First session, {firstSessionPrice}
                 </strong>{" "}
                 — {profile.name} hasn&apos;t had theirs yet. One per student, and it needs no
                 credits.
+              </p>
+            )}
+
+            {rowState(profile.id) === "needs-credits" && (
+              <p className={`mt-5 ${NOTICE}`}>
+                <strong className="font-semibold text-navy-950">
+                  {profile.name}&apos;s first session is used
+                </strong>{" "}
+                — every session after it takes a credit, and your wallet is empty.{" "}
+                <Link href="/credits" className="font-semibold text-navy-950 underline">
+                  Buy credits
+                </Link>
               </p>
             )}
 
