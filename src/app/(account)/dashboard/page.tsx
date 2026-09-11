@@ -3,12 +3,12 @@ import { redirect } from "next/navigation";
 import { listProfiles } from "@/lib/accounts/profiles";
 import { getBalance } from "@/lib/credits/balance";
 import { currentBuyerId } from "@/lib/auth/session";
-import { listUnusedFirstSessions } from "@/lib/assessment/first-session";
+import { listFirstSessionEligible, listUnusedFirstSessions } from "@/lib/assessment/first-session";
 import { getMyBookings } from "@/lib/booking/history";
 import { labelFor } from "@/lib/accounts/purposes";
 import { PurchaseNotice } from "@/components/purchase-notice";
 import { PRICING, formatPrice } from "@/lib/pricing";
-import { BTN, BTN_LG, EYEBROW, H1, NOTICE, NOTICE_GOLD } from "@/lib/ui";
+import { BTN, BTN_LG, BTN_SECONDARY, EYEBROW, H1, NOTICE, NOTICE_GOLD } from "@/lib/ui";
 
 export const metadata = { title: "Dashboard" };
 
@@ -45,12 +45,14 @@ export default async function DashboardPage({
   // (`03-FLOWS.md` F3, failure paths).
   const justPaid = (await searchParams).purchase === "success";
 
-  const [profiles, balance, unusedFirstSessions, bookings] = await Promise.all([
-    listProfiles(),
-    getBalance(),
-    listUnusedFirstSessions(),
-    getMyBookings(),
-  ]);
+  const [profiles, balance, unusedFirstSessions, eligibleFirstSessions, bookings] =
+    await Promise.all([
+      listProfiles(),
+      getBalance(),
+      listUnusedFirstSessions(),
+      listFirstSessionEligible(),
+      getMyBookings(),
+    ]);
 
   // Upcoming sessions belong to a student, not to the account, so they are listed under the
   // student they were booked for rather than in one pile a parent of two would have to read names
@@ -73,6 +75,13 @@ export default async function DashboardPage({
   // the wallet stays at zero and a buyer who has paid would otherwise read "0 credits" as nothing.
   // Bought-and-unused, never "eligible to buy": handing the latter a free booking gives it away.
   const prepaid = new Set(unusedFirstSessions);
+
+  // The opposite set: students who have not bought their First Session yet. A buyer with no credits
+  // and no entitlement has nothing to act on otherwise — the row would offer "Book a session" and
+  // the booking form would then turn them away for having no credit. The two sets never overlap
+  // (`listFirstSessionEligible` excludes anyone who has bought one), so a row shows one or neither.
+  const claimable = new Set(eligibleFirstSessions.map((s) => s.profileId));
+  const firstSessionPrice = formatPrice(PRICING.first_session.priceCents);
 
   if (profiles.length === 0) {
     return (
@@ -131,7 +140,15 @@ export default async function DashboardPage({
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Link href={`/book?student=${profile.id}`} className={BTN}>
+                {claimable.has(profile.id) && (
+                  <Link href="/first-session" className={BTN}>
+                    Claim first session · {firstSessionPrice}
+                  </Link>
+                )}
+                <Link
+                  href={`/book?student=${profile.id}`}
+                  className={claimable.has(profile.id) ? BTN_SECONDARY : BTN}
+                >
                   Book a session
                 </Link>
               </div>
@@ -160,6 +177,16 @@ export default async function DashboardPage({
               <p className={`mt-5 ${NOTICE_GOLD}`}>
                 <strong className="font-semibold text-navy-950">First session paid</strong> —{" "}
                 {profile.name} has one session ready to book. It costs no credit.
+              </p>
+            )}
+
+            {claimable.has(profile.id) && (
+              <p className={`mt-5 ${NOTICE_GOLD}`}>
+                <strong className="font-semibold text-navy-950">
+                  First session, {firstSessionPrice}
+                </strong>{" "}
+                — {profile.name} hasn&apos;t had theirs yet. One per student, and it needs no
+                credits.
               </p>
             )}
 
