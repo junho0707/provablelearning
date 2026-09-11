@@ -9,7 +9,7 @@ codebase.
 |---|---|---|
 | `/` | **CHANGE** | Marketing page. Must be rebuilt around the offer: First Session $25 vs $75, the purpose options in buyer language, how sessions work. The current hero was written for the free-content model and its "explore the roadmap" CTA points at a page that is no longer public. |
 | `/login` | **EXISTS** | Buyer sign-in: Google OAuth popup + magic link. No password field, ever. |
-| `/auth/callback` | **EXISTS** | OAuth/magic-link exchange. |
+| `/auth/callback` | **EXISTS** | Magic-link exchange. Google no longer passes through here — its token is minted in the browser. |
 | `/privacy` | **CHANGE** | Must gain the kids-specific disclosure (`06-AUTH-AND-COPPA.md` §4). |
 | `/terms`, `/refund-policy` | **EXISTS** | Review for the 2-hour window and the 2/month cap. |
 | `/courses/**`, `/roadmap` | **REMOVE FROM PUBLIC** | Content is not public at launch (`00-BUSINESS.md` §1). Unroute them, and drop them from `sitemap.ts` and `robots.ts`. Keep the code and the content — this is a visibility decision, not a deletion. |

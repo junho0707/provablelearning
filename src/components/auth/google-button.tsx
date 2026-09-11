@@ -1,98 +1,150 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Script from "next/script";
 import { createClient } from "@/lib/supabase/client";
 
 /**
- * Google sign-in as a popup window, not a full-page redirect. Google refuses to render its login
- * screen inside an iframe (blocks it via X-Frame-Options), so a real `window.open` popup — not an
- * inline modal — is the only way to keep the visitor on this page while they authenticate.
+ * Google sign-in through Google Identity Services, not through Supabase's redirect flow.
  *
- * Flow: open a blank popup synchronously (so browsers don't treat it as a blocked pop-up), fetch
- * the OAuth URL, point the popup at it. `/auth/callback?popup=1` renders a page that posts a
- * message back to this window and closes itself; we react to that message.
+ * The redirect flow (`signInWithOAuth`) hands Google `redirect_uri=<project-ref>.supabase.co`, and
+ * Google's consent screen names the host that receives the token — so the buyer was asked to sign
+ * in to a string of random letters they had never seen. Google will not show our domain there:
+ * brand verification requires owning every authorized domain, and `supabase.co` is not ours.
  *
- * Because the popup cannot redirect the opener, this is the only place that decides where a Google
- * sign-in lands. Refreshing alone left the buyer on whatever page they started from — signing in
- * from the landing put them back on the landing, looking at a marketing page for a product they
- * had just signed into.
+ * GIS mints the ID token for our *JavaScript origin* instead, so the popup says
+ * provablelearning.com and no redirect happens at all. Supabase accepts the token because our
+ * client id is listed under the Google provider's Authorized Client IDs.
+ *
+ * Google only issues an ID token from a button it renders itself, so the markup below is theirs,
+ * configured to sit as close to our own buttons as its options allow.
  */
+
+type CredentialResponse = { credential: string };
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize(config: {
+            client_id: string;
+            callback: (response: CredentialResponse) => void;
+            nonce?: string;
+            ux_mode?: "popup" | "redirect";
+            itp_support?: boolean;
+          }): void;
+          renderButton(
+            parent: HTMLElement,
+            options: {
+              type?: "standard" | "icon";
+              theme?: "outline" | "filled_blue" | "filled_black";
+              size?: "large" | "medium" | "small";
+              text?: "signin_with" | "signup_with" | "continue_with";
+              shape?: "rectangular" | "pill" | "circle" | "square";
+              logo_alignment?: "left" | "center";
+              width?: number;
+            },
+          ): void;
+        };
+      };
+    };
+  }
+}
+
+const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+
+/**
+ * A nonce ties the token to this page load. Supabase hashes what we give it and compares that to
+ * what Google embedded, so Google gets the hash and Supabase gets the original.
+ */
+async function makeNonce() {
+  const raw = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))));
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));
+  const hashed = Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return { raw, hashed };
+}
+
 export function GoogleButton({
   onSuccess,
   redirectTo = "/dashboard",
 }: { onSuccess?: () => void; redirectTo?: string } = {}) {
   const router = useRouter();
-  const popupRef = useRef<Window | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const nonceRef = useRef<string | null>(null);
+  const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const handleCredential = useCallback(
+    async (response: CredentialResponse) => {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: "google",
+        token: response.credential,
+        nonce: nonceRef.current ?? undefined,
+      });
+      if (error) {
+        console.error("[auth] Google id-token sign-in failed:", error.message);
+        setFailed(true);
+        return;
+      }
+      onSuccess?.();
+      // This is the only place a Google sign-in decides where it lands: signing in from the
+      // landing left the buyer on a marketing page for a product they had just signed into.
+      router.push(redirectTo);
+      router.refresh();
+    },
+    [router, onSuccess, redirectTo],
+  );
 
   useEffect(() => {
-    function onMessage(event: MessageEvent) {
-      if (event.origin !== window.location.origin) return;
-      if (event.data?.type !== "oauth-complete") return;
-      popupRef.current = null;
-      if (event.data.ok) {
-        onSuccess?.();
-        router.push(redirectTo);
-        router.refresh();
-      }
-    }
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [router, onSuccess, redirectTo]);
+    const container = containerRef.current;
+    if (!ready || !container || !CLIENT_ID) return;
 
-  async function handleClick() {
-    const width = 480;
-    const height = 640;
-    const left = window.screenX + (window.outerWidth - width) / 2;
-    const top = window.screenY + (window.outerHeight - height) / 2;
-    const popup = window.open(
-      "",
-      "google-oauth",
-      `width=${width},height=${height},left=${left},top=${top}`,
-    );
-    popupRef.current = popup;
-
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?popup=1`,
-        skipBrowserRedirect: true,
-      },
+    // `initialize` configures one global client, so only one of these buttons may be mounted at a
+    // time — a second would take the callback away from the first.
+    let cancelled = false;
+    makeNonce().then(({ raw, hashed }) => {
+      if (cancelled || !window.google) return;
+      nonceRef.current = raw;
+      window.google.accounts.id.initialize({
+        client_id: CLIENT_ID,
+        callback: handleCredential,
+        nonce: hashed,
+        ux_mode: "popup",
+        itp_support: true,
+      });
+      window.google.accounts.id.renderButton(container, {
+        type: "standard",
+        theme: "outline",
+        size: "large",
+        text: "continue_with",
+        shape: "rectangular",
+        logo_alignment: "left",
+        // Google caps its button at 400px; ours is as wide as the form it sits in.
+        width: Math.min(container.offsetWidth || 400, 400),
+      });
     });
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, handleCredential]);
 
-    if (error || !data?.url || !popup) {
-      popup?.close();
-      return;
-    }
-    popup.location.href = data.url;
-  }
+  // Without a client id there is no button to render, and the email form below it still works.
+  if (!CLIENT_ID) return null;
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      className="flex w-full items-center justify-center gap-2 border border-navy-950/15 bg-white px-4 py-2.5 text-[0.875rem] font-semibold text-navy-950 hover:border-navy-950"
-    >
-      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-        <path
-          fill="#4285F4"
-          d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.84 2.09-1.8 2.73v2.27h2.91c1.7-1.57 2.69-3.87 2.69-6.64Z"
-        />
-        <path
-          fill="#34A853"
-          d="M9 18c2.43 0 4.47-.8 5.96-2.17l-2.91-2.27c-.81.54-1.84.86-3.05.86-2.34 0-4.33-1.58-5.04-3.71H.96v2.34C2.44 15.98 5.48 18 9 18Z"
-        />
-        <path
-          fill="#FBBC05"
-          d="M3.96 10.71a5.4 5.4 0 0 1 0-3.42V4.95H.96a9 9 0 0 0 0 8.1l3-2.34Z"
-        />
-        <path
-          fill="#EA4335"
-          d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.95l3 2.34C4.67 5.16 6.66 3.58 9 3.58Z"
-        />
-      </svg>
-      Continue with Google
-    </button>
+    <>
+      <Script src="https://accounts.google.com/gsi/client" onReady={() => setReady(true)} />
+      <div ref={containerRef} className="min-h-[2.5rem] [color-scheme:light]" />
+      {failed && (
+        <p className="mt-2 text-[0.875rem] text-[var(--error)]">
+          That sign-in didn&apos;t go through. Try again, or use your email below.
+        </p>
+      )}
+    </>
   );
 }
