@@ -115,8 +115,10 @@ async function startCheckout(input: {
 }): Promise<CheckoutResult> {
   const stripe = stripeClient();
   // A paid First Session is already booked by the time the buyer is back, so the dashboard — where
-  // that session now sits — is the only page that can honestly answer "did it work?".
-  const returnPath = input.sku === "first_session" ? "/dashboard" : "/credits";
+  // that session now sits — is the only page that can honestly answer "did it work?". Credits are
+  // bought in order to spend them, so a bundle returns to `/sessions`, which is where the booking
+  // is made; the balance itself is one click away on `/credits`.
+  const returnPath = input.sku === "first_session" ? "/dashboard" : "/sessions";
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",

@@ -418,9 +418,12 @@ export function StudentManager({
       setUsername("");
       setPassword("");
       setAdding(false);
-      // A new student's next step is booking them a session, which lives on the dashboard.
+      // A new student's next step is claiming their first session, which lives on the dashboard.
+      // No `router.refresh()` after this: refresh re-fetches the route the buyer is standing on,
+      // and firing it into a push that has not settled cancelled the navigation — which is how
+      // adding a student kept leaving the buyer on `/account`. Both surfaces are already
+      // revalidated server-side by `revalidateStudentSurfaces`, so there is nothing to refresh.
       router.push("/dashboard");
-      router.refresh();
     });
   }
 

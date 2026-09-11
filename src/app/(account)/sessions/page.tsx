@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getMyBookings } from "@/lib/booking/history";
 import { POLICY_COPY } from "@/lib/policy";
 import { BookingsList } from "./bookings-list";
-import { BTN, H1, H2, H3 } from "@/lib/ui";
+import { PurchaseNotice } from "@/components/purchase-notice";
+import { BTN, H1, H2, H3, NOTICE_GOLD } from "@/lib/ui";
 
 export const metadata = { title: "Sessions" };
 
@@ -17,7 +18,16 @@ const SESSION_RULES = [
 
 /** TASK-BOOK-004. Booking only — buying happens on `/credits`, so no checkout redirect can
  * interrupt a slot that's been picked but not confirmed. */
-export default async function SessionsPage() {
+export default async function SessionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ purchase?: string }>;
+}) {
+  // Buying a bundle returns here rather than to `/credits` — the buyer bought a credit in order to
+  // spend it, and this is where it is spent. Stripe sends them back a second or two ahead of the
+  // webhook that grants the credit, so say so rather than render a booking form that would refuse
+  // them for a balance that is about to be right (`03-FLOWS.md` F3, failure paths).
+  const justPaid = (await searchParams).purchase === "success";
   const supabase = await createClient();
   const {
     data: { user },
@@ -32,6 +42,15 @@ export default async function SessionsPage() {
       <p className="mt-3 text-[0.9375rem] leading-relaxed text-navy-700">
         What&apos;s coming up, and everything you&apos;ve had.
       </p>
+
+      {justPaid && (
+        <PurchaseNotice>
+          <p className={`mt-8 ${NOTICE_GOLD}`}>
+            <strong className="font-semibold text-navy-950">Payment received</strong> — your credits
+            land within a few seconds. Book below once they do.
+          </p>
+        </PurchaseNotice>
+      )}
 
       <section className="mt-12 border-t border-navy-950/10 pt-10">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">

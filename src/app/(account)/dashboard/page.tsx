@@ -154,7 +154,10 @@ export default async function DashboardPage({
 
               <div className="flex flex-wrap gap-2">
                 {rowState(profile.id) === "claim" && (
-                  <Link href="/first-session" className={BTN}>
+                  // To `/credits`, not straight to `/first-session`: the offer sits there beside
+                  // the bundles, so a buyer who decides the discounted hour isn't what they want
+                  // can buy credits without walking back out of a checkout.
+                  <Link href="/credits" className={BTN}>
                     Claim first session · {firstSessionPrice}
                   </Link>
                 )}
@@ -201,10 +204,10 @@ export default async function DashboardPage({
             {rowState(profile.id) === "claim" && (
               <p className={`mt-5 ${NOTICE_GOLD}`}>
                 <strong className="font-semibold text-navy-950">
-                  First session, {firstSessionPrice}
+                  Claim {profile.name}&apos;s first session — {firstSessionPrice}
                 </strong>{" "}
-                — {profile.name} hasn&apos;t had theirs yet. One per student, and it needs no
-                credits.
+                instead of {formatPrice(PRICING.credits_1.priceCents)}. One per student, and it
+                takes no credits.
               </p>
             )}
 
