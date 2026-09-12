@@ -48,17 +48,21 @@ export function SignInPopover({
         {label}
       </button>
 
-      {open && (
-        <div
-          // Hard-edged and hairline-bordered like every other surface. It sits over the page, so
-          // it keeps a shadow — the one place the site uses depth, to say "this is above".
-          className={`absolute z-50 mt-3 w-[20rem] border border-navy-950/15 bg-white p-5 text-left shadow-[0_16px_40px_-12px_rgb(11_18_34/0.25)] ${
-            align === "right" ? "right-0" : "left-1/2 -translate-x-1/2"
-          }`}
-        >
-          <SignInPanel redirectTo={redirectTo} onSuccess={() => setOpen(false)} />
-        </div>
-      )}
+      {/*
+        Kept mounted and hidden with CSS rather than unmounted on close — `GoogleButton` inside
+        `SignInPanel` loads Google's script and renders its button async, so unmounting and
+        remounting it on every open re-ran that whole sequence and flashed an empty box each time.
+        Mounted once, it's ready before the visitor ever clicks.
+      */}
+      <div
+        // Hard-edged and hairline-bordered like every other surface. It sits over the page, so
+        // it keeps a shadow — the one place the site uses depth, to say "this is above".
+        className={`absolute z-50 mt-3 w-[20rem] border border-navy-950/15 bg-white p-5 text-left shadow-[0_16px_40px_-12px_rgb(11_18_34/0.25)] ${
+          align === "right" ? "right-0" : "left-1/2 -translate-x-1/2"
+        } ${open ? "" : "hidden"}`}
+      >
+        <SignInPanel redirectTo={redirectTo} onSuccess={() => setOpen(false)} />
+      </div>
     </div>
   );
 }
