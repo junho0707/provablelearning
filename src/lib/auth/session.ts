@@ -12,15 +12,28 @@ import { createClient } from "@/lib/supabase/server";
  * empty page rendered from denied queries.
  */
 
-// `auth.getUser()` revalidates the JWT against Supabase's Auth server on every call — it's a
-// network round trip, not a local decode. `SiteNav` and the page it wraps both need to know who's
-// signed in, so without this they each paid that round trip on every navigation. `cache()` scopes
-// the memoization to a single request, which is exactly the span layout + page render span.
+/** Who the access token says is signed in. Only the two fields any caller reads. */
+export type AuthUser = { id: string; email: string | null };
+
+// `getClaims()` verifies the access token's signature locally with WebCrypto, against the project's
+// published JWKS (ES256). `getUser()`, which this used to call, instead asks Supabase Auth to
+// revalidate the token — a blocking network round trip, measured at 240-545ms, in front of every
+// authed page render. The JWKS is cached in a module-global inside auth-js, so it is fetched once
+// per server process rather than once per request, and the verification itself is local.
+//
+// The tradeoff: a signature is proof the token was issued, not proof it is still wanted. A session
+// revoked mid-life (sign-out elsewhere, a ban) stays accepted here until the token expires. RLS is
+// unaffected — it re-checks the JWT on every query — so what a stale token buys is the page shell,
+// not anybody's data. The proxy already made the same trade for the refresh (8d526f1).
+//
+// `cache()` still scopes the result to one request: `SiteNav` and the page it wraps both ask.
 export const getAuthUser = cache(async () => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  const user: AuthUser | null = claims?.sub
+    ? { id: claims.sub, email: typeof claims.email === "string" ? claims.email : null }
+    : null;
   return { supabase, user };
 });
 
