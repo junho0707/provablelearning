@@ -29,7 +29,7 @@ export default async function LoginPage({
         )}
 
         <div>
-          <GoogleButton />
+          <GoogleButton redirectTo={next || undefined} />
 
           <div className="my-5 flex items-center gap-3 text-[0.6875rem] font-semibold uppercase tracking-[0.22em] text-navy-950/40">
             <div className="h-px flex-1 bg-navy-950/10" />

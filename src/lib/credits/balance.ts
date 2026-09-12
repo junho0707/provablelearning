@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth/session";
 
 /**
  * TASK-CREDIT-001. Balance is `Σ credit_ledger.delta` for the caller, computed in Postgres
@@ -9,10 +9,7 @@ import { createClient } from "@/lib/supabase/server";
  * balance display is a read, not an auth gate.
  */
 export async function getBalance(): Promise<number> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthUser();
   if (!user) return 0;
 
   const { data, error } = await supabase.rpc("get_balance");

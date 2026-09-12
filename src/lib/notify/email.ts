@@ -1,6 +1,8 @@
 import { Resend } from "resend";
 import { formatPrice, type SkuId } from "@/lib/pricing";
 import { absoluteUrl } from "@/lib/site";
+import { TUTOR_TIMEZONE } from "@/lib/booking/timezone";
+import { sessionTime } from "@/lib/time-format";
 
 function resendClient(): Resend {
   const key = process.env.RESEND_API_KEY;
@@ -10,12 +12,17 @@ function resendClient(): Resend {
 
 const FROM = process.env.RESEND_FROM_EMAIL ?? "hello@provablelearning.com";
 
+/**
+ * Session times in mail are stated in the **tutor's** zone, named (ADR-003 — one operator, one
+ * zone). They used to be stated in UTC, which is correct and useless: a parent whose session is at
+ * noon read "4:00 PM UTC" and had to do the arithmetic themselves.
+ *
+ * Not the buyer's own zone, because mail is also sent from the Stripe webhook and the reminder
+ * cron, where there is no browser to ask — and one zone stated everywhere beats a zone that
+ * changes depending on which code path sent the message.
+ */
 function formatSessionTime(startsAt: string): string {
-  return new Date(startsAt).toLocaleString("en-US", {
-    dateStyle: "full",
-    timeStyle: "short",
-    timeZone: "UTC",
-  }) + " UTC";
+  return sessionTime(startsAt, TUTOR_TIMEZONE);
 }
 
 /**

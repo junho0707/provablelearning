@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cancelBooking, requestCreditReturn } from "@/lib/booking/manage";
 import type { MyBooking } from "@/lib/booking/history";
+import { sessionTime } from "@/lib/time-format";
 import { BTN_QUIET, EYEBROW, INPUT, LABEL } from "@/lib/ui";
 
 const STATUS_LABEL: Record<MyBooking["status"], string> = {
@@ -14,7 +15,7 @@ const STATUS_LABEL: Record<MyBooking["status"], string> = {
 };
 
 /** Upcoming and past sessions, cancelling, and asking for a burned credit back (F9, F10). */
-export function BookingsList({ bookings }: { bookings: MyBooking[] }) {
+export function BookingsList({ bookings, timeZone }: { bookings: MyBooking[]; timeZone: string }) {
   const now = Date.now();
   const upcoming = bookings.filter((b) => b.status === "booked" && new Date(b.startsAt).getTime() >= now);
   const past = bookings.filter((b) => !upcoming.includes(b));
@@ -28,7 +29,7 @@ export function BookingsList({ bookings }: { bookings: MyBooking[] }) {
         ) : (
           <ul className="border-t border-navy-950/10">
             {upcoming.map((b) => (
-              <BookingRow key={b.id} booking={b} />
+              <BookingRow key={b.id} booking={b} timeZone={timeZone} />
             ))}
           </ul>
         )}
@@ -39,7 +40,7 @@ export function BookingsList({ bookings }: { bookings: MyBooking[] }) {
           <h3 className={`mb-4 ${EYEBROW}`}>Past</h3>
           <ul className="border-t border-navy-950/10">
             {past.map((b) => (
-              <BookingRow key={b.id} booking={b} />
+              <BookingRow key={b.id} booking={b} timeZone={timeZone} />
             ))}
           </ul>
         </section>
@@ -48,7 +49,7 @@ export function BookingsList({ bookings }: { bookings: MyBooking[] }) {
   );
 }
 
-function BookingRow({ booking }: { booking: MyBooking }) {
+function BookingRow({ booking, timeZone }: { booking: MyBooking; timeZone: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +81,7 @@ function BookingRow({ booking }: { booking: MyBooking }) {
     <li className="border-b border-navy-950/10 py-5 text-[0.9375rem]">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="font-semibold text-navy-950">{new Date(booking.startsAt).toLocaleString()}</p>
+          <p className="font-semibold text-navy-950">{sessionTime(booking.startsAt, timeZone)}</p>
           <p className="mt-0.5 text-[0.875rem] text-navy-950/55">
             {booking.profileName} · {STATUS_LABEL[booking.status]}
           </p>

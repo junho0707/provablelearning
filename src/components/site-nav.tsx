@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser, getBuyerAccountId } from "@/lib/auth/session";
 import { SiteNavClient } from "@/components/site-nav-client";
 
 /**
@@ -13,14 +13,9 @@ import { SiteNavClient } from "@/components/site-nav-client";
  * asks about too.
  */
 export async function SiteNav() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const { data: account } = user
-    ? await supabase.from("accounts").select("id").eq("id", user.id).maybeSingle()
-    : { data: null };
-  const isStudent = Boolean(user) && !account;
+  const { user } = await getAuthUser();
+  const accountId = user ? await getBuyerAccountId() : null;
+  const isStudent = Boolean(user) && !accountId;
 
-  return <SiteNavClient email={account ? (user?.email ?? null) : null} isStudent={isStudent} />;
+  return <SiteNavClient email={accountId ? (user?.email ?? null) : null} isStudent={isStudent} />;
 }

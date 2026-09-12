@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getThreadForAdmin } from "@/lib/messages/thread";
 import { ReplyBox } from "./reply-box";
+import { TUTOR_TIMEZONE } from "@/lib/booking/timezone";
+import { stampTime } from "@/lib/time-format";
 
 export const metadata = { title: "Admin — thread" };
 
@@ -35,7 +37,7 @@ export default async function AdminThreadPage({
               }`}
             >
               {message.sender === "tutor" ? "You" : "Buyer"} ·{" "}
-              {new Date(message.createdAt).toLocaleString()}
+              {stampTime(message.createdAt, TUTOR_TIMEZONE)}
             </p>
           </li>
         ))}

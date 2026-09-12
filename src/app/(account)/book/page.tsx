@@ -7,6 +7,8 @@ import { listUnusedFirstSessions } from "@/lib/assessment/first-session";
 import { getMyBookings } from "@/lib/booking/history";
 import { getBalance } from "@/lib/credits/balance";
 import { POLICY_COPY } from "@/lib/policy";
+import { viewerTimeZone } from "@/lib/booking/viewer-timezone";
+import { zoneAbbreviation } from "@/lib/time-format";
 import { BookingForm } from "./booking-form";
 import { BTN_LG, H1 } from "@/lib/ui";
 
@@ -29,6 +31,8 @@ export default async function BookPage({
     getBalance(),
     searchParams,
   ]);
+
+  const timeZone = await viewerTimeZone();
 
   if (profiles.length === 0) {
     return (
@@ -66,12 +70,18 @@ export default async function BookPage({
       <p className="mt-3 text-[0.9375rem] leading-relaxed text-navy-700">
         60 minutes, 1:1. {POLICY_COPY.release} {POLICY_COPY.freeCancel}
       </p>
+      {/* Every time on this page is the visitor's own, so the zone has to be stated — a buyer in
+          Los Angeles picking "9:00 AM" must not wonder whether it means the tutor's morning. */}
+      <p className="mt-2 text-[0.875rem] text-navy-950/55">
+        Times are shown in your time zone ({zoneAbbreviation(timeZone)}).
+      </p>
       <div className="mt-10">
         <BookingForm
           slots={slots}
           students={students}
           balance={balance}
           initialStudentId={params.student}
+          timeZone={timeZone}
         />
       </div>
     </main>

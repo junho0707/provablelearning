@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { currentBuyerId } from "@/lib/auth/session";
 import { getThread } from "@/lib/messages/thread";
 import { Composer } from "./composer";
+import { viewerTimeZone } from "@/lib/booking/viewer-timezone";
+import { stampTime } from "@/lib/time-format";
 import { H1, NOTICE } from "@/lib/ui";
 
 export const metadata = { title: "Messages" };
@@ -12,6 +14,7 @@ export default async function MessagesPage() {
   if (!buyerId) redirect("/login?next=/messages");
 
   const messages = await getThread();
+  const timeZone = await viewerTimeZone();
 
   return (
     <main className="mx-auto max-w-[720px] px-6 py-16 sm:px-10">
@@ -45,12 +48,7 @@ export default async function MessagesPage() {
                 }`}
               >
                 {message.sender === "buyer" ? "You" : "Your tutor"} ·{" "}
-                {new Date(message.createdAt).toLocaleString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
+                {stampTime(message.createdAt, timeZone)}
               </p>
             </li>
           ))}

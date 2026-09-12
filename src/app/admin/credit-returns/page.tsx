@@ -1,5 +1,7 @@
 import { listPendingCreditReturns } from "@/lib/admin/credit-returns";
 import { ResolveButtons } from "./resolve-buttons";
+import { TUTOR_TIMEZONE } from "@/lib/booking/timezone";
+import { stampTime } from "@/lib/time-format";
 
 export const metadata = { title: "Admin — credit returns" };
 
@@ -21,7 +23,7 @@ export default async function CreditReturnsPage() {
                 <span className="font-normal text-navy-500">· {r.buyerEmail}</span>
               </p>
               <p className="mt-0.5 text-xs text-navy-500">
-                {r.sessionStartsAt ? new Date(r.sessionStartsAt).toLocaleString() : "—"} ·{" "}
+                {r.sessionStartsAt ? stampTime(r.sessionStartsAt, TUTOR_TIMEZONE) : "—"} ·{" "}
                 {r.allowanceRemaining > 0
                   ? `${r.allowanceRemaining} return${r.allowanceRemaining === 1 ? "" : "s"} left this month`
                   : "no returns left this month — approving will be refused"}

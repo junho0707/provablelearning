@@ -124,6 +124,8 @@ async function startCheckout(input: {
     mode: "payment",
     customer_email: input.email,
     line_items: [{ price: stripePriceId(input.sku), quantity: 1 }],
+    // Stripe's own promotion codes, so a discount is a dashboard decision rather than a deploy.
+    allow_promotion_codes: true,
     metadata: {
       account_id: input.accountId,
       sku: input.sku,
@@ -133,7 +135,9 @@ async function startCheckout(input: {
       ...(input.startsAt ? { starts_at: input.startsAt } : {}),
       ...(input.specifics ? { specifics: input.specifics } : {}),
     },
-    success_url: `${SITE_URL}${returnPath}?purchase=success`,
+    // The session id rides back in the URL so the return page can watch for *this* purchase
+    // landing rather than guess at how long the webhook will take (`billing/settlement.ts`).
+    success_url: `${SITE_URL}${returnPath}?purchase={CHECKOUT_SESSION_ID}`,
     cancel_url: `${SITE_URL}${returnPath}?purchase=cancelled`,
   });
 

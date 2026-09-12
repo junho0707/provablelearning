@@ -7,6 +7,7 @@ import { bookSession } from "@/lib/booking/book";
 import { PurposePicker, type PurposeValue } from "@/components/purpose-picker";
 import { labelFor, isPurpose } from "@/lib/accounts/purposes";
 import { SlotCalendar } from "@/components/booking/slot-calendar";
+import { sessionTime } from "@/lib/time-format";
 import {
   BTN,
   BTN_LG,
@@ -42,11 +43,13 @@ export function BookingForm({
   students,
   balance,
   initialStudentId,
+  timeZone,
 }: {
   slots: string[];
   students: Student[];
   balance: number;
   initialStudentId?: string;
+  timeZone: string;
 }) {
   const router = useRouter();
 
@@ -111,13 +114,7 @@ export function BookingForm({
       <div className="border border-navy-950/10 bg-white p-8 text-center">
         <p className={H3}>Booked</p>
         <p className="mt-3 text-[0.9375rem] leading-relaxed text-navy-700">
-          {new Date(confirmed.iso).toLocaleString(undefined, {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-          })}
+          {sessionTime(confirmed.iso, timeZone)}
           {confirmed.usedFirstSession ? " — using the first session you bought." : ""}
         </p>
         <p className="mt-3 text-[0.875rem] leading-relaxed text-navy-950/55">
@@ -254,7 +251,7 @@ export function BookingForm({
         </Step>
 
         <Step n={4} label="Pick a time">
-          <SlotCalendar slots={slots} selected={selected} onSelect={setSelected} />
+          <SlotCalendar slots={slots} selected={selected} onSelect={setSelected} timeZone={timeZone} />
         </Step>
 
         {error && (
@@ -269,13 +266,7 @@ export function BookingForm({
           </button>
           <p className="text-[0.875rem] text-navy-950/55">
             {selected
-              ? new Date(selected).toLocaleString(undefined, {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                })
+              ? sessionTime(selected, timeZone)
               : "No time picked yet."}
             {purpose.purpose ? ` \u00b7 ${labelFor(purpose.purpose)}` : ""}
           </p>

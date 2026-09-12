@@ -1,24 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { groupByLocalDate, localDayKey } from "@/lib/booking/group-slots";
+import {
+  addDayCells,
+  cellDayNumber,
+  cellKey,
+  dayCell,
+  groupByLocalDate,
+  localDayKey,
+  mondayCellOf,
+} from "@/lib/booking/group-slots";
 import { EYEBROW, NOTICE } from "@/lib/ui";
 
 /** Monday-first, matching the Monday-stepped release cadence the horizon already follows. */
 const WEEKDAY_HEADS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-/** Midnight local on the Monday of this date's week. */
-function mondayOf(date: Date) {
-  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
-  return start;
-}
-
-function addDays(date: Date, days: number) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-}
 
 /**
  * The open hours as a calendar: a month-style grid to pick the day, then that day's times beneath
@@ -37,12 +32,14 @@ export function SlotCalendar({
   slots,
   selected,
   onSelect,
+  timeZone,
 }: {
   slots: string[];
   selected: string | null;
   onSelect: (iso: string) => void;
+  timeZone: string;
 }) {
-  const days = useMemo(() => groupByLocalDate(slots), [slots]);
+  const days = useMemo(() => groupByLocalDate(slots, timeZone), [slots, timeZone]);
   const byDay = useMemo(() => new Map(days.map((d) => [d.dayKey, d])), [days]);
 
   const [openDay, setOpenDay] = useState<string | null>(null);
@@ -53,14 +50,14 @@ export function SlotCalendar({
 
   const weeks = useMemo(() => {
     if (days.length === 0) return [];
-    const first = mondayOf(new Date());
-    const last = new Date(days[days.length - 1].slots[0].iso);
+    const first = mondayCellOf(dayCell(localDayKey(new Date(), timeZone)));
+    const last = dayCell(days[days.length - 1].dayKey);
     const rows: Date[][] = [];
-    for (let cursor = first; cursor <= last && rows.length < 8; cursor = addDays(cursor, 7)) {
-      rows.push(Array.from({ length: 7 }, (_, i) => addDays(cursor, i)));
+    for (let cursor = first; cursor <= last && rows.length < 8; cursor = addDayCells(cursor, 7)) {
+      rows.push(Array.from({ length: 7 }, (_, i) => addDayCells(cursor, i)));
     }
     return rows;
-  }, [days]);
+  }, [days, timeZone]);
 
   if (days.length === 0) {
     return (
@@ -70,7 +67,7 @@ export function SlotCalendar({
     );
   }
 
-  const todayKey = localDayKey(new Date());
+  const todayKey = localDayKey(new Date(), timeZone);
 
   return (
     <div>
@@ -83,7 +80,7 @@ export function SlotCalendar({
         ))}
 
         {weeks.flat().map((date) => {
-          const key = localDayKey(date);
+          const key = cellKey(date);
           const group = byDay.get(key);
           const isActive = key === activeDay;
 
@@ -98,7 +95,7 @@ export function SlotCalendar({
                     key === todayKey ? "font-semibold text-navy-950/45" : "text-navy-950/25"
                   }`}
                 >
-                  {date.getDate()}
+                  {cellDayNumber(date)}
                 </span>
               </div>
             );
@@ -118,7 +115,7 @@ export function SlotCalendar({
               }`}
             >
               <span className="block text-[0.875rem] font-semibold tabular-nums">
-                {date.getDate()}
+                {cellDayNumber(date)}
               </span>
               <span
                 className={`mt-0.5 block text-[0.6875rem] tabular-nums ${

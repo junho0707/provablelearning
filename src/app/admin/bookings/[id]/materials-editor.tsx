@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveMaterial, type MaterialDraft } from "@/lib/sessions/materials";
 import { MATERIALS_DUE_HOURS } from "@/lib/policy";
+import { stampDate } from "@/lib/time-format";
 
 const inputClass =
   "w-full rounded-lg border border-navy-200 px-3 py-2 text-sm outline-none focus:border-navy-400";
@@ -17,7 +18,15 @@ type Item = { prompt: string; answer: string; explanation: string };
  * Draft and publish are separate actions on purpose: RLS shows a student only published material,
  * so saving a half-finished draft is safe and the student sees nothing until it is finished.
  */
-export function MaterialsEditor({ bookingId, draft }: { bookingId: string; draft: MaterialDraft }) {
+export function MaterialsEditor({
+  bookingId,
+  draft,
+  timeZone,
+}: {
+  bookingId: string;
+  draft: MaterialDraft;
+  timeZone: string;
+}) {
   const router = useRouter();
   const [summary, setSummary] = useState(draft.summary);
   const [roadmap, setRoadmap] = useState(draft.roadmap);
@@ -59,7 +68,7 @@ export function MaterialsEditor({ bookingId, draft }: { bookingId: string; draft
         <h2 className="text-lg font-bold text-navy-950">Materials</h2>
         {draft.publishedAt ? (
           <span className="rounded bg-[var(--success-light)] px-2 py-0.5 text-xs font-semibold text-[var(--success)]">
-            Published {new Date(draft.publishedAt).toLocaleDateString()}
+            Published {stampDate(draft.publishedAt, timeZone)}
           </span>
         ) : (
           <span className="rounded bg-[var(--warning-light)] px-2 py-0.5 text-xs font-semibold text-[#8a5a00]">

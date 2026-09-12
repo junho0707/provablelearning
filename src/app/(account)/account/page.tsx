@@ -1,23 +1,23 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth/session";
 import { listProfiles } from "@/lib/accounts/profiles";
 import { getConsentState } from "@/lib/accounts/consent";
 import { courses } from "@/lib/content/roadmap";
 import { StudentManager } from "./student-manager";
 import { PhoneSetting } from "./phone-setting";
 import { RETENTION_DAYS } from "@/lib/policy";
+import { viewerTimeZone } from "@/lib/booking/viewer-timezone";
+import { stampDate, stampTime } from "@/lib/time-format";
 import { BODY, H1, H2 } from "@/lib/ui";
 
 export const metadata = { title: "Account" };
 
 /** Students, contact details, and the parental consent record. Billing lives on `/credits`. */
 export default async function AccountPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthUser();
   if (!user) redirect("/login?next=/account");
 
+  const timeZone = await viewerTimeZone();
   const [profiles, consent, { data: account }] = await Promise.all([
     listProfiles(),
     getConsentState(),
@@ -54,7 +54,7 @@ export default async function AccountPage() {
           {consent.granted ? (
             <p className="text-[0.9375rem] leading-relaxed text-navy-800">
               <strong className="font-semibold text-navy-950">Permission on file</strong> since{" "}
-              {new Date(consent.grantedAt!).toLocaleDateString()}, recorded when you completed your
+              {stampDate(consent.grantedAt!, timeZone)}, recorded when you completed your
               first purchase. Your students can sign in.
             </p>
           ) : (
@@ -69,7 +69,7 @@ export default async function AccountPage() {
             <ul className="mt-5 flex flex-col gap-1.5 border-t border-navy-950/10 pt-5 text-[0.875rem] text-navy-950/55">
               {consent.events.map((event, i) => (
                 <li key={i}>
-                  {new Date(event.at).toLocaleString()} — consent {event.event}
+                  {stampTime(event.at, timeZone)} — consent {event.event}
                   {event.mechanism === "stripe_payment" ? " by card payment" : ""}
                 </li>
               ))}

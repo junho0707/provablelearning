@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { listMaterialsQueue } from "@/lib/sessions/materials";
 import { MATERIALS_DUE_HOURS } from "@/lib/policy";
+import { TUTOR_TIMEZONE } from "@/lib/booking/timezone";
+import { stampTime } from "@/lib/time-format";
 
 export const metadata = { title: "Admin — materials queue" };
 
@@ -21,7 +23,7 @@ function Row({
       >
         <span className="font-semibold text-navy-950">{session.studentName}</span>
         <span className="text-sm text-navy-600">
-          {new Date(session.startsAt).toLocaleString()}
+          {stampTime(session.startsAt, TUTOR_TIMEZONE)}
           {overdue ? ` · ${session.hoursOverdue}h overdue` : ""}
         </span>
       </Link>

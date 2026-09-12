@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -11,6 +12,27 @@ import { createClient } from "@/lib/supabase/server";
  * empty page rendered from denied queries.
  */
 
+// `auth.getUser()` revalidates the JWT against Supabase's Auth server on every call — it's a
+// network round trip, not a local decode. `SiteNav` and the page it wraps both need to know who's
+// signed in, so without this they each paid that round trip on every navigation. `cache()` scopes
+// the memoization to a single request, which is exactly the span layout + page render span.
+export const getAuthUser = cache(async () => {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return { supabase, user };
+});
+
+// Same duplication, one level down: `SiteNav` and `currentBuyerId` both look up the buyer's
+// `accounts` row for the same user.
+export const getBuyerAccountId = cache(async (): Promise<string | null> => {
+  const { supabase, user } = await getAuthUser();
+  if (!user) return null;
+  const { data } = await supabase.from("accounts").select("id").eq("id", user.id).maybeSingle();
+  return data ? (data.id as string) : null;
+});
+
 export type StudentSession = {
   authUserId: string;
   profileId: string;
@@ -21,10 +43,7 @@ export type StudentSession = {
 
 /** The signed-in student, or null when nobody is signed in or the session belongs to a buyer. */
 export async function currentStudent(): Promise<StudentSession | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthUser();
   if (!user) return null;
 
   // Scoped by `learner_profiles_select_self`, which additionally requires `login_active` — a
@@ -53,14 +72,7 @@ export async function requireStudent(): Promise<StudentSession> {
 
 /** The signed-in buyer's account id, or null for a signed-out visitor or a student session. */
 export async function currentBuyerId(): Promise<string | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data } = await supabase.from("accounts").select("id").eq("id", user.id).maybeSingle();
-  return data ? (data.id as string) : null;
+  return getBuyerAccountId();
 }
 
 export async function requireBuyer(): Promise<string> {

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { listAllBookings } from "@/lib/admin/bookings";
 import { NoShowButton } from "./no-show-button";
+import { TUTOR_TIMEZONE } from "@/lib/booking/timezone";
+import { stampTime } from "@/lib/time-format";
 
 export const metadata = { title: "Admin — bookings" };
 
@@ -19,7 +21,7 @@ export default async function AdminBookingsPage() {
           <ul className="space-y-1 text-sm text-amber-900">
             {missingLink.map((b) => (
               <li key={b.id}>
-                {new Date(b.startsAt).toLocaleString()} — {b.learnerName} ({b.buyerEmail})
+                {stampTime(b.startsAt, TUTOR_TIMEZONE)} — {b.learnerName} ({b.buyerEmail})
               </li>
             ))}
           </ul>
@@ -39,7 +41,7 @@ export default async function AdminBookingsPage() {
         <tbody>
           {bookings.map((b) => (
             <tr key={b.id} className="border-b border-navy-50">
-              <td className="py-2">{new Date(b.startsAt).toLocaleString()}</td>
+              <td className="py-2">{stampTime(b.startsAt, TUTOR_TIMEZONE)}</td>
               <td className="py-2">{b.learnerName}</td>
               <td className="py-2">{b.buyerEmail}</td>
               <td className="py-2">{b.status}</td>

@@ -1,20 +1,12 @@
 import { requireStudent } from "@/lib/auth/session";
 import { listStudentSessions } from "@/lib/sessions/student";
 import { labelFor } from "@/lib/accounts/purposes";
+import { viewerTimeZone } from "@/lib/booking/viewer-timezone";
+import { sessionTime } from "@/lib/time-format";
 import { PrepareModal } from "@/components/student/prepare-modal";
 import { BTN, H1, H2, NOTICE } from "@/lib/ui";
 
 export const metadata = { title: "Your work" };
-
-function when(iso: string) {
-  return new Date(iso).toLocaleString(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
 
 /**
  * The student's home screen — and their only notification channel, since students are never
@@ -31,6 +23,7 @@ function when(iso: string) {
 export default async function StudentHome() {
   const student = await requireStudent();
   const sessions = await listStudentSessions();
+  const timeZone = await viewerTimeZone();
 
   const now = Date.now();
   const upcoming = sessions.filter(
@@ -55,7 +48,7 @@ export default async function StudentHome() {
                 <div className="flex flex-wrap items-start justify-between gap-4 p-5">
                   <div>
                     <p className="text-[0.9375rem] font-semibold text-navy-950">
-                      {when(session.startsAt)}
+                      {sessionTime(session.startsAt, timeZone)}
                     </p>
                     <p className="mt-1 text-[0.875rem] text-navy-700">
                       60 minutes

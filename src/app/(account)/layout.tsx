@@ -1,4 +1,5 @@
 import { SiteNav } from "@/components/site-nav";
+import { TimeZoneProbe } from "@/components/timezone-probe";
 import { GROUND } from "@/lib/ui";
 
 /**
@@ -9,6 +10,7 @@ import { GROUND } from "@/lib/ui";
 export default function AccountLayout({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ background: GROUND }} className="min-h-screen">
+      <TimeZoneProbe />
       <SiteNav />
       {children}
     </div>

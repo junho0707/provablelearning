@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createProfile, updateProfile } from "@/lib/accounts/profiles";
+import { updateProfile } from "@/lib/accounts/profiles";
+import { addStudent } from "@/lib/accounts/add-student";
 import { setStudentCredentials, resetStudentPassword } from "@/lib/accounts/student-credentials";
 import { revokeConsentForStudent, deleteStudent } from "@/lib/accounts/consent";
 import { PROFILE_PURPOSE_PRESETS, labelFor } from "@/lib/accounts/purposes";
@@ -385,7 +386,6 @@ export function StudentManager({
   const [adding, setAdding] = useState(profiles.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const router = useRouter();
 
   function add() {
     setError(null);
@@ -394,36 +394,11 @@ export function StudentManager({
     }
 
     start(async () => {
-      const result = await createProfile(draft);
-      if (!result.ok) {
-        setError(result.message);
-        return;
-      }
-
-      // A student with no sign-in can do nothing at all, so adding one is not two steps that can
-      // half-succeed. If the username is taken, the half-made student is removed and the form
-      // stays open on what the parent typed, rather than leaving a row they have to go finish.
-      const credentials = await setStudentCredentials({
-        profileId: result.profile.id,
-        username,
-        password,
-      });
-      if (!credentials.ok) {
-        await deleteStudent(result.profile.id);
-        setError(credentials.message);
-        return;
-      }
-
-      setDraft(emptyDraft);
-      setUsername("");
-      setPassword("");
-      setAdding(false);
-      // A new student's next step is claiming their first session, which lives on the dashboard.
-      // No `router.refresh()` after this: refresh re-fetches the route the buyer is standing on,
-      // and firing it into a push that has not settled cancelled the navigation — which is how
-      // adding a student kept leaving the buyer on `/account`. Both surfaces are already
-      // revalidated server-side by `revalidateStudentSurfaces`, so there is nothing to refresh.
-      router.push("/dashboard");
+      // `addStudent` redirects to the dashboard itself when it succeeds, so the browser moves on
+      // the action's own response rather than after a second round trip. Nothing below runs in
+      // that case — reaching this line at all means the student was not added.
+      const result = await addStudent({ profile: draft, username, password });
+      setError(result.message);
     });
   }
 

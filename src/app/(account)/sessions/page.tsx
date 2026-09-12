@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth/session";
 import { getMyBookings } from "@/lib/booking/history";
 import { POLICY_COPY } from "@/lib/policy";
 import { BookingsList } from "./bookings-list";
 import { PurchaseNotice } from "@/components/purchase-notice";
+import { purchaseReturn } from "@/lib/billing/purchase-return";
+import { viewerTimeZone } from "@/lib/booking/viewer-timezone";
+import { zoneAbbreviation } from "@/lib/time-format";
 import { BTN, H1, H2, H3, NOTICE_GOLD } from "@/lib/ui";
 
 export const metadata = { title: "Sessions" };
@@ -27,24 +30,23 @@ export default async function SessionsPage({
   // spend it, and this is where it is spent. Stripe sends them back a second or two ahead of the
   // webhook that grants the credit, so say so rather than render a booking form that would refuse
   // them for a balance that is about to be right (`03-FLOWS.md` F3, failure paths).
-  const justPaid = (await searchParams).purchase === "success";
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { paid, sessionId } = purchaseReturn((await searchParams).purchase);
+  const { user } = await getAuthUser();
   if (!user) redirect("/login?next=/sessions");
 
   const bookings = await getMyBookings();
+  const timeZone = await viewerTimeZone();
 
   return (
     <main className="mx-auto max-w-[1200px] px-6 py-16 sm:px-10">
       <h1 className={H1}>Sessions</h1>
       <p className="mt-3 text-[0.9375rem] leading-relaxed text-navy-700">
-        What&apos;s coming up, and everything you&apos;ve had.
+        What&apos;s coming up, and everything you&apos;ve had. Times are shown in your time zone (
+        {zoneAbbreviation(timeZone)}).
       </p>
 
-      {justPaid && (
-        <PurchaseNotice>
+      {paid && (
+        <PurchaseNotice sessionId={sessionId}>
           <p className={`mt-8 ${NOTICE_GOLD}`}>
             <strong className="font-semibold text-navy-950">Payment received</strong> — your credits
             land within a few seconds. Book below once they do.
@@ -59,7 +61,7 @@ export default async function SessionsPage({
             Book a session
           </Link>
         </div>
-        <BookingsList bookings={bookings} />
+        <BookingsList bookings={bookings} timeZone={timeZone} />
       </section>
 
       {/* The same three rules the landing states, in the same hairline grid it states them in. */}

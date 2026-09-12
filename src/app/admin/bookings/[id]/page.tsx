@@ -5,6 +5,8 @@ import { getDiagnosticForTutor } from "@/lib/assessment/diagnostics";
 import { labelFor } from "@/lib/accounts/purposes";
 import { MaterialsEditor } from "./materials-editor";
 import { UploadLink } from "./upload-link";
+import { TUTOR_TIMEZONE } from "@/lib/booking/timezone";
+import { stampTime } from "@/lib/time-format";
 
 export const metadata = { title: "Admin — session" };
 
@@ -28,7 +30,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       <div>
         <h1 className="text-xl font-extrabold text-navy-950">{session.studentName}</h1>
         <p className="mt-1 text-sm text-navy-600">
-          {new Date(session.startsAt).toLocaleString()} · {session.status}
+          {stampTime(session.startsAt, TUTOR_TIMEZONE)} · {session.status}
           {session.topicMode === "continue" ? " · continuing the last topic" : ""}
         </p>
       </div>
@@ -164,7 +166,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       )}
 
       <section className="rounded-lg border border-navy-100 bg-white p-5">
-        <MaterialsEditor bookingId={id} draft={draft} />
+        <MaterialsEditor bookingId={id} draft={draft} timeZone={TUTOR_TIMEZONE} />
       </section>
     </div>
   );

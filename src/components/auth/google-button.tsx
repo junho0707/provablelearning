@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import Script from "next/script";
 import { createClient } from "@/lib/supabase/client";
 
@@ -72,7 +71,6 @@ export function GoogleButton({
   onSuccess,
   redirectTo = "/dashboard",
 }: { onSuccess?: () => void; redirectTo?: string } = {}) {
-  const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const nonceRef = useRef<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -94,10 +92,15 @@ export function GoogleButton({
       onSuccess?.();
       // This is the only place a Google sign-in decides where it lands: signing in from the
       // landing left the buyer on a marketing page for a product they had just signed into.
-      router.push(redirectTo);
-      router.refresh();
+      //
+      // A whole document load, not `router.push`. The session cookie was written a moment ago by
+      // the browser client; a client-side navigation renders the destination from a router cache
+      // populated while signed out, so the buyer arrived at a page that still believed nobody was
+      // there and bounced straight back here. Only a fresh request carries the new cookie to the
+      // server components that gate these pages — which is why pressing reload was what worked.
+      window.location.assign(redirectTo);
     },
-    [router, onSuccess, redirectTo],
+    [onSuccess, redirectTo],
   );
 
   useEffect(() => {

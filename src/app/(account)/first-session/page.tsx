@@ -4,6 +4,7 @@ import { currentBuyerId } from "@/lib/auth/session";
 import { listFirstSessionEligible } from "@/lib/assessment/first-session";
 import { listProfiles } from "@/lib/accounts/profiles";
 import { getOpenAvailability } from "@/lib/booking/availability";
+import { viewerTimeZone } from "@/lib/booking/viewer-timezone";
 import { PRICING, formatPrice } from "@/lib/pricing";
 import { BTN_LG, EYEBROW, H1 } from "@/lib/ui";
 
@@ -24,6 +25,7 @@ export default async function FirstSessionPage() {
     getOpenAvailability(),
   ]);
   const price = formatPrice(PRICING.first_session.priceCents);
+  const timeZone = await viewerTimeZone();
   const { FirstSessionPurchase } = await import("./first-session-purchase");
 
   if (profiles.length === 0) {
@@ -68,7 +70,12 @@ export default async function FirstSessionPage() {
         we&apos;ll shape the hour around it.
       </p>
       <div className="mt-10 border-t border-navy-950/10 pt-10">
-        <FirstSessionPurchase eligible={eligible} price={price} slots={slots} />
+        <FirstSessionPurchase
+          eligible={eligible}
+          price={price}
+          slots={slots}
+          timeZone={timeZone}
+        />
       </div>
     </main>
   );

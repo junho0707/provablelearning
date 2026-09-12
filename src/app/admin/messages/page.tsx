@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { listThreads } from "@/lib/messages/thread";
+import { TUTOR_TIMEZONE } from "@/lib/booking/timezone";
+import { stampTime } from "@/lib/time-format";
 
 export const metadata = { title: "Admin — messages" };
 
@@ -30,7 +32,7 @@ export default async function AdminMessagesPage() {
                   {thread.lastBody}
                 </p>
                 <p className="mt-0.5 text-xs text-navy-500">
-                  {new Date(thread.lastAt).toLocaleString()}
+                  {stampTime(thread.lastAt, TUTOR_TIMEZONE)}
                 </p>
               </Link>
             </li>

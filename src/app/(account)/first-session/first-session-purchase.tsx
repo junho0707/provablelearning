@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { createFirstSessionCheckout } from "@/lib/billing/checkout";
 import { PurposePicker, type PurposeValue } from "@/components/purpose-picker";
 import { SlotCalendar } from "@/components/booking/slot-calendar";
+import { zoneAbbreviation } from "@/lib/time-format";
 import { BTN_GOLD, INPUT, LABEL, NOTICE_ERROR } from "@/lib/ui";
 
 /**
@@ -19,10 +20,12 @@ export function FirstSessionPurchase({
   eligible,
   price,
   slots,
+  timeZone,
 }: {
   eligible: Array<{ profileId: string; name: string }>;
   price: string;
   slots: string[];
+  timeZone: string;
 }) {
   const [profileId, setProfileId] = useState(eligible[0]?.profileId ?? "");
   const [purpose, setPurpose] = useState<PurposeValue>({ purpose: null, subPurpose: null });
@@ -83,8 +86,11 @@ export function FirstSessionPurchase({
 
       <div>
         <p className={LABEL}>Pick a time</p>
+        <p className="mt-1 text-[0.875rem] text-navy-950/55">
+          Shown in your time zone ({zoneAbbreviation(timeZone)}).
+        </p>
         <div className="mt-3">
-          <SlotCalendar slots={slots} selected={selected} onSelect={setSelected} />
+          <SlotCalendar slots={slots} selected={selected} onSelect={setSelected} timeZone={timeZone} />
         </div>
       </div>
 

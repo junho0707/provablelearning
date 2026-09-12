@@ -7,20 +7,13 @@ import { listFirstSessionEligible, listUnusedFirstSessions } from "@/lib/assessm
 import { getMyBookings } from "@/lib/booking/history";
 import { labelFor } from "@/lib/accounts/purposes";
 import { PurchaseNotice } from "@/components/purchase-notice";
+import { purchaseReturn } from "@/lib/billing/purchase-return";
+import { viewerTimeZone } from "@/lib/booking/viewer-timezone";
+import { sessionTime } from "@/lib/time-format";
 import { PRICING, formatPrice } from "@/lib/pricing";
 import { BTN, BTN_LG, BTN_SECONDARY, EYEBROW, H1, NOTICE, NOTICE_GOLD } from "@/lib/ui";
 
 export const metadata = { title: "Dashboard" };
-
-function sessionWhen(iso: string) {
-  return new Date(iso).toLocaleString(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
 
 /**
  * The buyer's hub (`system/05-SURFACES.md` §2). F2 requires a specific empty state: an account with
@@ -43,7 +36,8 @@ export default async function DashboardPage({
   // that records the purchase and books the session. Saying "processing" is the honest reading of
   // that gap; showing the old balance would be a wrong answer to the only question the buyer has
   // (`03-FLOWS.md` F3, failure paths).
-  const justPaid = (await searchParams).purchase === "success";
+  const { paid, sessionId } = purchaseReturn((await searchParams).purchase);
+  const timeZone = await viewerTimeZone();
 
   const [profiles, balance, unusedFirstSessions, eligibleFirstSessions, bookings] =
     await Promise.all([
@@ -124,8 +118,8 @@ export default async function DashboardPage({
         </p>
       </div>
 
-      {justPaid && (
-        <PurchaseNotice>
+      {paid && (
+        <PurchaseNotice sessionId={sessionId}>
           <p className={`mt-8 ${NOTICE_GOLD}`}>
             <strong className="font-semibold text-navy-950">Payment received</strong> — setting up
             your session. It appears below within a few seconds.
@@ -181,7 +175,7 @@ export default async function DashboardPage({
                   <div key={booking.id} className="border-b border-navy-950/10 py-3 last:border-b-0">
                     <p className={EYEBROW}>Coming up</p>
                     <p className="mt-1.5 text-[0.9375rem] font-semibold text-navy-950">
-                      {sessionWhen(booking.startsAt)}
+                      {sessionTime(booking.startsAt, timeZone)}
                     </p>
                     <p className="mt-0.5 text-[0.875rem] text-navy-700">
                       60 minutes
@@ -208,18 +202,6 @@ export default async function DashboardPage({
                 </strong>{" "}
                 instead of {formatPrice(PRICING.credits_1.priceCents)}. One per student, and it
                 takes no credits.
-              </p>
-            )}
-
-            {rowState(profile.id) === "needs-credits" && (
-              <p className={`mt-5 ${NOTICE}`}>
-                <strong className="font-semibold text-navy-950">
-                  {profile.name}&apos;s first session is used
-                </strong>{" "}
-                — every session after it takes a credit, and your wallet is empty.{" "}
-                <Link href="/credits" className="font-semibold text-navy-950 underline">
-                  Buy credits
-                </Link>
               </p>
             )}
 

@@ -1,4 +1,6 @@
 import { listUsers } from "@/lib/admin/users";
+import { TUTOR_TIMEZONE } from "@/lib/booking/timezone";
+import { stampDate } from "@/lib/time-format";
 
 export const metadata = { title: "Admin — users" };
 
@@ -22,7 +24,7 @@ export default async function UsersPage() {
             <tr key={u.id} className="border-b border-navy-50">
               <td className="py-2">{u.email}</td>
               <td className="py-2">{u.isAdmin ? "Yes" : ""}</td>
-              <td className="py-2">{new Date(u.createdAt).toLocaleDateString()}</td>
+              <td className="py-2">{stampDate(u.createdAt, TUTOR_TIMEZONE)}</td>
             </tr>
           ))}
         </tbody>

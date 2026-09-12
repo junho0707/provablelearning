@@ -3,6 +3,8 @@
 import { z } from "zod";
 import { requireAdmin } from "./guard";
 import type { AdminResult } from "./availability";
+import { TUTOR_TIMEZONE } from "@/lib/booking/timezone";
+import { stampTime } from "@/lib/time-format";
 
 export type SmsWorklistEntry = {
   bookingId: string;
@@ -46,7 +48,7 @@ export async function listSmsWorklist(): Promise<SmsWorklistEntry[]> {
       bookingId: b.id,
       startsAt: b.starts_at,
       phone: phoneByAccount.get(b.account_id) ?? null,
-      message: `Reminder: ${learnerName}'s tutoring session is at ${startsAt.toLocaleString()}.`,
+      message: `Reminder: ${learnerName}'s tutoring session is at ${stampTime(startsAt.toISOString(), TUTOR_TIMEZONE)}.`,
       sent: b.sms_sent,
       minutesRemaining: Math.round((startsAt.getTime() - now.getTime()) / 60000),
     };

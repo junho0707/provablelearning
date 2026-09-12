@@ -2,6 +2,7 @@ import Link from "next/link";
 import { currentStudent } from "@/lib/auth/session";
 import { signOutStudent } from "@/lib/auth/student";
 import { BrandWordmark } from "@/components/brand-wordmark";
+import { TimeZoneProbe } from "@/components/timezone-probe";
 import { GROUND } from "@/lib/ui";
 
 /**
@@ -18,6 +19,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
 
   return (
     <div style={{ background: GROUND }} className="min-h-screen">
+      <TimeZoneProbe />
       {student && (
         <header className="sticky top-0 z-40 border-b border-navy-950/10 bg-white/90 backdrop-blur">
           <div className="mx-auto flex h-16 max-w-[880px] items-center justify-between px-6 sm:px-10">

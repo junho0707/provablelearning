@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth/session";
 import { getBalance } from "@/lib/credits/balance";
 import { getPurchaseHistory, getLedgerHistory } from "@/lib/credits/history";
 import { listFirstSessionEligible } from "@/lib/assessment/first-session";
@@ -7,6 +7,7 @@ import { PRICING, formatPrice, perCreditCents, savingPercent } from "@/lib/prici
 import { BuyCredits } from "./buy-credits";
 import { OrderHistory } from "./order-history";
 import { PurchaseNotice } from "@/components/purchase-notice";
+import { purchaseReturn } from "@/lib/billing/purchase-return";
 import { EYEBROW, H1, H2, NOTICE_GOLD } from "@/lib/ui";
 
 export const metadata = { title: "Credits" };
@@ -33,11 +34,8 @@ export default async function CreditsPage({
   // Stripe redirects back the instant the card clears, a second or two ahead of the webhook that
   // grants the credits. Say the purchase is processing rather than render a balance that is about
   // to be wrong (`03-FLOWS.md` F3, failure paths).
-  const justPaid = (await searchParams).purchase === "success";
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { paid, sessionId } = purchaseReturn((await searchParams).purchase);
+  const { user } = await getAuthUser();
   if (!user) redirect("/login?next=/credits");
 
   const [balance, purchases, ledger, firstSessionEligible] = await Promise.all([
@@ -51,8 +49,8 @@ export default async function CreditsPage({
     <main className="mx-auto max-w-[1200px] px-6 py-16 sm:px-10">
       <h1 className={H1}>Credits</h1>
 
-      {justPaid && (
-        <PurchaseNotice>
+      {paid && (
+        <PurchaseNotice sessionId={sessionId}>
           <p className={`mt-8 ${NOTICE_GOLD}`}>
             <strong className="font-semibold text-navy-950">Payment received</strong> — your credits
             land within a few seconds.
