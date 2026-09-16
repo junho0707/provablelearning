@@ -10,10 +10,13 @@ restated here — they live in `02-POLICIES.md`; flows reference them.
 **Actor:** visitor → buyer.
 
 1. Visitor arrives from a paid ad or social post, landing on the marketing page. The page presents
-   the First Session offer at $25 (against $75), the purpose options in the buyer's own language, and
-   how sessions work.
-2. There is **no public roadmap or lesson catalog** to browse (`00-BUSINESS.md` §1). The only path
-   forward is to sign up.
+   the First Session offer at $25 (against $75), the purpose options in the buyer's own language,
+   how sessions work, and **the open times themselves** — the live four-week calendar, read-only,
+   with hours freed by a cancellation marked as such. "Is there a time that fits my week?" is part
+   of the buying decision, and answering it only after payment asks the visitor to buy blind.
+2. There is **no public roadmap or lesson catalog** to browse (`00-BUSINESS.md` §1). The calendar is
+   not an exception to that: it publishes when the tutor is free, never what is taught or who is
+   booked. Picking a time on it holds nothing — the only path forward is still to sign up.
 3. Visitor chooses **Continue with Google**, or enters an email address. The email path is
    **email-first**: the address alone decides the second step, because only the server knows which
    method that address has. An address with a password is asked for it; an address without one is

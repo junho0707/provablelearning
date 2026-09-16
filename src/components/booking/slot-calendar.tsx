@@ -10,6 +10,8 @@ import {
   localDayKey,
   mondayCellOf,
 } from "@/lib/booking/group-slots";
+import type { OpenSlot } from "@/lib/booking/slots";
+import { POLICY_COPY } from "@/lib/policy";
 import { EYEBROW, NOTICE } from "@/lib/ui";
 
 /** Monday-first, matching the Monday-stepped release cadence the horizon already follows. */
@@ -24,6 +26,10 @@ const WEEKDAY_HEADS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
  * Weeks rather than calendar months, because the horizon is measured in weeks and a month grid
  * would open on a mostly-empty page whenever the 1st falls late in the window.
  *
+ * A slot somebody gave back is drawn in gold — the same ink the site uses for "already paid for"
+ * — because a freed hour is the one thing on this grid that can vanish between two visits, and it
+ * is often sooner than anything else on offer.
+ *
  * Every label is rendered from the visitor's own time zone, never the tutor's — the grid has to
  * agree with the times listed under it about which day a late-evening slot belongs to, which is
  * what `localDayKey` is for.
@@ -34,7 +40,7 @@ export function SlotCalendar({
   onSelect,
   timeZone,
 }: {
-  slots: string[];
+  slots: OpenSlot[];
   selected: string | null;
   onSelect: (iso: string) => void;
   timeZone: string;
@@ -101,6 +107,8 @@ export function SlotCalendar({
             );
           }
 
+          const justOpened = group.slots.some((s) => s.released);
+
           return (
             <button
               key={key}
@@ -108,7 +116,7 @@ export function SlotCalendar({
               aria-pressed={isActive}
               aria-label={`${group.dateLabel} — ${group.slots.length} open ${
                 group.slots.length === 1 ? "time" : "times"
-              }`}
+              }${justOpened ? ", including one that just opened" : ""}`}
               onClick={() => setOpenDay(key)}
               className={`border-b border-l border-navy-950/10 px-1 py-2 text-center [&:nth-child(7n)]:border-r [&:nth-child(7n+1)]:border-l-0 ${
                 isActive ? "bg-navy-950 text-white" : "bg-white hover:bg-gold-100"
@@ -119,7 +127,15 @@ export function SlotCalendar({
               </span>
               <span
                 className={`mt-0.5 block text-[0.6875rem] tabular-nums ${
-                  isActive ? "text-white/70" : "text-navy-950/55"
+                  // Gold says "something here just opened". On the filled cell that has to be the
+                  // lighter gold — 600 is drawn for off-white and disappears into navy.
+                  justOpened
+                    ? isActive
+                      ? "text-gold-400"
+                      : "text-gold-600"
+                    : isActive
+                      ? "text-white/70"
+                      : "text-navy-950/55"
                 }`}
               >
                 {group.slots.length}
@@ -138,17 +154,29 @@ export function SlotCalendar({
                 key={slot.iso}
                 type="button"
                 aria-pressed={selected === slot.iso}
+                aria-label={
+                  slot.released ? `${slot.timeLabel} — ${POLICY_COPY.releasedSlot}` : undefined
+                }
+                title={slot.released ? POLICY_COPY.releasedSlot : undefined}
                 onClick={() => onSelect(slot.iso)}
                 className={`border px-3 py-2 text-[0.875rem] font-semibold tabular-nums ${
                   selected === slot.iso
                     ? "border-navy-950 bg-navy-950 text-white"
-                    : "border-navy-950/15 bg-white text-navy-800 hover:border-navy-950"
+                    : slot.released
+                      ? "border-gold-500 bg-gold-100 text-navy-800 hover:border-navy-950"
+                      : "border-navy-950/15 bg-white text-navy-800 hover:border-navy-950"
                 }`}
               >
                 {slot.timeLabel}
               </button>
             ))}
           </div>
+          {active.slots.some((s) => s.released) && (
+            <p className="mt-3 text-[0.8125rem] text-navy-950/55">
+              <span className="mr-2 inline-block h-2 w-2 border border-gold-500 bg-gold-100 align-middle" />
+              {POLICY_COPY.releasedSlot}
+            </p>
+          )}
         </div>
       )}
     </div>

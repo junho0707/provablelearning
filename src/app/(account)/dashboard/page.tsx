@@ -5,13 +5,15 @@ import { getBalance } from "@/lib/credits/balance";
 import { currentBuyerId } from "@/lib/auth/session";
 import { listFirstSessionEligible, listUnusedFirstSessions } from "@/lib/assessment/first-session";
 import { getMyBookings } from "@/lib/booking/history";
+import { getOpenAvailability } from "@/lib/booking/availability";
+import { OpenTimes } from "@/components/booking/open-times";
 import { labelFor } from "@/lib/accounts/purposes";
 import { PurchaseNotice } from "@/components/purchase-notice";
 import { purchaseReturn } from "@/lib/billing/purchase-return";
 import { viewerTimeZone } from "@/lib/booking/viewer-timezone";
 import { sessionTime } from "@/lib/time-format";
 import { PRICING, formatPrice } from "@/lib/pricing";
-import { BTN, BTN_LG, BTN_SECONDARY, EYEBROW, H1, NOTICE, NOTICE_GOLD } from "@/lib/ui";
+import { BTN, BTN_LG, BTN_SECONDARY, EYEBROW, H1, H2, NOTICE, NOTICE_GOLD } from "@/lib/ui";
 
 export const metadata = { title: "Dashboard" };
 
@@ -39,13 +41,14 @@ export default async function DashboardPage({
   const { paid, sessionId } = purchaseReturn((await searchParams).purchase);
   const timeZone = await viewerTimeZone();
 
-  const [profiles, balance, unusedFirstSessions, eligibleFirstSessions, bookings] =
+  const [profiles, balance, unusedFirstSessions, eligibleFirstSessions, bookings, slots] =
     await Promise.all([
       listProfiles(),
       getBalance(),
       listUnusedFirstSessions(),
       listFirstSessionEligible(),
       getMyBookings(),
+      getOpenAvailability(),
     ]);
 
   // Upcoming sessions belong to a student, not to the account, so they are listed under the
@@ -224,6 +227,26 @@ export default async function DashboardPage({
       >
         + Add another student
       </Link>
+
+      {/* The schedule, read-only. It sits under the students rather than inside a row because the
+          hours are the tutor's, not any one student's — a parent of two would otherwise read the
+          same grid twice. Picking a time carries it into `/book`, along with the student when
+          there is only one to mean. */}
+      <section className="mt-14">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <h2 className={H2}>Open times</h2>
+          <Link href="/book" className="text-[0.875rem] font-semibold text-navy-950 underline">
+            Go to booking
+          </Link>
+        </div>
+        <div className="mt-6">
+          <OpenTimes
+            slots={slots}
+            timeZone={timeZone}
+            cta={{ kind: "book", studentId: profiles.length === 1 ? profiles[0].id : undefined }}
+          />
+        </div>
+      </section>
     </main>
   );
 }

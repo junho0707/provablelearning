@@ -18,7 +18,7 @@ export const metadata = { title: "Book a session" };
 export default async function BookPage({
   searchParams,
 }: {
-  searchParams: Promise<{ student?: string }>;
+  searchParams: Promise<{ student?: string; slot?: string }>;
 }) {
   const buyerId = await currentBuyerId();
   if (!buyerId) redirect("/login?next=/book");
@@ -81,6 +81,7 @@ export default async function BookPage({
           students={students}
           balance={balance}
           initialStudentId={params.student}
+          initialSlot={params.slot}
           timeZone={timeZone}
         />
       </div>

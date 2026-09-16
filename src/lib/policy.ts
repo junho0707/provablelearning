@@ -65,12 +65,13 @@ export const RETENTION_DAYS = 30;
 
 /** Spelled once so the prose and the bullet forms below cannot disagree about the window. */
 const MIN_NOTICE_TEXT = `${MIN_NOTICE_MS / HOUR_MS} hours`;
+const RELEASED_MIN_NOTICE_TEXT = `${RELEASED_SLOT_MIN_NOTICE_MS / HOUR_MS} hour`;
 
 /** Buyer-facing phrasings, so page copy never restates a number the code owns. */
 export const POLICY_COPY = {
   minNotice: MIN_NOTICE_TEXT,
   horizon: "4 weeks",
-  release: "Every Monday, the fifth week out opens.",
+  release: "A new week opens every Monday.",
   freeCancel: `Free to cancel or reschedule ${MIN_NOTICE_TEXT} or more ahead — the credit comes back.`,
   lateCancel: `Inside ${MIN_NOTICE_TEXT} the credit is used. Tell us what happened and we'll review it — up to ${CREDIT_RETURNS_PER_MONTH} credit returns per student each month.`,
   noShow:
@@ -81,8 +82,11 @@ export const POLICY_COPY = {
    * Terse variants for the marketing page's bullet lists. The prose forms above stay as they are
    * because the legal pages read them as sentences; these say the same rules in fewer words.
    */
-  freeCancelBullet: `${MIN_NOTICE_TEXT}+ before the session: free, and the credit comes back.`,
-  lateCancelBullet: `Inside ${MIN_NOTICE_TEXT} of the session: send a note and we'll refund the credit — up to ${CREDIT_RETURNS_PER_MONTH} times a month.`,
-  lateCancelCapBullet: `Beyond that, the credit is used.`,
+  freeCancelBullet: `${MIN_NOTICE_TEXT}+ before the session: free, and you keep the session.`,
+  lateCancelBullet: `Inside ${MIN_NOTICE_TEXT} of the session: send a note and we'll give the session back — up to ${CREDIT_RETURNS_PER_MONTH} times a month.`,
+  lateCancelCapBullet: `Beyond that, the session is used.`,
+  sessionsNeverExpire: "Sessions you buy never expire.",
+  /** What an hour drawn in gold means, wherever the calendar draws one. */
+  releasedSlot: `Someone cancelled this session — you can still book it up to ${RELEASED_MIN_NOTICE_TEXT} before it starts.`,
   materials: "Your written materials arrive within 24 hours of the session.",
 } as const;

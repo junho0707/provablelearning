@@ -7,7 +7,7 @@ codebase.
 
 | Route | State | Notes |
 |---|---|---|
-| `/` | **CHANGE** | Marketing page. Must be rebuilt around the offer: First Session $25 vs $75, the purpose options in buyer language, how sessions work. The current hero was written for the free-content model and its "explore the roadmap" CTA points at a page that is no longer public. |
+| `/` | **CHANGE** | Marketing page. Must be rebuilt around the offer: First Session $25 vs $75, the purpose options in buyer language, how sessions work. The current hero was written for the free-content model and its "explore the roadmap" CTA points at a page that is no longer public. Carries the **open-times calendar**: the same four-week grid `/book` shows, read-only, with slots freed by a cancellation marked. This is the one thing on the public page read live from the database — it is the tutor's open hours minus what is taken, computed service-side with no session, and carries no buyer, student, or booking identity. Picking a time here books nothing and holds nothing; it only points the sign-up CTA. |
 | `/login` | **EXISTS** | Buyer sign-in: Google OAuth popup + magic link. No password field, ever. |
 | `/auth/callback` | **EXISTS** | Magic-link exchange. Google no longer passes through here — its token is minted in the browser. |
 | `/privacy` | **CHANGE** | Must gain the kids-specific disclosure (`06-AUTH-AND-COPPA.md` §4). |
@@ -18,11 +18,11 @@ codebase.
 
 | Route | State | Notes |
 |---|---|---|
-| `/dashboard` | **NEW** | The hub. Empty state prompts adding a first student; once students exist it shows each student's upcoming sessions, their First Session promo if unclaimed, and entry points to every tab below. Today `/account` and `/profiles` split this job and neither is the hub the flows describe. |
+| `/dashboard` | **NEW** | The hub. Empty state prompts adding a first student; once students exist it shows each student's upcoming sessions, their First Session promo if unclaimed, the same read-only open-times calendar the public page carries (picking a time carries it into `/book` as `?slot=`), and entry points to every tab below. Today `/account` and `/profiles` split this job and neither is the hub the flows describe. |
 | `/profiles` | **CHANGE** | Student management. Must gain credential setting (username + password), password reset, current/previous math class, and primary/secondary purpose with free text. |
 | `/credits` · `/wallet` | **CHANGE** | Credits & billing. One tab, not two — currently the balance/ledger view and the purchase view are separate routes. Must also offer the First Session promo as a second entry point (`03-FLOWS.md` F4). |
 | `/first-session` | **CHANGE** | First Session purchase. **Per student** — pick the student, the purpose, and the time (ADR-009) — and must block a second purchase for a student who already has one. Payment books the chosen slot. |
-| `/book` | **CHANGE** | Slot picker + booking form. Must gain: student selection, purpose, specifics, continue-vs-new-topic, and optional uploads. Must apply the 2-hour minimum, the Monday release cadence, and the 1-hour floor on released slots. |
+| `/book` | **CHANGE** | Slot picker + booking form. Accepts `?student=` and `?slot=`, both honoured only if still valid. Must gain: student selection, purpose, specifics, continue-vs-new-topic, and optional uploads. Must apply the 2-hour minimum, the Monday release cadence, and the 1-hour floor on released slots. |
 | `/sessions` | **CHANGE** | Per-student session list, upcoming and past, with cancel/reschedule, the remaining monthly credit-return allowance, the note submission, and links to delivered materials. |
 | `/messages` | **NEW** | Threaded conversation with the tutor. |
 | `/account` | **CHANGE** | Settings, phone number for SMS reminders, and the **consent controls** in `03-FLOWS.md` F13: per student, review collected data, delete it, revoke consent. |

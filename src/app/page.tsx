@@ -8,6 +8,9 @@ import { POLICY_COPY } from "@/lib/policy";
 import { PURPOSES, PURPOSE_LABEL, type Purpose } from "@/lib/accounts/purposes";
 import { createClient } from "@/lib/supabase/server";
 import { getPurchaseHistory } from "@/lib/credits/history";
+import { getPublicAvailability } from "@/lib/booking/availability";
+import { viewerTimeZone } from "@/lib/booking/viewer-timezone";
+import { OpenTimes } from "@/components/booking/open-times";
 
 const FIRST_SESSION_PRICE = formatPrice(PRICING.first_session.priceCents);
 
@@ -70,7 +73,7 @@ const SCHEDULING_RULES = [
       POLICY_COPY.lateCancelCapBullet,
     ],
   },
-  { title: "Credits", bullets: [POLICY_COPY.creditsNeverExpire] },
+  { title: "Sessions", bullets: [POLICY_COPY.sessionsNeverExpire] },
 ];
 
 /** The two kinds of login and what each can do. `system/01-ACTORS.md` and `06-AUTH-AND-COPPA.md`. */
@@ -79,7 +82,7 @@ const ACCOUNT_KINDS = [
     title: "Parent account",
     bullets: [
       "Signs in with Google or email",
-      "Buys credits and First Sessions",
+      "Buys sessions, including the First Session",
       "Books, cancels, and messages the tutor",
       "Sets up a sign-in for each student",
     ],
@@ -162,6 +165,10 @@ export default async function Home() {
     ? (await getPurchaseHistory()).some((p) => p.sku === "first_session")
     : false;
 
+  // The real schedule, on the page where the decision is made. Nothing here is account-scoped —
+  // it is the tutor's open hours minus what is taken (`05-SURFACES.md` §1).
+  const [slots, timeZone] = await Promise.all([getPublicAvailability(), viewerTimeZone()]);
+
   const ctaWith = (className: string) => (
     <SignUpButton signedIn={Boolean(user)} hasFirstSession={hasFirstSession} className={className} />
   );
@@ -211,7 +218,7 @@ export default async function Home() {
             Limited time
           </p>
           <p className="text-[clamp(1.5rem,3.5vw,2.25rem)] font-semibold leading-none tracking-[-0.025em]">
-            First session <span className="tabular-nums">{FIRST_SESSION_PRICE}</span>
+            First 1&nbsp;hour session <span className="tabular-nums">{FIRST_SESSION_PRICE}</span>
           </p>
           {ctaWith(
             "inline-block bg-navy-950 px-7 py-3.5 text-[0.9375rem] font-semibold text-white hover:bg-navy-800",
@@ -219,14 +226,37 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ── Body — what later sessions are for. First panel of the light body: the gold strip is
-             its seam, so it takes no hairline. ──────────────────────────────────────────────── */}
+      {/* ── Body — the calendar. First panel of the light body: the gold strip is its seam, so it
+             takes no hairline. It follows the price directly, because "$25" and "Tuesday at 4" are
+             one decision — a visitor who cannot see an hour that fits their week has no reason to
+             read the rest of the page. Split like the panel below it: the claim on the left, the
+             thing itself on the right. ─────────────────────────────────────────────────────── */}
+      <section style={{ background: OFF_WHITE }} className="text-navy-950">
+        <div className="mx-auto grid max-w-[1200px] gap-12 px-6 py-12 sm:px-10 sm:py-16 lg:grid-cols-12 lg:gap-16">
+          <div className="lg:col-span-5">
+            <Eyebrow>Check our availability</Eyebrow>
+            <h2 className="text-[clamp(1.875rem,3.5vw,2.75rem)] font-semibold leading-[1.05] tracking-[-0.025em]">
+              Open slots
+            </h2>
+          </div>
+          <div className="lg:col-span-7">
+            <OpenTimes
+              slots={slots}
+              timeZone={timeZone}
+              cta={{ kind: "signup", signedIn: Boolean(user), hasFirstSession }}
+              footnote={POLICY_COPY.release}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ── Body — what later sessions are for ─────────────────────────────────────────────── */}
       <section style={{ background: OFF_WHITE }} className="text-navy-950">
         <div className="mx-auto grid max-w-[1200px] gap-12 px-6 py-12 sm:px-10 sm:py-16 lg:grid-cols-12 lg:gap-16">
           <div className="lg:col-span-5">
             <Eyebrow>After your first session</Eyebrow>
             <h2 className="text-[clamp(1.875rem,3.5vw,2.75rem)] font-semibold leading-[1.05] tracking-[-0.025em]">
-              Keep going with 1&nbsp;hour 1:1 credit sessions.
+              Keep going with 1&nbsp;hour 1:1 sessions.
             </h2>
           </div>
           <dl className="lg:col-span-7">
@@ -257,7 +287,7 @@ export default async function Home() {
                 {formatPrice(PRICING.first_session.priceCents)}
               </p>
               <div className="text-right sm:mt-4 sm:text-left">
-                <p className="text-[0.9375rem] text-navy-700">First session</p>
+                <p className="text-[0.9375rem] text-navy-700">First 1&nbsp;hour session</p>
                 <p className="mt-0.5 text-[0.8125rem] text-navy-950/40">one per student</p>
               </div>
             </div>

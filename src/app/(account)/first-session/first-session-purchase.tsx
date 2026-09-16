@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { createFirstSessionCheckout } from "@/lib/billing/checkout";
 import { PurposePicker, type PurposeValue } from "@/components/purpose-picker";
 import { SlotCalendar } from "@/components/booking/slot-calendar";
+import type { OpenSlot } from "@/lib/booking/slots";
 import { zoneAbbreviation } from "@/lib/time-format";
 import { BTN_GOLD, INPUT, LABEL, NOTICE_ERROR } from "@/lib/ui";
 
@@ -24,7 +25,7 @@ export function FirstSessionPurchase({
 }: {
   eligible: Array<{ profileId: string; name: string }>;
   price: string;
-  slots: string[];
+  slots: OpenSlot[];
   timeZone: string;
 }) {
   const [profileId, setProfileId] = useState(eligible[0]?.profileId ?? "");

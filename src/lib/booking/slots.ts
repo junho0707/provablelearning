@@ -140,3 +140,10 @@ function toInstant(year: number, month: number, day: number, minutesOfDay: numbe
 function toDateKey(year: number, month: number, day: number): string {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
+
+/**
+ * An open instant plus whether it is one somebody **gave back**. Released slots are ordinary open
+ * slots to the booking RPC — the flag exists so a calendar can say "this just opened", which is
+ * the one piece of urgency the schedule honestly carries.
+ */
+export type OpenSlot = { iso: string; released: boolean };

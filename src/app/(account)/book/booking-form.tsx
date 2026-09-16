@@ -7,6 +7,7 @@ import { bookSession } from "@/lib/booking/book";
 import { PurposePicker, type PurposeValue } from "@/components/purpose-picker";
 import { labelFor, isPurpose } from "@/lib/accounts/purposes";
 import { SlotCalendar } from "@/components/booking/slot-calendar";
+import type { OpenSlot } from "@/lib/booking/slots";
 import { sessionTime } from "@/lib/time-format";
 import {
   BTN,
@@ -43,12 +44,14 @@ export function BookingForm({
   students,
   balance,
   initialStudentId,
+  initialSlot,
   timeZone,
 }: {
-  slots: string[];
+  slots: OpenSlot[];
   students: Student[];
   balance: number;
   initialStudentId?: string;
+  initialSlot?: string;
   timeZone: string;
 }) {
   const router = useRouter();
@@ -63,7 +66,12 @@ export function BookingForm({
   const [purpose, setPurpose] = useState<PurposeValue>(() => seedPurpose(students[0]));
   const [specifics, setSpecifics] = useState("");
   const [topicMode, setTopicMode] = useState<"new" | "continue">("new");
-  const [selected, setSelected] = useState<string | null>(null);
+  // A time picked on the dashboard's read-only calendar arrives as `?slot=`. It is honoured only
+  // if it is still open — between the click and this render someone else may have taken it, and a
+  // silently pre-filled stale slot would fail at confirm with nothing to explain it.
+  const [selected, setSelected] = useState<string | null>(
+    initialSlot && slots.some((s) => s.iso === initialSlot) ? initialSlot : null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState<{ iso: string; usedFirstSession: boolean } | null>(null);
   const [pending, start] = useTransition();

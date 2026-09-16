@@ -1,4 +1,5 @@
 import { clockTime } from "@/lib/time-format";
+import type { OpenSlot } from "./slots";
 
 /**
  * Calendar date as `YYYY-MM-DD`, as the instant falls in `timeZone`.
@@ -25,10 +26,10 @@ export function localDayKey(date: Date, timeZone: string) {
  * a human label to head the list of times under it. Times carry their zone, so a Pacific buyer
  * reading "9:00 AM PDT" cannot mistake it for the tutor's Eastern morning.
  */
-export function groupByLocalDate(slots: string[], timeZone: string) {
-  const groups = new Map<string, { iso: string; timeLabel: string }[]>();
+export function groupByLocalDate(slots: OpenSlot[], timeZone: string) {
+  const groups = new Map<string, { iso: string; timeLabel: string; released: boolean }[]>();
   const labels = new Map<string, string>();
-  for (const iso of slots) {
+  for (const { iso, released } of slots) {
     const date = new Date(iso);
     const dateKey = localDayKey(date, timeZone);
     labels.set(
@@ -41,7 +42,7 @@ export function groupByLocalDate(slots: string[], timeZone: string) {
       }).format(date),
     );
     if (!groups.has(dateKey)) groups.set(dateKey, []);
-    groups.get(dateKey)!.push({ iso, timeLabel: clockTime(iso, timeZone) });
+    groups.get(dateKey)!.push({ iso, timeLabel: clockTime(iso, timeZone), released });
   }
   return [...groups.entries()].map(([dayKey, slots]) => ({
     dayKey,
