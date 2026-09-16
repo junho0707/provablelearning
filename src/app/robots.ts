@@ -11,7 +11,22 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/student", "/admin", "/dashboard", "/book", "/sessions", "/credits", "/account", "/messages", "/api"],
+      disallow: [
+        "/student",
+        "/admin",
+        "/dashboard",
+        "/book",
+        "/sessions",
+        "/credits",
+        "/account",
+        "/messages",
+        "/first-session",
+        "/profiles",
+        "/wallet",
+        "/login",
+        "/set-password",
+        "/api",
+      ],
     },
     sitemap: absoluteUrl("/sitemap.xml"),
   };
