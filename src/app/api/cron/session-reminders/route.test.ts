@@ -6,6 +6,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const selectChain = {
   eq: vi.fn().mockReturnThis(),
+  in: vi.fn().mockReturnThis(),
   gte: vi.fn().mockReturnThis(),
   lt: vi.fn().mockResolvedValue({ data: [] }),
 };
@@ -29,6 +30,8 @@ function req(authHeader: string | null) {
 
 beforeEach(() => {
   process.env.CRON_SECRET = "test-secret";
+  delete process.env.CRON_HEARTBEAT_URL;
+  vi.unstubAllGlobals();
   fromMock.mockClear();
 });
 
@@ -47,7 +50,38 @@ describe("GET /api/cron/session-reminders", () => {
     const res = await GET(req("Bearer test-secret"));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ sent24h: 0, sent1h: 0 });
-    expect(fromMock).toHaveBeenCalledTimes(2);
+    expect(body).toEqual({ sent24h: 0, sent1h: 0, overdue: 0 });
+    // Two reminder windows plus the materials band that goes overdue during this tick.
+    expect(fromMock).toHaveBeenCalledTimes(3);
+  });
+
+  // The tick is wrapped so a throw reaches the operator instead of vanishing; it must still say
+  // so in the response, because a 200 would tell Vercel the hour's reminders went out.
+  it("reports a failed tick as a 500", async () => {
+    selectChain.lt.mockRejectedValueOnce(new Error("supabase unreachable"));
+    const res = await GET(req("Bearer test-secret"));
+    expect(res.status).toBe(500);
+    expect((await res.json()).error.code).toBe("cron_failed");
+  });
+
+  it("pings the heartbeat after a completed tick", async () => {
+    process.env.CRON_HEARTBEAT_URL = "https://uptime.example/heartbeat/abc";
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await GET(req("Bearer test-secret"));
+    expect(fetchSpy).toHaveBeenCalledWith("https://uptime.example/heartbeat/abc", { method: "GET" });
+  });
+
+  // A tick that failed must look exactly like a tick that never ran, or the monitor reports a
+  // broken cron as healthy — which is the one thing a dead-man's switch exists to prevent.
+  it("does not ping the heartbeat when the tick failed", async () => {
+    process.env.CRON_HEARTBEAT_URL = "https://uptime.example/heartbeat/abc";
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchSpy);
+    selectChain.lt.mockRejectedValueOnce(new Error("supabase unreachable"));
+
+    await GET(req("Bearer test-secret"));
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

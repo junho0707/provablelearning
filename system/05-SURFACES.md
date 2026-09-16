@@ -61,7 +61,14 @@ All **NEW**. There is no student-facing surface in the codebase today.
 | Route | State | Notes |
 |---|---|---|
 | `/api/webhooks/stripe` | **CHANGE** | Idempotent purchase handling. Must additionally **record the consent event and activate that account's student logins** (`06-AUTH-AND-COPPA.md` §3), and grant a **per-student** First Session entitlement. |
+| `/api/health` | **NEW** | Unauthenticated liveness check for an external uptime monitor: proves this deployment can reach Supabase, 200 or 503, and returns no data. Serving HTML is not evidence of health — every surface behind sign-in is broken when Postgres is unreachable. |
 | `/api/cron/session-reminders` | **CHANGE** | Reminder **email to the buyer only**. The student's reminder is in-app (`02-POLICIES.md` §11), so this job emails the parent and writes the student's in-app notification. Also drives the pre-session nudge. |
+
+**Monitoring is external, by design.** The uptime monitor lives outside Vercel and polls
+`/api/health`, because a watcher inside the thing it watches cannot report its own death. The same
+monitor holds `CRON_HEARTBEAT_URL`, which the reminder cron pings **only after a completed tick** —
+that is the one failure the operator alerts below cannot cover, since a schedule that stops firing
+leaves no code of ours running to notice.
 
 **Outbound: `SLACK_WEBHOOK_URL`.** The one outbound integration with no route of its own — the
 operator alert channel in `02-POLICIES.md` §11, posted from `src/lib/notify/slack.ts`. Unset is a
