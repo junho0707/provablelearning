@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { POLICY_COPY } from "@/lib/policy";
 import { cancelCalendarEvent, updateCalendarEventTime } from "./calendar";
+import { adminLink, alertTime, notifyOperator } from "@/lib/notify/slack";
 
 export type CancelResult = { ok: true; refunded: boolean } | { ok: false; code: "denied" | "not_found" | "invalid_state" | "malformed"; message: string };
 export type RescheduleResult = { ok: true } | { ok: false; code: "denied" | "not_found" | "invalid_state" | "too_late" | "slot_taken" | "malformed"; message: string };
@@ -32,10 +33,21 @@ export async function cancelBooking(input: { bookingId: string }): Promise<Cance
     return { ok: false, code: "malformed", message: "Could not cancel that booking." };
   }
 
-  const { data: booking } = await supabase.from("bookings").select("calendar_event_id").eq("id", parsed.data).maybeSingle();
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("calendar_event_id, starts_at")
+    .eq("id", parsed.data)
+    .maybeSingle();
   if (booking?.calendar_event_id) await cancelCalendarEvent(booking.calendar_event_id);
 
-  return { ok: true, refunded: data as boolean };
+  const refunded = data as boolean;
+  if (booking) {
+    await notifyOperator(
+      `:x: *Session cancelled* — ${alertTime(booking.starts_at)} · ${refunded ? "credit returned" : "credit used"}\n${adminLink("/admin/bookings")}`,
+    );
+  }
+
+  return { ok: true, refunded };
 }
 
 const RESCHEDULE_ERRORS: Record<string, { code: Exclude<RescheduleResult, { ok: true }>["code"]; message: string }> = {
@@ -78,6 +90,10 @@ export async function rescheduleBooking(input: { bookingId: string; newSlot: str
     .maybeSingle();
   if (booking?.calendar_event_id) await updateCalendarEventTime(booking.calendar_event_id, parsed.data.newSlot);
 
+  await notifyOperator(
+    `:arrows_counterclockwise: *Session moved* — now ${alertTime(parsed.data.newSlot)}\n${adminLink("/admin/bookings")}`,
+  );
+
   return { ok: true };
 }
 
@@ -114,5 +130,11 @@ export async function requestCreditReturn(input: { bookingId: string; reason: st
       message: messages[error.message] ?? "That session isn't eligible for a credit return.",
     };
   }
+  // The queue this lands on is the one with a policy cap behind it, so it is worth interrupting
+  // for: the buyer is waiting on a human decision, not on the system.
+  await notifyOperator(
+    `:raising_hand: *Credit return requested*\n> ${parsed.data.reason}\n${adminLink("/admin/credit-returns")}`,
+  );
+
   return { ok: true, requestId: data as string };
 }

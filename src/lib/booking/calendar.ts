@@ -1,5 +1,6 @@
 import { google } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { adminLink, alertTime, notifyOperator } from "@/lib/notify/slack";
 
 const SESSION_MS = 60 * 60 * 1000;
 
@@ -108,7 +109,14 @@ export async function attachCalendarEvent(bookingId: string): Promise<void> {
     learnerName: profile?.name ?? "your learner",
     buyerEmail,
   });
-  if (!event) return;
+  if (!event) {
+    // The booking is valid and the repair queue already has it (INV-BOOK-2). What was missing was
+    // anyone knowing: a session with no Meet link is only harmless if it gets fixed before it starts.
+    await notifyOperator(
+      `:warning: *No Meet link* — ${profile?.name ?? "a student"}, ${alertTime(booking.starts_at)}. Google Calendar refused the event; the booking stands.\n${adminLink("/admin/bookings")}`,
+    );
+    return;
+  }
 
   await admin
     .from("bookings")

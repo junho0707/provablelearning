@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { attachCalendarEvent } from "@/lib/booking/calendar";
-import { sendBookingConfirmationEmail } from "@/lib/notify/booking";
+import { sendBookingConfirmationEmail, notifyOperatorOfBooking } from "@/lib/notify/booking";
 
 /**
  * The First Session entitlement (F4).
@@ -144,5 +144,6 @@ export async function bookFirstSession(input: unknown): Promise<BookFirstSession
   const bookingId = data as string;
   await attachCalendarEvent(bookingId);
   await sendBookingConfirmationEmail(bookingId);
+  await notifyOperatorOfBooking(bookingId);
   return { ok: true, bookingId };
 }

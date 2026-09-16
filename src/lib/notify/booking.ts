@@ -1,5 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendBookingConfirmation, sendReminder } from "./email";
+import { adminLink, alertTime, notifyOperator } from "./slack";
+import { labelFor } from "@/lib/accounts/purposes";
 
 /**
  * TASK-NOTIFY-001. Runs after `attachCalendarEvent` so the confirmation email can include the Meet
@@ -20,6 +22,29 @@ export async function sendBookingConfirmationEmail(bookingId: string): Promise<v
   if (!email) return;
 
   await sendBookingConfirmation({ to: email, startsAt: booking.starts_at, meetUrl: booking.meet_url });
+}
+
+/**
+ * Tells the operator a session was booked. Called beside the buyer's confirmation rather than
+ * inside it, because the two are different promises: the email is owed to the buyer, this is only
+ * so the tutor learns about the session without opening `/admin/bookings`.
+ */
+export async function notifyOperatorOfBooking(bookingId: string): Promise<void> {
+  const admin = createAdminClient();
+  const { data: booking } = await admin
+    .from("bookings")
+    .select("starts_at, purpose, sub_purpose, learner_profiles(name)")
+    .eq("id", bookingId)
+    .maybeSingle();
+  if (!booking) return;
+
+  const profile = booking.learner_profiles as unknown as { name: string } | { name: string }[] | null;
+  const name = Array.isArray(profile) ? (profile[0]?.name ?? "a student") : (profile?.name ?? "a student");
+  const why = [labelFor(booking.purpose), labelFor(booking.sub_purpose)].filter(Boolean).join(" · ");
+
+  await notifyOperator(
+    `:calendar: *Session booked* — ${name}, ${alertTime(booking.starts_at)}${why ? ` · ${why}` : ""}\n${adminLink("/admin/bookings")}`,
+  );
 }
 
 type ReminderKind = "reminded_24h" | "reminded_1h";

@@ -144,6 +144,15 @@ matters, and it is the parent's to act on.
 
 SMS is **not** integrated. The operator sends texts by hand from an admin worklist.
 
+**A third channel reaches the operator: Slack.** The admin worklists are the system of record and
+stay so — nothing is *acted on* in Slack, and no decision is made there. But a solo operator does
+not poll four queues, so one incoming webhook announces what has just landed on one: a purchase, a
+booking, a cancellation or reschedule, a credit-return request, a new buyer message, a session whose
+materials passed the 24-hour target, a booking Google Calendar refused a Meet link for, and a
+reminder cron that failed. Every alert is **best-effort and non-blocking** — a Slack outage must
+cost an alert, never the purchase or booking that triggered it — and it carries no student-submitted
+work, only who and when, plus the link to the queue that can act on it.
+
 ## 12. Messaging
 
 - **Buyer ↔ tutor only.** Students cannot message.

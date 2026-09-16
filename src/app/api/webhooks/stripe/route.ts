@@ -6,7 +6,9 @@ import { PRICING, type SkuId } from "@/lib/pricing";
 import { sendReceipt } from "@/lib/notify/email";
 import { activateStudentLogins } from "@/lib/accounts/student-credentials";
 import { attachCalendarEvent } from "@/lib/booking/calendar";
-import { sendBookingConfirmationEmail } from "@/lib/notify/booking";
+import { sendBookingConfirmationEmail, notifyOperatorOfBooking } from "@/lib/notify/booking";
+import { adminLink, notifyOperator } from "@/lib/notify/slack";
+import { formatPrice } from "@/lib/pricing";
 
 /**
  * TASK-BILLING-001. The trusted credit/purchase trigger — `08_API_CONTRACTS.md`. Must verify the
@@ -63,6 +65,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   });
 
   if (error) {
+    // Stripe will retry, but a payment that keeps failing to process is money taken with nothing
+    // granted — the one failure here that must reach a human on the first occurrence.
+    await notifyOperator(
+      `:rotating_light: *Purchase failed to process* — ${sku}, account \`${accountId}\`, Stripe event \`${event.id}\`\n> ${error.message}`,
+    );
     return NextResponse.json({ error: { code: "processing_failed", message: error.message } }, { status: 500 });
   }
 
@@ -101,6 +108,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         if (bookingId) {
           await attachCalendarEvent(bookingId as string);
           await sendBookingConfirmationEmail(bookingId as string);
+          await notifyOperatorOfBooking(bookingId as string);
         }
       }
     } catch {
@@ -114,6 +122,14 @@ export async function POST(request: Request): Promise<NextResponse> {
   const receiptEmail = session.customer_details?.email ?? session.customer_email;
   if (processed && receiptEmail) {
     await sendReceipt({ to: receiptEmail, sku, amountCents: PRICING[sku].priceCents });
+  }
+
+  // Same `processed` gate as the receipt, and for the same reason: a redelivery must not announce
+  // a second sale that never happened.
+  if (processed) {
+    await notifyOperator(
+      `:moneybag: *${formatPrice(PRICING[sku].priceCents)}* — ${sku}${receiptEmail ? ` · ${receiptEmail}` : ""}\n${adminLink("/admin/users")}`,
+    );
   }
 
   return NextResponse.json({ received: true });

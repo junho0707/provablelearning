@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin/guard";
 import { currentBuyerId } from "@/lib/auth/session";
 import { sendMessageReply } from "@/lib/notify/email";
+import { adminLink, notifyOperator } from "@/lib/notify/slack";
 
 /**
  * Buyer ↔ tutor messaging (F11). One thread per buyer, keyed by the buyer's account id.
@@ -72,6 +73,13 @@ export async function sendMessage(body: string): Promise<SendResult> {
     .insert({ account_id: buyerId, sender: "buyer", body: parsed.data });
 
   if (error) return { ok: false, message: "Couldn't send that. Try again." };
+
+  // `02-POLICIES.md` §11 keeps the tutor out of email for this, and that stands — the inbox is
+  // still where it is answered. This only says one is waiting.
+  await notifyOperator(
+    `:speech_balloon: *New message*\n> ${parsed.data.slice(0, 200)}\n${adminLink("/admin/messages")}`,
+  );
+
   return { ok: true };
 }
 

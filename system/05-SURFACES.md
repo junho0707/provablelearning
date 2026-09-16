@@ -63,6 +63,11 @@ All **NEW**. There is no student-facing surface in the codebase today.
 | `/api/webhooks/stripe` | **CHANGE** | Idempotent purchase handling. Must additionally **record the consent event and activate that account's student logins** (`06-AUTH-AND-COPPA.md` §3), and grant a **per-student** First Session entitlement. |
 | `/api/cron/session-reminders` | **CHANGE** | Reminder **email to the buyer only**. The student's reminder is in-app (`02-POLICIES.md` §11), so this job emails the parent and writes the student's in-app notification. Also drives the pre-session nudge. |
 
+**Outbound: `SLACK_WEBHOOK_URL`.** The one outbound integration with no route of its own — the
+operator alert channel in `02-POLICIES.md` §11, posted from `src/lib/notify/slack.ts`. Unset is a
+silent no-op, so local and preview environments are quiet by default. The reminder cron also
+reports its own failures there, and announces sessions crossing the 24-hour materials target.
+
 **No no-show cron.** The operator marks a no-show **by hand** from `/admin/bookings/[id]` at the
 15-minute mark — they are in the session and already know. Marking it burns the credit, notifies the
 buyer, and shows the remaining monthly allowance.

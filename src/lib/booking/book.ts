@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { validSubPurpose } from "@/lib/accounts/purposes";
 import { getFirstSessionEntitlement, bookFirstSession } from "@/lib/assessment/first-session";
 import { attachCalendarEvent } from "./calendar";
-import { sendBookingConfirmationEmail } from "@/lib/notify/booking";
+import { sendBookingConfirmationEmail, notifyOperatorOfBooking } from "@/lib/notify/booking";
 
 export type BookSessionResult =
   | { ok: true; bookingId: string; usedFirstSession: boolean }
@@ -101,6 +101,7 @@ export async function bookSession(input: unknown): Promise<BookSessionResult> {
   // valid booking with a missing link, never roll back a paid booking.
   await attachCalendarEvent(bookingId);
   await sendBookingConfirmationEmail(bookingId);
+  await notifyOperatorOfBooking(bookingId);
 
   return { ok: true, bookingId, usedFirstSession: false };
 }
