@@ -67,59 +67,82 @@ async function makeNonce() {
   return { raw, hashed };
 }
 
+/**
+ * `initialize` configures one global client, and a page can carry several of these buttons (the
+ * landing has one in the nav and one under each CTA, all kept mounted while hidden). Each calling
+ * `initialize` itself meant the last one mounted owned the callback and nonce — and every
+ * re-initialize re-drew buttons that were already on screen. So the client is set up once per
+ * page load, and its callback hands the token to whichever button is currently visible.
+ */
+let clientReady: Promise<string> | null = null;
+let activeHandler: ((response: CredentialResponse, nonce: string) => void) | null = null;
+
+function initializeClient() {
+  clientReady ??= makeNonce().then(({ raw, hashed }) => {
+    window.google!.accounts.id.initialize({
+      client_id: CLIENT_ID!,
+      callback: (response) => activeHandler?.(response, raw),
+      nonce: hashed,
+      ux_mode: "popup",
+      itp_support: true,
+    });
+    return raw;
+  });
+  return clientReady;
+}
+
 export function GoogleButton({
   onSuccess,
   redirectTo = "/dashboard",
-}: { onSuccess?: () => void; redirectTo?: string } = {}) {
+  width,
+}: {
+  onSuccess?: () => void;
+  redirectTo?: string;
+  /** Button width in px, for a caller that mounts this while hidden and so can't be measured. */
+  width?: number;
+} = {}) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const nonceRef = useRef<string | null>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  const handleCredential = useCallback(
-    async (response: CredentialResponse) => {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithIdToken({
-        provider: "google",
-        token: response.credential,
-        nonce: nonceRef.current ?? undefined,
-      });
-      if (error) {
-        console.error("[auth] Google id-token sign-in failed:", error.message);
-        setFailed(true);
-        return;
-      }
-      onSuccess?.();
-      // This is the only place a Google sign-in decides where it lands: signing in from the
-      // landing left the buyer on a marketing page for a product they had just signed into.
-      //
-      // A whole document load, not `router.push`. The session cookie was written a moment ago by
-      // the browser client; a client-side navigation renders the destination from a router cache
-      // populated while signed out, so the buyer arrived at a page that still believed nobody was
-      // there and bounced straight back here. Only a fresh request carries the new cookie to the
-      // server components that gate these pages — which is why pressing reload was what worked.
-      window.location.assign(redirectTo);
-    },
-    [onSuccess, redirectTo],
-  );
+  // Read through a ref so a caller passing a fresh `onSuccess` each render (the popover does)
+  // doesn't make the button below re-draw itself — that re-draw was the flicker on every open.
+  const propsRef = useRef({ onSuccess, redirectTo });
+  useEffect(() => {
+    propsRef.current = { onSuccess, redirectTo };
+  }, [onSuccess, redirectTo]);
 
+  const handleCredential = useCallback(async (response: CredentialResponse, nonce: string) => {
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithIdToken({
+      provider: "google",
+      token: response.credential,
+      nonce,
+    });
+    if (error) {
+      console.error("[auth] Google id-token sign-in failed:", error.message);
+      setFailed(true);
+      return;
+    }
+    propsRef.current.onSuccess?.();
+    // This is the only place a Google sign-in decides where it lands: signing in from the
+    // landing left the buyer on a marketing page for a product they had just signed into.
+    //
+    // A whole document load, not `router.push`. The session cookie was written a moment ago by
+    // the browser client; a client-side navigation renders the destination from a router cache
+    // populated while signed out, so the buyer arrived at a page that still believed nobody was
+    // there and bounced straight back here. Only a fresh request carries the new cookie to the
+    // server components that gate these pages — which is why pressing reload was what worked.
+    window.location.assign(propsRef.current.redirectTo);
+  }, []);
+
+  // Rendered once, when the script is ready — never again for the life of this mount.
   useEffect(() => {
     const container = containerRef.current;
     if (!ready || !container || !CLIENT_ID) return;
-
-    // `initialize` configures one global client, so only one of these buttons may be mounted at a
-    // time — a second would take the callback away from the first.
     let cancelled = false;
-    makeNonce().then(({ raw, hashed }) => {
+    initializeClient().then(() => {
       if (cancelled || !window.google) return;
-      nonceRef.current = raw;
-      window.google.accounts.id.initialize({
-        client_id: CLIENT_ID,
-        callback: handleCredential,
-        nonce: hashed,
-        ux_mode: "popup",
-        itp_support: true,
-      });
       window.google.accounts.id.renderButton(container, {
         type: "standard",
         theme: "outline",
@@ -128,13 +151,28 @@ export function GoogleButton({
         shape: "rectangular",
         logo_alignment: "left",
         // Google caps its button at 400px; ours is as wide as the form it sits in.
-        width: Math.min(container.offsetWidth || 400, 400),
+        width: Math.min(width ?? (container.offsetWidth || 400), 400),
       });
     });
     return () => {
       cancelled = true;
     };
-  }, [ready, handleCredential]);
+  }, [ready, width]);
+
+  // Only a visible button can be pressed, and at most one is visible at a time (popovers close
+  // each other), so the one on screen is the one the shared callback reports to.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) activeHandler = handleCredential;
+    });
+    observer.observe(container);
+    return () => {
+      observer.disconnect();
+      if (activeHandler === handleCredential) activeHandler = null;
+    };
+  }, [handleCredential]);
 
   // Without a client id there is no button to render, and the email form below it still works.
   if (!CLIENT_ID) return null;

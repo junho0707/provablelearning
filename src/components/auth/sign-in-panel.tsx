@@ -19,10 +19,13 @@ import { StudentLoginForm } from "./student-login-form";
 export function SignInPanel({
   redirectTo,
   onSuccess,
+  googleWidth,
 }: {
   /** Where to send a parent after a successful sign-in. Students always land on `/student`. */
   redirectTo?: string;
   onSuccess?: () => void;
+  /** Width of Google's button, for a caller that renders this panel while hidden. */
+  googleWidth?: number;
 }) {
   const [who, setWho] = useState<"parent" | "student">("parent");
 
@@ -49,31 +52,30 @@ export function SignInPanel({
         ))}
       </div>
 
-      {who === "parent" ? (
-        <>
-          <GoogleButton onSuccess={onSuccess} redirectTo={redirectTo} />
-          <div className="my-5 flex items-center gap-3 text-[0.6875rem] font-semibold uppercase tracking-[0.22em] text-navy-950/40">
-            <div className="h-px flex-1 bg-navy-950/10" />
-            or
-            <div className="h-px flex-1 bg-navy-950/10" />
-          </div>
-          <EmailSignInForm redirectTo={redirectTo} />
-        </>
-      ) : (
-        <>
-          <p className="mb-4 text-[0.875rem] leading-relaxed text-navy-700">
-            Use the username and password your parent set up for you.
-          </p>
-          <StudentLoginForm />
-          <p className="mt-4 text-[0.8125rem] leading-relaxed text-navy-950/55">
-            No account yet? A parent creates it from their{" "}
-            <Link href="/account" className="underline hover:text-navy-950">
-              account page
-            </Link>
-            .
-          </p>
-        </>
-      )}
+      {/* Both kept mounted and switched with CSS: unmounting the parent side threw away Google's
+          button, and switching back re-drew it from nothing — an empty box, then the button. */}
+      <div className={who === "parent" ? "" : "hidden"}>
+        <GoogleButton onSuccess={onSuccess} redirectTo={redirectTo} width={googleWidth} />
+        <div className="my-5 flex items-center gap-3 text-[0.6875rem] font-semibold uppercase tracking-[0.22em] text-navy-950/40">
+          <div className="h-px flex-1 bg-navy-950/10" />
+          or
+          <div className="h-px flex-1 bg-navy-950/10" />
+        </div>
+        <EmailSignInForm redirectTo={redirectTo} />
+      </div>
+      <div className={who === "student" ? "" : "hidden"}>
+        <p className="mb-4 text-[0.875rem] leading-relaxed text-navy-700">
+          Use the username and password your parent set up for you.
+        </p>
+        <StudentLoginForm />
+        <p className="mt-4 text-[0.8125rem] leading-relaxed text-navy-950/55">
+          No account yet? A parent creates it from their{" "}
+          <Link href="/account" className="underline hover:text-navy-950">
+            account page
+          </Link>
+          .
+        </p>
+      </div>
     </div>
   );
 }
