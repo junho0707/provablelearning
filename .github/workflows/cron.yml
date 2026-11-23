@@ -1,0 +1,18 @@
+# The hourly cron ticks. Vercel's Hobby plan only allows daily cron jobs, and the 1-hour reminder
+# needs an hourly tick, so the schedule lives here and calls the same secret-guarded route.
+# GitHub may start a scheduled run a few minutes late; the route's ±1h window absorbs that.
+name: cron
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+jobs:
+  session-reminders:
+    runs-on: ubuntu-latest
+    steps:
+      - run: >
+          curl --fail-with-body --silent --show-error --max-time 60
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+          https://provablelearning.com/api/cron/session-reminders

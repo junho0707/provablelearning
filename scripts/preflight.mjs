@@ -190,7 +190,10 @@ async function checkResend() {
 // --- Cron -------------------------------------------------------------------------------------
 
 function checkCron() {
-  const scheduled = JSON.parse(fs.readFileSync("vercel.json", "utf8")).crons.map((c) => c.path);
+  // Scheduled from GitHub Actions — Vercel Hobby only allows daily crons.
+  const scheduled = [
+    ...fs.readFileSync(".github/workflows/cron.yml", "utf8").matchAll(/\/api\/cron\/[\w-]+/g),
+  ].map((m) => m[0]);
   const routes = fs
     .readdirSync("src/app/api/cron", { withFileTypes: true })
     .filter((e) => e.isDirectory())
@@ -199,8 +202,8 @@ function checkCron() {
   const missing = scheduled.filter((p) => !routes.includes(p));
   const unscheduled = routes.filter((p) => !scheduled.includes(p));
 
-  if (missing.length) bad("vercel.json", `schedules routes that don't exist: ${missing.join(", ")}`);
-  if (unscheduled.length) bad("vercel.json", `route never scheduled: ${unscheduled.join(", ")}`);
+  if (missing.length) bad("cron.yml", `schedules routes that don't exist: ${missing.join(", ")}`);
+  if (unscheduled.length) bad("cron.yml", `route never scheduled: ${unscheduled.join(", ")}`);
   if (!missing.length && !unscheduled.length) ok("Cron", `${routes.length} scheduled, all exist`);
 }
 

@@ -64,6 +64,10 @@ All **NEW**. There is no student-facing surface in the codebase today.
 | `/api/health` | **NEW** | Unauthenticated liveness check for an external uptime monitor: proves this deployment can reach Supabase, 200 or 503, and returns no data. Serving HTML is not evidence of health — every surface behind sign-in is broken when Postgres is unreachable. |
 | `/api/cron/session-reminders` | **CHANGE** | Reminder **email to the buyer only**. The student's reminder is in-app (`02-POLICIES.md` §11), so this job emails the parent and writes the student's in-app notification. Also drives the pre-session nudge. |
 
+**Scheduling is GitHub Actions, not Vercel Cron.** Vercel's Hobby plan allows only daily cron jobs
+and the 1-hour reminder needs an hourly tick, so `.github/workflows/cron.yml` calls the cron routes
+hourly with `CRON_SECRET` (a GitHub Actions secret, same value as the Vercel env var).
+
 **Monitoring is external, by design.** The uptime monitor lives outside Vercel and polls
 `/api/health`, because a watcher inside the thing it watches cannot report its own death. The same
 monitor holds `CRON_HEARTBEAT_URL`, which the reminder cron pings **only after a completed tick** —
