@@ -61,7 +61,9 @@ export function SignInPopover({
           align === "right" ? "right-0" : "left-1/2 -translate-x-1/2"
         } ${open ? "" : "hidden"}`}
       >
-        <SignInPanel redirectTo={redirectTo} onSuccess={() => setOpen(false)} />
+        {/* 280 = the panel's 20rem less its p-5 on each side. It is measured while hidden, where
+            everything is 0 wide, so it has to be told. */}
+        <SignInPanel redirectTo={redirectTo} onSuccess={() => setOpen(false)} googleWidth={280} />
       </div>
     </div>
   );
